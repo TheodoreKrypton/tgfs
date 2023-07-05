@@ -3,8 +3,8 @@
   "exclude": ["node_modules", "test", "./src/**/*spec.ts"],
   "include": ["./src/**/*.ts"],
   "compilerOptions": {
-    "sourceMap": true,
-    "inlineSources": true,
-    "sourceRoot": "/"
+    "sourceMap": false,
+    "inlineSources": false,
+    "outDir": "./dist/src"
   }
 }

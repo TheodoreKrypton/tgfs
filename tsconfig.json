@@ -4,10 +4,13 @@
     "esModuleInterop": true,
     "target": "ES2017",
     "moduleResolution": "node",
+    "inlineSources": true,
     "sourceMap": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": { "src/*": ["src/*"], "test/*": ["test/*"] }
   },
-  "include": ["src/**/*", "env.js"],
-  "exclude": ["node_modules", "**/*.spec.ts"],
+  "include": ["src/**/*", "test/**/*"],
+  "exclude": ["node_modules"],
   "lib": ["es2017"]
 }
