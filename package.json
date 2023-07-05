@@ -18,11 +18,13 @@
     "dotenv": "^16.3.1",
     "input": "^1.0.1",
     "telegram": "^2.17.10",
+    "uuid": "^9.0.0",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^4.1.1",
     "@types/node": "^20.3.3",
+    "@types/uuid": "^9.0.2",
     "@types/yargs": "^17.0.24",
     "jest": "^29.6.0",
     "module-alias": "^2.2.3",

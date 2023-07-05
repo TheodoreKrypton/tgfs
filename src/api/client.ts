@@ -3,8 +3,10 @@ import { CustomFile } from 'telegram/client/uploads';
 import { FileLike } from 'telegram/define';
 
 import { DirectoryAlreadyExistsError } from '../errors/directory';
+import { FileAlreadyExistsError } from '../errors/file';
 import { FileIsEmptyError } from '../errors/file';
-import { TGFSDirectory } from '../model/directory';
+import { TGFSDirectory, TGFSFileRef } from '../model/directory';
+import { TGFSFile, TGFSFileVersion } from '../model/file';
 import { TGFSMetadata } from '../model/metadata';
 
 export class Client {
@@ -30,6 +32,26 @@ export class Client {
     return await this.client.getMessages(this.privateChannelId, {
       ids: messageIds,
     });
+  }
+
+  public async getObjectsByMessageIds(messageIds: number[]) {
+    return (await this.getMessagesByIds(messageIds)).map((message) =>
+      JSON.parse(message.text),
+    );
+  }
+
+  public async getFileAtVersion(
+    fileRef: TGFSFileRef,
+    versionId?: string,
+  ): Promise<Api.Document> {
+    const tgfsFile = TGFSFile.fromObject(
+      (await this.getObjectsByMessageIds([fileRef.messageId]))[0],
+    );
+    if (versionId) {
+      return tgfsFile.getVersion(versionId);
+    } else {
+      return tgfsFile.getLatest();
+    }
   }
 
   public async downloadFile(document: Api.Document, outputFile?: string) {
@@ -95,5 +117,35 @@ export class Client {
     const newDirectory = new TGFSDirectory(name, where, []);
     where.children.push(newDirectory);
     return newDirectory;
+  }
+
+  public async newFileUnder(
+    name: string,
+    where: TGFSDirectory,
+    file: FileLike,
+  ) {
+    if (where.files.find((file) => file.name === name)) {
+      throw new FileAlreadyExistsError(name);
+    }
+
+    const uploadFileMsg = await this.sendFile(file);
+    const media = uploadFileMsg.media as Api.MessageMediaDocument;
+
+    if (media.document instanceof Api.DocumentEmpty) {
+      throw new FileIsEmptyError(name);
+    }
+
+    const tgfsFile = new TGFSFile(name);
+    const tgfsFileVersion = await TGFSFileVersion.fromDocument(media.document);
+    tgfsFile.addVersion(tgfsFileVersion);
+
+    const tgfsFileMsg = await this.send(JSON.stringify(tgfsFile.toObject()));
+
+    const tgfsFileRef = new TGFSFileRef(tgfsFileMsg.id, tgfsFile.name, where);
+    where.files.push(tgfsFileRef);
+
+    await this.updateMetadata();
+
+    return tgfsFileRef;
   }
 }
