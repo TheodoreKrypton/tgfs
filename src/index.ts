@@ -9,16 +9,9 @@ import { loginAsBot } from './auth/as-bot';
   // );
 
   // await client.newFileUnder(
-  //   'test-file2',
+  //   'ChenYonghua.pdf',
   //   client.metadata.dir,
-  //   '~/test-file2',
+  //   '/mnt/c/Users/theod/Desktop/ChenYonghua-05052023.pdf',
   // );
 
-  console.log(
-    String(
-      await client.downloadFile(
-        await client.getFileAtVersion(client.metadata.dir.files[1]),
-      ),
-    ),
-  );
 })();

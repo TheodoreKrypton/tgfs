@@ -1,12 +1,14 @@
+import * as fs from 'fs';
 import { Api, TelegramClient } from 'telegram';
+import { DownloadMediaInterface } from 'telegram/client/downloads';
 import { CustomFile } from 'telegram/client/uploads';
 import { FileLike } from 'telegram/define';
 
+import { TechnicalError } from '../errors/base';
 import { DirectoryAlreadyExistsError } from '../errors/directory';
 import { FileAlreadyExistsError } from '../errors/file';
-import { FileIsEmptyError } from '../errors/file';
 import { TGFSDirectory, TGFSFileRef } from '../model/directory';
-import { TGFSFile, TGFSFileVersion } from '../model/file';
+import { TGFSFile } from '../model/file';
 import { TGFSMetadata } from '../model/metadata';
 
 export class Client {
@@ -22,91 +24,109 @@ export class Client {
     this.metadata = await this.getMetadata();
   }
 
-  public async send(message: string) {
+  private async send(message: string) {
     return await this.client.sendMessage(this.privateChannelId, {
       message,
     });
   }
 
-  public async getMessagesByIds(messageIds: number[]) {
+  private async getMessagesByIds(messageIds: number[]) {
     return await this.client.getMessages(this.privateChannelId, {
       ids: messageIds,
     });
   }
 
-  public async getObjectsByMessageIds(messageIds: number[]) {
+  private async getObjectsByMessageIds(messageIds: number[]) {
     return (await this.getMessagesByIds(messageIds)).map((message) =>
       JSON.parse(message.text),
     );
   }
 
-  public async getFileAtVersion(
+  private async downloadMediaById(
+    messageIds: number,
+    downloadParams?: DownloadMediaInterface,
+  ) {
+    return await this.client.downloadMedia(
+      (
+        await this.getMessagesByIds([messageIds])
+      )[0],
+      downloadParams,
+    );
+  }
+
+  public async downloadFileAtVersion(
     fileRef: TGFSFileRef,
     versionId?: string,
-  ): Promise<Api.Document> {
-    const tgfsFile = TGFSFile.fromObject(
-      (await this.getObjectsByMessageIds([fileRef.messageId]))[0],
-    );
-    if (versionId) {
-      return tgfsFile.getVersion(versionId);
-    } else {
-      return tgfsFile.getLatest();
-    }
-  }
+    outputFile?: fs.PathLike,
+  ): Promise<Buffer | null> {
+    const tgfsFile = await this.getFileFromFileRef(fileRef);
 
-  public async downloadFile(document: Api.Document, outputFile?: string) {
-    const options = {};
+    const version = versionId
+      ? tgfsFile.getVersion(versionId)
+      : tgfsFile.getLatest();
+
     if (outputFile) {
-      options['outputFile'] = outputFile;
+      const ws = fs.createWriteStream(outputFile);
+      await this.downloadMediaById(version.messageId, { outputFile: ws });
+    } else {
+      const res = await this.downloadMediaById(version.messageId);
+      if (res instanceof Buffer) {
+        return res;
+      } else {
+        throw new TechnicalError(
+          `Downloaded file is not a buffer. ${this.privateChannelId}/${version.messageId}`,
+        );
+      }
     }
-    return await this.client.downloadFile(
-      new Api.InputDocumentFileLocation({
-        id: document.id,
-        accessHash: document.accessHash,
-        fileReference: document.fileReference,
-        thumbSize: '',
-      }),
-      options,
-    );
   }
 
-  private async downloadMetadata() {
+  private async getMetadata() {
     const pinnedMessage = (
       await this.client.getMessages(this.privateChannelId, {
         filter: new Api.InputMessagesFilterPinned(),
       })
     )[0];
-    const document = (pinnedMessage.media as Api.MessageMediaDocument).document;
-    if (!(document instanceof Api.DocumentEmpty)) {
-      return {
-        metadataString: String(await this.downloadFile(document)),
-        msgId: pinnedMessage.id,
-      };
-    } else {
-      throw new FileIsEmptyError('metadata.json');
-    }
-  }
 
-  public async getMetadata() {
-    const { metadataString, msgId } = await this.downloadMetadata();
-    const metadata = TGFSMetadata.fromMetadataString(metadataString);
-    metadata.msgId = msgId;
+    if (!pinnedMessage) {
+      await this.createEmptyDirectory();
+      return this.metadata;
+    }
+
+    const metadata = TGFSMetadata.fromObject(
+      JSON.parse(String(await this.downloadMediaById(pinnedMessage.id))),
+    );
+    metadata.msgId = pinnedMessage.id;
     return metadata;
   }
 
-  public async sendFile(file: FileLike) {
+  private async sendFile(file: FileLike) {
     return await this.client.sendFile(this.privateChannelId, {
       file,
       workers: 16,
     });
   }
 
-  public async updateMetadata() {
-    const buffer = Buffer.from(this.metadata.toMetadataString());
+  private async syncMetadata() {
+    this.metadata.syncWith(await this.getMetadata());
+
+    await this.updateMetadata();
+  }
+
+  private async updateMetadata() {
+    const buffer = Buffer.from(JSON.stringify(this.metadata.toObject()));
     return await this.client.editMessage(this.privateChannelId, {
       message: this.metadata.msgId,
       file: new CustomFile('metadata.json', buffer.length, '', buffer),
     });
+  }
+
+  public async createEmptyDirectory() {
+    this.metadata = new TGFSMetadata();
+    this.metadata.dir = new TGFSDirectory('root', null, []);
+
+    await this.syncMetadata();
+
+    return this.metadata.dir;
   }
 
   public async createDirectoryUnder(name: string, where: TGFSDirectory) {
@@ -116,7 +136,16 @@ export class Client {
 
     const newDirectory = new TGFSDirectory(name, where, []);
     where.children.push(newDirectory);
+
+    await this.syncMetadata();
+
     return newDirectory;
+  }
+
+  private async getFileFromFileRef(fileRef: TGFSFileRef) {
+    return TGFSFile.fromObject(
+      (await this.getObjectsByMessageIds([fileRef.messageId]))[0],
+    );
   }
 
   public async newFileUnder(
@@ -129,22 +158,43 @@ export class Client {
     }
 
     const uploadFileMsg = await this.sendFile(file);
-    const media = uploadFileMsg.media as Api.MessageMediaDocument;
-
-    if (media.document instanceof Api.DocumentEmpty) {
-      throw new FileIsEmptyError(name);
-    }
 
     const tgfsFile = new TGFSFile(name);
-    const tgfsFileVersion = await TGFSFileVersion.fromDocument(media.document);
-    tgfsFile.addVersion(tgfsFileVersion);
+    tgfsFile.addVersionFromFileMessage(uploadFileMsg);
 
     const tgfsFileMsg = await this.send(JSON.stringify(tgfsFile.toObject()));
 
     const tgfsFileRef = new TGFSFileRef(tgfsFileMsg.id, tgfsFile.name, where);
     where.files.push(tgfsFileRef);
 
-    await this.updateMetadata();
+    await this.syncMetadata();
+
+    return tgfsFileRef;
+  }
+
+  public async updateFile(
+    tgfsFileRef: TGFSFileRef,
+    file: FileLike,
+    versionId?: string,
+  ) {
+    const tgfsFile = await this.getFileFromFileRef(tgfsFileRef);
+
+    const uploadFileMsg = await this.sendFile(file);
+
+    if (!versionId) {
+      tgfsFile.addVersionFromFileMessage(uploadFileMsg);
+    } else {
+      const tgfsFileVersion = tgfsFile.getVersion(versionId);
+      tgfsFileVersion.messageId = uploadFileMsg.id;
+      tgfsFile.updateVersion(tgfsFileVersion);
+    }
+
+    this.client.editMessage(this.privateChannelId, {
+      message: tgfsFileRef.messageId,
+      text: JSON.stringify(tgfsFile.toObject()),
+    });
+
+    await this.syncMetadata();
 
     return tgfsFileRef;
   }

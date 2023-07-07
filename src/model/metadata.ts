@@ -4,16 +4,22 @@ export class TGFSMetadata {
   dir: TGFSDirectory;
   msgId: number;
 
-  static fromMetadataString(metadataString: string) {
+  static fromObject(object: object): TGFSMetadata {
     const metadata = new TGFSMetadata();
-    const metadataObj = JSON.parse(metadataString) as TGFSMetadata;
 
-    metadata.dir = TGFSDirectory.fromObject(metadataObj.dir, null);
+    metadata.dir = TGFSDirectory.fromObject(object['dir'], null);
 
     return metadata;
   }
 
-  toMetadataString() {
-    return JSON.stringify({ dir: this.dir.toObject() });
+  toObject() {
+    return {
+      type: 'TGFSMetadata',
+      dir: this.dir.toObject(),
+    };
+  }
+
+  syncWith(metadata: TGFSMetadata) {
+    return null;
   }
 }

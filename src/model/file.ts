@@ -1,63 +1,33 @@
-import { BigInteger } from 'big-integer';
 import { Api } from 'telegram';
 import { v4 as uuid } from 'uuid';
 
 export class TGFSFileVersion {
   id: string;
-  md5: string;
   updatedAt: Date;
-
-  fileId: BigInteger;
-  accessHash: BigInteger;
-  fileRef: Buffer;
-
-  async calculateMd5() {
-    this.md5 = '';
-  }
-
-  getDocument(): Api.Document {
-    return {
-      id: this.fileId,
-      accessHash: this.accessHash,
-      fileReference: this.fileRef,
-    } as Api.Document;
-  }
+  messageId: number;
 
   toObject(): object {
     return {
+      type: 'TGFSFileVersion',
       id: this.id,
-      md5: this.md5,
       updatedAt: this.updatedAt,
-      fileId: this.fileId,
-      accessHash: this.accessHash,
-      fileRef: this.fileRef,
+      messageId: this.messageId,
     };
   }
 
-  static async fromDocument(document: Api.Document): Promise<TGFSFileVersion> {
+  static fromFileMessage(message: Api.Message): TGFSFileVersion {
     const tgfsFileVersion = new TGFSFileVersion();
     tgfsFileVersion.id = uuid();
     tgfsFileVersion.updatedAt = new Date();
-
-    tgfsFileVersion.fileId = document.id;
-    tgfsFileVersion.accessHash = document.accessHash;
-    tgfsFileVersion.fileRef = document.fileReference;
-
-    await tgfsFileVersion.calculateMd5();
-
+    tgfsFileVersion.messageId = message.id;
     return tgfsFileVersion;
   }
 
   static fromObject(tgfsFileVersionObject: TGFSFileVersion): TGFSFileVersion {
     const tgfsFileVersion = new TGFSFileVersion();
     tgfsFileVersion.id = tgfsFileVersionObject['id'];
-    tgfsFileVersion.md5 = tgfsFileVersionObject['md5'];
     tgfsFileVersion.updatedAt = tgfsFileVersionObject['updatedAt'];
-    tgfsFileVersion.fileId = tgfsFileVersionObject['fileId'];
-    tgfsFileVersion.accessHash = tgfsFileVersionObject['accessHash'];
-    tgfsFileVersion.fileRef = Buffer.from(
-      tgfsFileVersionObject['fileRef']['data'],
-    );
+    tgfsFileVersion.messageId = tgfsFileVersionObject['messageId'];
     return tgfsFileVersion;
   }
 }
@@ -70,6 +40,7 @@ export class TGFSFile {
 
   toObject(): object {
     return {
+      type: 'TGFSFile',
       name: this.name,
       versions: Array.from(this.versions.values())
         .sort((a, b) => {
@@ -93,16 +64,25 @@ export class TGFSFile {
     return tgfsFile;
   }
 
-  getLatest(): Api.Document {
+  getLatest(): TGFSFileVersion {
     return this.getVersion(this.latestVersionId);
   }
 
-  getVersion(uuid: string): Api.Document {
-    const version = this.versions.get(uuid);
-    return version.getDocument();
+  getVersion(uuid: string): TGFSFileVersion {
+    return this.versions.get(uuid);
   }
 
   addVersion(version: TGFSFileVersion) {
+    this.versions.set(version.id, version);
+  }
+
+  addVersionFromFileMessage(message: Api.Message) {
+    const version = TGFSFileVersion.fromFileMessage(message);
+    this.addVersion(version);
+    this.latestVersionId = version.id;
+  }
+
+  updateVersion(version: TGFSFileVersion) {
     this.versions.set(version.id, version);
   }
 }

@@ -6,7 +6,7 @@ export class TGFSFileRef {
   ) {}
 
   public toObject(): object {
-    return { messageId: this.messageId, name: this.name };
+    return { type: 'TGFSFileRef', messageId: this.messageId, name: this.name };
   }
 }
 
@@ -25,6 +25,7 @@ export class TGFSDirectory {
       children.push(child.toObject());
     });
     return {
+      type: 'TGFSDirectory',
       name: this.name,
       children,
       files: this.files ? this.files.map((f) => f.toObject()) : [],
