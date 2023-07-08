@@ -89,4 +89,8 @@ export class TGFSFile {
       return a.updatedAt.getTime() - b.updatedAt.getTime();
     });
   }
+
+  deleteVersion(uuid: string) {
+    delete this.versions[uuid];
+  }
 }

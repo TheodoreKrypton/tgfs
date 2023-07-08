@@ -27,6 +27,18 @@ const parse = () => {
         type: 'string',
       },
     })
+    .command('rm <path>', 'remove a file or directory', (yargs) => {
+      return yargs
+        .positional('path', {
+          describe: 'File or directory to remove',
+          type: 'string',
+        })
+        .option('r', {
+          alias: 'recursive',
+          describe: 'Remove a directory and its contents recursively',
+          type: 'boolean',
+        });
+    })
     .demandCommand(1, 'You need at least one command before moving on')
     .help().argv;
 

@@ -139,7 +139,7 @@ export class Client {
   }
 
   public async createEmptyDirectory() {
-    this.metadata.dir = new TGFSDirectory('root', null, []);
+    this.metadata.dir = new TGFSDirectory('root', null);
     await this.syncMetadata();
 
     return this.metadata.dir;
@@ -152,7 +152,7 @@ export class Client {
       throw new FileOrDirectoryAlreadyExistsError(name);
     }
 
-    const newDirectory = new TGFSDirectory(name, where, []);
+    const newDirectory = new TGFSDirectory(name, where);
     where.children.push(newDirectory);
 
     await this.syncMetadata();
@@ -230,5 +230,34 @@ export class Client {
     } else {
       return await this.newFileUnder(name, where, file);
     }
+  }
+
+  public async deleteFileAtVersion(tgfsFileRef: TGFSFileRef, version?: string) {
+    if (!version) {
+      tgfsFileRef.location.files = tgfsFileRef.location.files.filter(
+        (file) => file.name !== tgfsFileRef.name,
+      );
+    } else {
+      const tgfsFile = await this.getFileFromFileRef(tgfsFileRef);
+      tgfsFile.deleteVersion(version);
+      await this.client.editMessage(this.privateChannelId, {
+        message: tgfsFileRef.messageId,
+        text: JSON.stringify(tgfsFile.toObject()),
+      });
+    }
+    await this.syncMetadata();
+  }
+
+  public async deleteDirectory(directory: TGFSDirectory) {
+    if (!directory.parent) {
+      // delete root directory
+      this.metadata.dir = new TGFSDirectory('root', null);
+    } else {
+      directory.parent.children = directory.parent.children.filter(
+        (child) => child.name !== directory.name,
+      );
+    }
+
+    await this.syncMetadata();
   }
 }

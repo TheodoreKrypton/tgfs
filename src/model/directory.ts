@@ -16,7 +16,7 @@ export class TGFSDirectory {
   constructor(
     public name: string,
     public parent: TGFSDirectory,
-    public children: TGFSDirectory[],
+    public children: TGFSDirectory[] = [],
     public files: TGFSFileRef[] = [],
   ) {}
 
