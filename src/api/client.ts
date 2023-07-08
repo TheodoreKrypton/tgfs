@@ -15,13 +15,17 @@ export class Client {
   metadata: TGFSMetadata;
 
   constructor(
-    public readonly client: TelegramClient,
+    protected readonly client: TelegramClient,
     private readonly privateChannelId: string,
     private readonly publicChannelId?: string,
   ) {}
 
   public async init() {
     this.metadata = await this.getMetadata();
+    if (!this.metadata) {
+      this.metadata = new TGFSMetadata();
+      await this.createEmptyDirectory();
+    }
   }
 
   private async send(message: string) {
@@ -40,6 +44,11 @@ export class Client {
     return (await this.getMessagesByIds(messageIds)).map((message) =>
       JSON.parse(message.text),
     );
+  }
+
+  public async getFileInfo(fileRef: TGFSFileRef): Promise<TGFSFile> {
+    const file = await this.getFileFromFileRef(fileRef);
+    return file;
   }
 
   private async downloadMediaById(
@@ -88,8 +97,7 @@ export class Client {
     )[0];
 
     if (!pinnedMessage) {
-      await this.createEmptyDirectory();
-      return this.metadata;
+      return null;
     }
 
     const metadata = TGFSMetadata.fromObject(
@@ -114,16 +122,24 @@ export class Client {
 
   private async updateMetadata() {
     const buffer = Buffer.from(JSON.stringify(this.metadata.toObject()));
-    return await this.client.editMessage(this.privateChannelId, {
-      message: this.metadata.msgId,
-      file: new CustomFile('metadata.json', buffer.length, '', buffer),
-    });
+    const file = new CustomFile('metadata.json', buffer.length, '', buffer);
+    if (this.metadata.msgId) {
+      return await this.client.editMessage(this.privateChannelId, {
+        message: this.metadata.msgId,
+        file,
+      });
+    } else {
+      const message = await this.client.sendMessage(this.privateChannelId, {
+        file,
+      });
+      this.metadata.msgId = message.id;
+      await this.client.pinMessage(this.privateChannelId, message.id);
+      return message;
+    }
   }
 
   public async createEmptyDirectory() {
-    this.metadata = new TGFSMetadata();
     this.metadata.dir = new TGFSDirectory('root', null, []);
-
     await this.syncMetadata();
 
     return this.metadata.dir;

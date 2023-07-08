@@ -9,6 +9,8 @@
     "start": "yarn build:dev && node dist/src/index.js",
     "start:dev": "yarn build:dev && nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts",
     "start:prod": "yarn build && node dist/src/index.js",
+    "start:cmd": "yarn build:dev && node dist/src/cmd.js",
+    "start:cmd:prod": "yarn build && node dist/src/cmd.js",
     "test": "yarn jest"
   },
   "author": "Wheat Carrier",
