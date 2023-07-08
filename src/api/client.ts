@@ -5,11 +5,11 @@ import { CustomFile } from 'telegram/client/uploads';
 import { FileLike } from 'telegram/define';
 
 import { TechnicalError } from '../errors/base';
-import { DirectoryAlreadyExistsError } from '../errors/directory';
-import { FileAlreadyExistsError } from '../errors/file';
+import { FileOrDirectoryAlreadyExistsError } from '../errors/path';
 import { TGFSDirectory, TGFSFileRef } from '../model/directory';
 import { TGFSFile } from '../model/file';
 import { TGFSMetadata } from '../model/metadata';
+import { validateName } from '../utils/validate-name';
 
 export class Client {
   metadata: TGFSMetadata;
@@ -146,8 +146,10 @@ export class Client {
   }
 
   public async createDirectoryUnder(name: string, where: TGFSDirectory) {
+    validateName(name);
+
     if (where.children.find((child) => child.name === name)) {
-      throw new DirectoryAlreadyExistsError(name);
+      throw new FileOrDirectoryAlreadyExistsError(name);
     }
 
     const newDirectory = new TGFSDirectory(name, where, []);
@@ -169,8 +171,10 @@ export class Client {
     where: TGFSDirectory,
     file: FileLike,
   ) {
+    validateName(name);
+
     if (where.files.find((file) => file.name === name)) {
-      throw new FileAlreadyExistsError(name);
+      throw new FileOrDirectoryAlreadyExistsError(name);
     }
 
     const uploadFileMsg = await this.sendFile(file);
@@ -213,5 +217,18 @@ export class Client {
     await this.syncMetadata();
 
     return tgfsFileRef;
+  }
+
+  public async putFileUnder(
+    name: string,
+    where: TGFSDirectory,
+    file: FileLike,
+  ) {
+    const tgfsFileRef = where.files.find((file) => file.name === name);
+    if (tgfsFileRef) {
+      return await this.updateFile(tgfsFileRef, file);
+    } else {
+      return await this.newFileUnder(name, where, file);
+    }
   }
 }

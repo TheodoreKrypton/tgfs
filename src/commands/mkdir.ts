@@ -1,13 +1,13 @@
 import { Client } from '../api';
 import { navigateToDir } from './navigate-to-dir';
+import { splitPath } from './utils';
 
 export const mkdir = (client: Client) => async (path: string) => {
-  const parts = path.toString().split('/');
-  const dir = await navigateToDir(client)(
-    parts.slice(0, parts.length - 1).join('/'),
-  );
+  const [basePath, name] = splitPath(path);
 
-  await client.createDirectoryUnder(parts[parts.length - 1], dir);
+  const dir = await navigateToDir(client)(basePath);
+
+  await client.createDirectoryUnder(name, dir);
 
   return `created ${path}`;
 };

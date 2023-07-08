@@ -3,6 +3,7 @@ import yargs from 'yargs/yargs';
 
 import { loginAsBot } from './auth';
 import { Executor } from './commands/executor';
+import { BusinessError } from './errors/base';
 
 const parse = () => {
   const argv: any = yargs(hideBin(process.argv))
@@ -16,6 +17,14 @@ const parse = () => {
       path: {
         type: 'string',
         description: 'path to create',
+      },
+    })
+    .command('cp <local> <remote>', 'upload a file', {
+      local: {
+        type: 'string',
+      },
+      remote: {
+        type: 'string',
       },
     })
     .demandCommand(1, 'You need at least one command before moving on')
@@ -35,7 +44,11 @@ const parse = () => {
     const argv = parse();
     await executor.execute(argv);
   } catch (err) {
-    console.log(err.message);
+    if (err instanceof BusinessError) {
+      console.log(err.message);
+    } else {
+      console.error(err);
+    }
   } finally {
     process.exit(0);
   }

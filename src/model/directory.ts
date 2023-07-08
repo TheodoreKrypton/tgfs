@@ -1,31 +1,32 @@
+import { TGFSDirectoryObject, TGFSFileRefObject } from './message';
+
 export class TGFSFileRef {
   constructor(
-    public readonly messageId: number,
-    public readonly name: string,
-    public readonly location: TGFSDirectory,
+    public messageId: number,
+    public name: string,
+    public location: TGFSDirectory,
   ) {}
 
-  public toObject(): object {
-    return { type: 'TGFSFileRef', messageId: this.messageId, name: this.name };
+  public toObject(): TGFSFileRefObject {
+    return { type: 'FR', messageId: this.messageId, name: this.name };
   }
 }
 
 export class TGFSDirectory {
-  files: TGFSFileRef[];
-
   constructor(
-    public readonly name: string,
-    public readonly parent: TGFSDirectory,
-    public readonly children: TGFSDirectory[],
+    public name: string,
+    public parent: TGFSDirectory,
+    public children: TGFSDirectory[],
+    public files: TGFSFileRef[] = [],
   ) {}
 
-  public toObject(): object {
+  public toObject(): TGFSDirectoryObject {
     const children = [];
     this.children.forEach((child) => {
       children.push(child.toObject());
     });
     return {
-      type: 'TGFSDirectory',
+      type: 'D',
       name: this.name,
       children,
       files: this.files ? this.files.map((f) => f.toObject()) : [],
@@ -33,7 +34,7 @@ export class TGFSDirectory {
   }
 
   public static fromObject(
-    obj: TGFSDirectory,
+    obj: TGFSDirectoryObject,
     parent?: TGFSDirectory,
   ): TGFSDirectory {
     const children = [];
@@ -45,7 +46,7 @@ export class TGFSDirectory {
         })
       : [];
 
-    obj.children.forEach((child: TGFSDirectory) => {
+    obj.children.forEach((child) => {
       children.push(TGFSDirectory.fromObject(child, dir));
     });
     return dir;

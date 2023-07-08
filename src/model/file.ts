@@ -1,16 +1,18 @@
 import { Api } from 'telegram';
 import { v4 as uuid } from 'uuid';
 
+import { TGFSFileObject, TGFSFileVersionObject } from './message';
+
 export class TGFSFileVersion {
   id: string;
   updatedAt: Date;
   messageId: number;
 
-  toObject(): object {
+  toObject(): TGFSFileVersionObject {
     return {
-      type: 'TGFSFileVersion',
+      type: 'FV',
       id: this.id,
-      updatedAt: this.updatedAt,
+      updatedAt: this.updatedAt.getTime(),
       messageId: this.messageId,
     };
   }
@@ -23,42 +25,38 @@ export class TGFSFileVersion {
     return tgfsFileVersion;
   }
 
-  static fromObject(tgfsFileVersionObject: TGFSFileVersion): TGFSFileVersion {
+  static fromObject(
+    tgfsFileVersionObject: TGFSFileVersionObject,
+  ): TGFSFileVersion {
     const tgfsFileVersion = new TGFSFileVersion();
     tgfsFileVersion.id = tgfsFileVersionObject['id'];
-    tgfsFileVersion.updatedAt = tgfsFileVersionObject['updatedAt'];
+    tgfsFileVersion.updatedAt = new Date(tgfsFileVersionObject['updatedAt']);
     tgfsFileVersion.messageId = tgfsFileVersionObject['messageId'];
     return tgfsFileVersion;
   }
 }
 
 export class TGFSFile {
-  versions: Map<string, TGFSFileVersion> = new Map();
+  versions: { [key: string]: TGFSFileVersion } = {};
   latestVersionId: string;
 
   constructor(public readonly name: string) {}
 
-  toObject(): object {
+  toObject(): TGFSFileObject {
     return {
-      type: 'TGFSFile',
+      type: 'F',
       name: this.name,
-      versions: Array.from(this.versions.values())
-        .sort((a, b) => {
-          return a.updatedAt.getTime() - b.updatedAt.getTime();
-        })
-        .map((version) => version.toObject()),
+      versions: this.getVersionsSorted().map((version) => version.toObject()),
     };
   }
 
-  static fromObject(tgfsFileObject: object): TGFSFile {
-    const tgfsFile = new TGFSFile(tgfsFileObject['name']);
-    tgfsFile.latestVersionId = tgfsFileObject['versions'].reduce(
-      (a: TGFSFileVersion, b: TGFSFileVersion) => {
-        return a.updatedAt.getTime() > b.updatedAt.getTime() ? a : b;
-      },
-    ).id;
-    tgfsFileObject['versions'].forEach((version: TGFSFileVersion) => {
-      tgfsFile.versions.set(version.id, TGFSFileVersion.fromObject(version));
+  static fromObject(tgfsFileObject: TGFSFileObject): TGFSFile {
+    const tgfsFile = new TGFSFile(tgfsFileObject.name);
+    tgfsFile.latestVersionId = tgfsFileObject.versions.reduce((a, b) => {
+      return a.updatedAt > b.updatedAt ? a : b;
+    }).id;
+    tgfsFileObject.versions.forEach((version: TGFSFileVersionObject) => {
+      tgfsFile.versions[version.id] = TGFSFileVersion.fromObject(version);
     });
 
     return tgfsFile;
@@ -69,11 +67,11 @@ export class TGFSFile {
   }
 
   getVersion(uuid: string): TGFSFileVersion {
-    return this.versions.get(uuid);
+    return this.versions[uuid];
   }
 
   addVersion(version: TGFSFileVersion) {
-    this.versions.set(version.id, version);
+    this.versions[version.id] = version;
   }
 
   addVersionFromFileMessage(message: Api.Message) {
@@ -83,6 +81,12 @@ export class TGFSFile {
   }
 
   updateVersion(version: TGFSFileVersion) {
-    this.versions.set(version.id, version);
+    this.versions[version.id] = version;
+  }
+
+  getVersionsSorted(): TGFSFileVersion[] {
+    return Object.values(this.versions).sort((a, b) => {
+      return a.updatedAt.getTime() - b.updatedAt.getTime();
+    });
   }
 }

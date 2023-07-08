@@ -1,7 +1,7 @@
 import { TGFSDirectory } from 'src/model/directory';
 
 import { Client } from '../api';
-import { FileOrDirectoryDoesNotExistError } from '../errors/directory';
+import { FileOrDirectoryDoesNotExistError } from '../errors/path';
 
 export const navigateToDir = (client: Client) => async (path: string) => {
   const pathParts = path

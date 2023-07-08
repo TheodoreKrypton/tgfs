@@ -1,32 +1,29 @@
 import { PathLike } from 'fs';
 
 import { Client } from '../api';
-import { FileOrDirectoryDoesNotExistError } from '../errors/directory';
+import { FileOrDirectoryDoesNotExistError } from '../errors/path';
 import { TGFSFileRef } from '../model/directory';
 import { navigateToDir } from './navigate-to-dir';
+import { splitPath } from './utils';
 
-const fileInfo = async (client: Client, fileRef: TGFSFileRef) => {
+export const fileInfo = async (client: Client, fileRef: TGFSFileRef) => {
   const info = await client.getFileInfo(fileRef);
   const head = `${info.name}, ${Object.keys(info.versions).length} versions`;
-  const versions = Object.entries(info.versions).map(([id, version]) => {
-    return `${id}: updated at ${version.updatedAt}`;
-  });
+  const versions = info
+    .getVersionsSorted()
+    .reverse()
+    .map((ver) => `${ver.id}: updated at ${ver.updatedAt}`);
   return [head, ...versions].join('\n');
 };
 
 export const ls = (client: Client) => async (path: PathLike) => {
-  const parts = path
-    .toString()
-    .split('/')
-    .filter((part) => part !== '');
-  let dir = await navigateToDir(client)(
-    parts.slice(0, parts.length - 1).join('/'),
-  );
+  const [basePath, name] = splitPath(path);
+  const dir = await navigateToDir(client)(basePath);
 
   let nextDir = dir;
 
-  if (parts.length > 0) {
-    nextDir = dir.children.find((d) => d.name === parts[parts.length - 1]);
+  if (name) {
+    nextDir = dir.children.find((d) => d.name === name);
   }
   if (nextDir) {
     return nextDir.children
@@ -34,7 +31,7 @@ export const ls = (client: Client) => async (path: PathLike) => {
       .concat(dir.files?.map((f) => f.name))
       .join(' ');
   } else {
-    const nextFile = dir.files?.find((f) => f.name === parts[parts.length - 1]);
+    const nextFile = dir.files?.find((f) => f.name === name);
     if (nextFile) {
       return fileInfo(client, nextFile);
     } else {
