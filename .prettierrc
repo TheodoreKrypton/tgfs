@@ -4,7 +4,7 @@
   "trailingComma": "all",
   "singleQuote": true,
   "semi": true,
-  "importOrder": ["^[^\\.]", "^[\\.]"],
+  "importOrder": ["^[^(\\.|src/)]", "^src/", "^[\\.]"],
   "importOrderSeparation": true,
   "importOrderSortSpecifiers": true
 }

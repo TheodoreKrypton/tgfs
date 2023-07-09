@@ -1,23 +1,38 @@
+import { Api } from 'telegram';
+
+import { FileOrDirectoryAlreadyExistsError } from '../errors/path';
 import { TGFSDirectoryObject, TGFSFileRefObject } from './message';
 
 export class TGFSFileRef {
   constructor(
-    public messageId: number,
+    private messageId: number,
     public name: string,
-    public location: TGFSDirectory,
+    private location: TGFSDirectory,
   ) {}
 
   public toObject(): TGFSFileRefObject {
     return { type: 'FR', messageId: this.messageId, name: this.name };
+  }
+
+  public delete() {
+    this.location.deleteFile(this);
+  }
+
+  public getLocation() {
+    return this.location;
+  }
+
+  public getMessageId() {
+    return this.messageId;
   }
 }
 
 export class TGFSDirectory {
   constructor(
     public name: string,
-    public parent: TGFSDirectory,
-    public children: TGFSDirectory[] = [],
-    public files: TGFSFileRef[] = [],
+    private parent: TGFSDirectory,
+    private children: TGFSDirectory[] = [],
+    private files: TGFSFileRef[] = [],
   ) {}
 
   public toObject(): TGFSDirectoryObject {
@@ -50,5 +65,57 @@ export class TGFSDirectory {
       children.push(TGFSDirectory.fromObject(child, dir));
     });
     return dir;
+  }
+
+  public createChild(name: string) {
+    if (this.findChildren([name]).length) {
+      throw new FileOrDirectoryAlreadyExistsError(name);
+    }
+    const child = new TGFSDirectory(name, this);
+    this.children.push(child);
+    return child;
+  }
+
+  public findChildren(names?: string[]) {
+    if (!names) {
+      return this.children;
+    } else {
+      const namesSet = new Set(names);
+      return this.children.filter((child) => namesSet.has(child.name));
+    }
+  }
+
+  public findFiles(names?: string[]) {
+    if (!names) {
+      return this.files;
+    } else {
+      const namesSet = new Set(names);
+      return this.files.filter((child) => namesSet.has(child.name));
+    }
+  }
+
+  public createFileRef(name: string, fileMessage: Api.Message) {
+    const fr = new TGFSFileRef(fileMessage.id, name, this);
+    if (this.findFiles([fr.name])[0]) {
+      throw new FileOrDirectoryAlreadyExistsError(fr.name);
+    }
+    this.files.push(fr);
+    return fr;
+  }
+
+  public deleteFile(fr: TGFSFileRef) {
+    this.files = this.files.filter((file) => file !== fr);
+  }
+
+  public delete() {
+    if (this.parent) {
+      this.parent.children = this.parent.children.filter(
+        (child) => child !== this,
+      );
+    } else {
+      // root directory
+      this.children = [];
+      this.files = [];
+    }
   }
 }

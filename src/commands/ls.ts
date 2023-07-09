@@ -23,15 +23,16 @@ export const ls = (client: Client) => async (path: PathLike) => {
   let nextDir = dir;
 
   if (name) {
-    nextDir = dir.children.find((d) => d.name === name);
+    nextDir = dir.findChildren([name])[0];
   }
   if (nextDir) {
-    return nextDir.children
+    return nextDir
+      .findChildren()
       .map((c) => c.name)
-      .concat(dir.files?.map((f) => f.name))
+      .concat(dir.findFiles().map((f) => f.name))
       .join(' ');
   } else {
-    const nextFile = dir.files?.find((f) => f.name === name);
+    const nextFile = dir.findFiles([name])[0];
     if (nextFile) {
       return fileInfo(client, nextFile);
     } else {

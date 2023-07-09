@@ -5,14 +5,13 @@ import { CustomFile } from 'telegram/client/uploads';
 import { FileLike } from 'telegram/define';
 
 import { TechnicalError } from '../errors/base';
-import { FileOrDirectoryAlreadyExistsError } from '../errors/path';
 import { TGFSDirectory, TGFSFileRef } from '../model/directory';
 import { TGFSFile } from '../model/file';
 import { TGFSMetadata } from '../model/metadata';
 import { validateName } from '../utils/validate-name';
 
 export class Client {
-  metadata: TGFSMetadata;
+  private metadata: TGFSMetadata;
 
   constructor(
     protected readonly client: TelegramClient,
@@ -51,7 +50,7 @@ export class Client {
     return file;
   }
 
-  private async downloadMediaById(
+  private async downloadMediaByMessageId(
     messageIds: number,
     downloadParams?: DownloadMediaInterface,
   ) {
@@ -76,9 +75,11 @@ export class Client {
 
     if (outputFile) {
       const ws = fs.createWriteStream(outputFile);
-      await this.downloadMediaById(version.messageId, { outputFile: ws });
+      await this.downloadMediaByMessageId(version.messageId, {
+        outputFile: ws,
+      });
     } else {
-      const res = await this.downloadMediaById(version.messageId);
+      const res = await this.downloadMediaByMessageId(version.messageId);
       if (res instanceof Buffer) {
         return res;
       } else {
@@ -99,9 +100,8 @@ export class Client {
     if (!pinnedMessage) {
       return null;
     }
-
     const metadata = TGFSMetadata.fromObject(
-      JSON.parse(String(await this.downloadMediaById(pinnedMessage.id))),
+      JSON.parse(String(await this.downloadMediaByMessageId(pinnedMessage.id))),
     );
     metadata.msgId = pinnedMessage.id;
     return metadata;
@@ -138,6 +138,10 @@ export class Client {
     }
   }
 
+  public getRootDirectory() {
+    return this.metadata.dir;
+  }
+
   public async createEmptyDirectory() {
     this.metadata.dir = new TGFSDirectory('root', null);
     await this.syncMetadata();
@@ -148,13 +152,7 @@ export class Client {
   public async createDirectoryUnder(name: string, where: TGFSDirectory) {
     validateName(name);
 
-    if (where.children.find((child) => child.name === name)) {
-      throw new FileOrDirectoryAlreadyExistsError(name);
-    }
-
-    const newDirectory = new TGFSDirectory(name, where);
-    where.children.push(newDirectory);
-
+    const newDirectory = where.createChild(name);
     await this.syncMetadata();
 
     return newDirectory;
@@ -162,7 +160,7 @@ export class Client {
 
   private async getFileFromFileRef(fileRef: TGFSFileRef) {
     return TGFSFile.fromObject(
-      (await this.getObjectsByMessageIds([fileRef.messageId]))[0],
+      (await this.getObjectsByMessageIds([fileRef.getMessageId()]))[0],
     );
   }
 
@@ -173,10 +171,6 @@ export class Client {
   ) {
     validateName(name);
 
-    if (where.files.find((file) => file.name === name)) {
-      throw new FileOrDirectoryAlreadyExistsError(name);
-    }
-
     const uploadFileMsg = await this.sendFile(file);
 
     const tgfsFile = new TGFSFile(name);
@@ -184,8 +178,7 @@ export class Client {
 
     const tgfsFileMsg = await this.send(JSON.stringify(tgfsFile.toObject()));
 
-    const tgfsFileRef = new TGFSFileRef(tgfsFileMsg.id, tgfsFile.name, where);
-    where.files.push(tgfsFileRef);
+    const tgfsFileRef = where.createFileRef(name, tgfsFileMsg);
 
     await this.syncMetadata();
 
@@ -210,7 +203,7 @@ export class Client {
     }
 
     this.client.editMessage(this.privateChannelId, {
-      message: tgfsFileRef.messageId,
+      message: tgfsFileRef.getMessageId(),
       text: JSON.stringify(tgfsFile.toObject()),
     });
 
@@ -224,7 +217,7 @@ export class Client {
     where: TGFSDirectory,
     file: FileLike,
   ) {
-    const tgfsFileRef = where.files.find((file) => file.name === name);
+    const tgfsFileRef = where.findFiles([name])[0];
     if (tgfsFileRef) {
       return await this.updateFile(tgfsFileRef, file);
     } else {
@@ -234,14 +227,12 @@ export class Client {
 
   public async deleteFileAtVersion(tgfsFileRef: TGFSFileRef, version?: string) {
     if (!version) {
-      tgfsFileRef.location.files = tgfsFileRef.location.files.filter(
-        (file) => file.name !== tgfsFileRef.name,
-      );
+      tgfsFileRef.delete();
     } else {
       const tgfsFile = await this.getFileFromFileRef(tgfsFileRef);
       tgfsFile.deleteVersion(version);
       await this.client.editMessage(this.privateChannelId, {
-        message: tgfsFileRef.messageId,
+        message: tgfsFileRef.getMessageId(),
         text: JSON.stringify(tgfsFile.toObject()),
       });
     }
@@ -249,15 +240,7 @@ export class Client {
   }
 
   public async deleteDirectory(directory: TGFSDirectory) {
-    if (!directory.parent) {
-      // delete root directory
-      this.metadata.dir = new TGFSDirectory('root', null);
-    } else {
-      directory.parent.children = directory.parent.children.filter(
-        (child) => child.name !== directory.name,
-      );
-    }
-
+    directory.delete();
     await this.syncMetadata();
   }
 }
