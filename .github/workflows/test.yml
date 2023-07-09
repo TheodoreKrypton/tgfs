@@ -6,7 +6,7 @@ on:
     branches: [master]
 
 jobs:
-  build:
+  test:
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -34,6 +34,10 @@ jobs:
         run: yarn install
 
       - name: Run tests
+        run: yarn test
+
+      - name: Collect coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '16.x'
         run: yarn test:cov
 
       - name: Upload coverage reports to Codecov
