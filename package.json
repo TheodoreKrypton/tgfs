@@ -12,7 +12,8 @@
     "start:cmd": "yarn build:dev && node dist/src/cmd.js",
     "start:cmd:prod": "node dist/src/cmd.js",
     "cmd": "yarn start:cmd:prod",
-    "test": "yarn jest"
+    "test": "yarn jest",
+    "test:cov": "yarn jest --coverage"
   },
   "author": "Wheat Carrier",
   "license": "Apache-2.0",
