@@ -4,9 +4,8 @@ import { DownloadMediaInterface } from 'telegram/client/downloads';
 import { CustomFile } from 'telegram/client/uploads';
 import { FileLike } from 'telegram/define';
 
-import { DirectoryIsNotEmptyError } from 'src/errors/path';
-
 import { TechnicalError } from '../errors/base';
+import { DirectoryIsNotEmptyError } from '../errors/path';
 import { TGFSDirectory, TGFSFileRef } from '../model/directory';
 import { TGFSFile } from '../model/file';
 import { TGFSMetadata } from '../model/metadata';

@@ -1,6 +1,5 @@
-import { RelativePathError } from 'src/errors/path';
-
 import { Client } from '../api';
+import { RelativePathError } from '../errors/path';
 import { navigateToDir } from './navigate-to-dir';
 import { splitPath } from './utils';
 

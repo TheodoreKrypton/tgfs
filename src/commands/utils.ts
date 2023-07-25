@@ -1,6 +1,6 @@
 import { PathLike } from 'fs';
 
-import { RelativePathError } from 'src/errors/path';
+import { RelativePathError } from '../errors/path';
 
 export const splitPath = (path: PathLike) => {
   const pathString = path.toString();

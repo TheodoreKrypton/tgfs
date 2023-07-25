@@ -1,6 +1,5 @@
-import { UnknownCommandError } from 'src/errors/cmd';
-
 import { Client } from '../api';
+import { UnknownCommandError } from '../errors/cmd';
 import { cp } from './cp';
 import { ls } from './ls';
 import { mkdir } from './mkdir';

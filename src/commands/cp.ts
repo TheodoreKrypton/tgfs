@@ -1,8 +1,7 @@
 import * as fs from 'fs';
 
-import { FileOrDirectoryDoesNotExistError } from 'src/errors/path';
-
 import { Client } from '../api';
+import { FileOrDirectoryDoesNotExistError } from '../errors/path';
 import { fileInfo } from './ls';
 import { navigateToDir } from './navigate-to-dir';
 import { splitPath } from './utils';
