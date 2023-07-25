@@ -25,3 +25,23 @@ export class InvalidNameError extends BusinessError {
     );
   }
 }
+
+export class RelativePathError extends BusinessError {
+  constructor(public readonly name: string, public readonly cause?: string) {
+    super(
+      `Relative path: ${name} is not supported. Path must start with /`,
+      'RELATIVE_PATH',
+      cause,
+    );
+  }
+}
+
+export class DirectoryIsNotEmptyError extends BusinessError {
+  constructor(public readonly cause?: string) {
+    super(
+      `Cannot remove a directory that is not empty`,
+      'DIR_IS_NOT_EMPTY',
+      cause,
+    );
+  }
+}

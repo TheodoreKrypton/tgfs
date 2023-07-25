@@ -1,16 +1,4 @@
-import { TelegramClient } from 'telegram';
-
-import { Client } from 'src/api';
-
-const createClient = async () => {
-  const client = new Client(
-    new TelegramClient('mock-session', 0, 'mock-api-hash', {}),
-    'mock-private-channel-id',
-    'mock-public-channel-id',
-  );
-  await client.init();
-  return client;
-};
+import { createClient } from '../../utils/mock-tg-client';
 
 describe('file and directory operations', () => {
   describe('create / remove directories', () => {

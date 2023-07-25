@@ -4,6 +4,8 @@ import { DownloadMediaInterface } from 'telegram/client/downloads';
 import { CustomFile } from 'telegram/client/uploads';
 import { FileLike } from 'telegram/define';
 
+import { DirectoryIsNotEmptyError } from 'src/errors/path';
+
 import { TechnicalError } from '../errors/base';
 import { TGFSDirectory, TGFSFileRef } from '../model/directory';
 import { TGFSFile } from '../model/file';
@@ -237,6 +239,16 @@ export class Client {
       });
     }
     await this.syncMetadata();
+  }
+
+  public async deleteEmptyDirectory(directory: TGFSDirectory) {
+    if (
+      directory.findChildren().length > 0 ||
+      directory.findFiles().length > 0
+    ) {
+      throw new DirectoryIsNotEmptyError();
+    }
+    await this.deleteDirectory(directory);
   }
 
   public async deleteDirectory(directory: TGFSDirectory) {

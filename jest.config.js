@@ -1,7 +1,7 @@
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
-  setupFiles: ['<rootDir>/test/api/mock-tg-client.ts'],
+  setupFiles: ['<rootDir>/test/utils/mock-tg-client.ts'],
   testRegex: '.*\\.spec\\.(t|j)s$',
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',

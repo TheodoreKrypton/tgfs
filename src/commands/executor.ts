@@ -1,3 +1,5 @@
+import { UnknownCommandError } from 'src/errors/cmd';
+
 import { Client } from '../api';
 import { cp } from './cp';
 import { ls } from './ls';
@@ -12,19 +14,19 @@ export class Executor {
 
     switch (argv._[0]) {
       case 'ls':
-        rsp = await ls(this.client)(argv.path);
+        rsp = await ls(this.client)(argv);
         break;
       case 'mkdir':
-        rsp = await mkdir(this.client)(argv.path);
+        rsp = await mkdir(this.client)(argv);
         break;
       case 'cp':
-        rsp = await cp(this.client)(argv.local, argv.remote);
+        rsp = await cp(this.client)(argv);
         break;
       case 'rm':
-        rsp = await rm(this.client)(argv.path, argv.recursive);
+        rsp = await rm(this.client)(argv);
         break;
       default:
-        throw new Error('Unknown command');
+        throw new UnknownCommandError(argv._[0]);
     }
 
     console.log(rsp);

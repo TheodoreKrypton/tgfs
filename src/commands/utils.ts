@@ -1,10 +1,12 @@
 import { PathLike } from 'fs';
 
+import { RelativePathError } from 'src/errors/path';
+
 export const splitPath = (path: PathLike) => {
   const pathString = path.toString();
 
   if (!pathString.startsWith('/')) {
-    throw new Error('Relative paths are not supported');
+    throw new RelativePathError(pathString);
   }
 
   const parts = pathString.split('/');

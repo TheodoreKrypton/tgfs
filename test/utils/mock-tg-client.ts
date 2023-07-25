@@ -4,6 +4,8 @@ import { EditMessageParams, SendMessageParams } from 'telegram/client/messages';
 import { SendFileInterface } from 'telegram/client/uploads';
 import { EntityLike } from 'telegram/define';
 
+import { Client } from 'src/api';
+
 import { MockMessages } from './mock-messages';
 
 jest.mock('telegram', () => {
@@ -77,3 +79,13 @@ jest.mock('telegram', () => {
       ),
   };
 });
+
+export const createClient = async () => {
+  const client = new Client(
+    new TelegramClient('mock-session', 0, 'mock-api-hash', {}),
+    'mock-private-channel-id',
+    'mock-public-channel-id',
+  );
+  await client.init();
+  return client;
+};

@@ -16,7 +16,8 @@ export const fileInfo = async (client: Client, fileRef: TGFSFileRef) => {
   return [head, ...versions].join('\n');
 };
 
-export const ls = (client: Client) => async (path: PathLike) => {
+export const ls = (client: Client) => async (argv: { path: PathLike }) => {
+  const { path } = argv;
   const [basePath, name] = splitPath(path);
   const dir = await navigateToDir(client)(basePath);
 

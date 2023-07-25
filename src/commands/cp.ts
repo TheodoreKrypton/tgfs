@@ -1,4 +1,6 @@
-import { PathLike } from 'fs';
+import * as fs from 'fs';
+
+import { FileOrDirectoryDoesNotExistError } from 'src/errors/path';
 
 import { Client } from '../api';
 import { fileInfo } from './ls';
@@ -6,11 +8,17 @@ import { navigateToDir } from './navigate-to-dir';
 import { splitPath } from './utils';
 
 export const cp =
-  (client: Client) => async (local: PathLike, remote: PathLike) => {
+  (client: Client) =>
+  async (argv: { local: fs.PathLike; remote: fs.PathLike }) => {
+    const { local, remote } = argv;
     let [basePath, name] = splitPath(remote);
     name = name || local.toString().split('/').pop(); // use the local file name if the name is not specified
-    
+
     const dir = await navigateToDir(client)(basePath);
+
+    if (!fs.existsSync(local.toString())) {
+      throw new FileOrDirectoryDoesNotExistError(local.toString());
+    }
 
     const created = await client.putFileUnder(name, dir, local.toString());
 
