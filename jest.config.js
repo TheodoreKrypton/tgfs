@@ -2,7 +2,7 @@ module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
   setupFiles: ['<rootDir>/test/utils/mock-tg-client.ts'],
-  testRegex: '.*\\.spec\\.(t|j)s$',
+  testMatch: ['<rootDir>/test/**/*.spec.(t|j)s'],
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },

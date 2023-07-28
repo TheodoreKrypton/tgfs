@@ -1,14 +1,12 @@
-import { PathLike } from 'fs';
+import { Client } from '../api';
+import { TGFSFileRef } from '../model/directory';
 
-import { RelativePathError } from '../errors/path';
-
-export const splitPath = (path: PathLike) => {
-  const pathString = path.toString();
-
-  if (!pathString.startsWith('/')) {
-    throw new RelativePathError(pathString);
-  }
-
-  const parts = pathString.split('/');
-  return [parts.slice(0, parts.length - 1).join('/'), parts[parts.length - 1]];
+export const fileInfo = async (client: Client, fileRef: TGFSFileRef) => {
+  const info = await client.getFileInfo(fileRef);
+  const head = `${info.name}, ${Object.keys(info.versions).length} versions`;
+  const versions = info
+    .getVersionsSorted()
+    .reverse()
+    .map((ver) => `${ver.id}: updated at ${ver.updatedAt}`);
+  return [head, ...versions].join('\n');
 };

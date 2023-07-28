@@ -42,6 +42,12 @@ export const parse = () => {
           type: 'boolean',
         });
     })
+    .command('touch <path>', 'create a file', (yargs) => {
+      return yargs.positional('path', {
+        describe: 'path to create',
+        type: 'string',
+      });
+    })
     .demandCommand(1, 'You need at least one command before moving on')
     .help().argv;
 

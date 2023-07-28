@@ -11,6 +11,7 @@
     "start:prod": "node dist/src/index.js",
     "start:cmd": "yarn build:dev && node dist/src/cmd.js",
     "start:cmd:prod": "node dist/src/cmd.js",
+    "start:webdav": "yarn build:dev && node dist/src/server/webdav/index.js",
     "cmd": "yarn start:cmd:prod",
     "test": "yarn jest",
     "test:cov": "yarn jest --coverage"
@@ -18,17 +19,18 @@
   "author": "Wheat Carrier",
   "license": "Apache-2.0",
   "dependencies": {
-    "@types/jest": "^29.5.2",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "input": "^1.0.1",
     "telegram": "^2.17.10",
     "uuid": "^9.0.0",
+    "webdav-server": "^2.6.2",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
     "@trivago/prettier-plugin-sort-imports": "^4.1.1",
     "@types/express": "^4.17.17",
+    "@types/jest": "^29.5.2",
     "@types/node": "^20.3.3",
     "@types/uuid": "^9.0.2",
     "@types/yargs": "^17.0.24",

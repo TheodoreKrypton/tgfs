@@ -1,8 +1,13 @@
 import * as fs from 'fs';
 
 import { Client } from 'src/api';
+import { createDir } from 'src/api/ops/create-dir';
+import { createEmptyFile } from 'src/api/ops/create-empty-file';
+import { list } from 'src/api/ops/list';
+import { removeDir } from 'src/api/ops/remove-dir';
 import { Executor } from 'src/commands/executor';
 import { parse } from 'src/commands/parser';
+import { TGFSDirectory } from 'src/model/directory';
 
 import { createClient } from '../utils/mock-tg-client';
 
@@ -19,10 +24,17 @@ describe('commands', () => {
   });
 
   describe('ls', () => {
+    afterEach(async () => {
+      await removeDir(client)('/', true);
+    });
+
     it('should list files and directories', async () => {
+      await createEmptyFile(client)('/f1');
+      await createDir(client)('/d1', false);
+
       jest.replaceProperty(process, 'argv', ['node', 'cmd', 'ls', '/']);
       await executor.execute(parse());
-      expect(console.log).toHaveBeenCalledWith('');
+      expect(console.log).toHaveBeenCalledWith('d1 f1');
     });
 
     it('should throw an error if path does not exist', () => {
@@ -38,14 +50,14 @@ describe('commands', () => {
 
   describe('mkdir', () => {
     afterEach(async () => {
-      await client.deleteDirectory(client.getRootDirectory());
+      await removeDir(client)('/', true);
     });
 
     it('should create a directory', async () => {
       jest.replaceProperty(process, 'argv', ['node', 'cmd', 'mkdir', '/d1']);
       await executor.execute(parse());
 
-      const d1 = client.getRootDirectory().findChildren(['d1'])[0];
+      const d1 = (await list(client)('/'))[0];
       expect(d1.name).toEqual('d1');
     });
 
@@ -58,7 +70,10 @@ describe('commands', () => {
         '-p',
       ]);
       await executor.execute(parse());
-      expect(console.log).toHaveBeenCalledWith('');
+
+      const d3 = ((await list(client)('/d1/d2')) as Array<TGFSDirectory>)[0];
+
+      expect(d3.name).toEqual('d3');
     });
 
     it('should throw an error if path already exists', async () => {
@@ -72,7 +87,7 @@ describe('commands', () => {
 
   describe('cp', () => {
     afterEach(async () => {
-      await client.deleteDirectory(client.getRootDirectory());
+      await removeDir(client)('/', true);
     });
 
     it('should upload a file', async () => {
@@ -108,7 +123,7 @@ describe('commands', () => {
 
   describe('rm', () => {
     afterEach(async () => {
-      await client.deleteDirectory(client.getRootDirectory());
+      await removeDir(client)('/', true);
     });
 
     it('should remove a file', async () => {
@@ -168,6 +183,16 @@ describe('commands', () => {
       await executor.execute(parse());
 
       expect(client.getRootDirectory().findChildren(['d1']).length).toEqual(0);
+    });
+  });
+
+  describe('touch', () => {
+    it('should create a file', async () => {
+      jest.replaceProperty(process, 'argv', ['node', 'cmd', 'touch', '/f1']);
+      await executor.execute(parse());
+
+      const f1 = client.getRootDirectory().findFiles(['f1'])[0];
+      expect(f1.name).toEqual('f1');
     });
   });
 });

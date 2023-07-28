@@ -159,7 +159,7 @@ export class Client {
     return newDirectory;
   }
 
-  private async getFileFromFileRef(fileRef: TGFSFileRef) {
+  public async getFileFromFileRef(fileRef: TGFSFileRef) {
     return TGFSFile.fromObject(
       (await this.getObjectsByMessageIds([fileRef.getMessageId()]))[0],
     );
