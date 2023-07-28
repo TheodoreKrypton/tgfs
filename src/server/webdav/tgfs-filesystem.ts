@@ -69,6 +69,17 @@ export class TGFSSerializer implements FileSystemSerializer {
   }
 }
 
+const call =
+  (callback: SimpleCallback) =>
+  (
+    promise: Promise<any>,
+    then: (...args: any) => any = () => callback(null),
+  ) => {
+    promise.then(then).catch((e) => {
+      callback(e);
+    });
+  };
+
 export class TGFSFileSystem extends FileSystem {
   constructor(public readonly tgClient: Client) {
     super(new TGFSSerializer());
@@ -79,14 +90,13 @@ export class TGFSFileSystem extends FileSystem {
     ctx: CreateInfo,
     _callback: SimpleCallback,
   ): void {
-    this.type(ctx.context, path, (e, type) => {
-      if (e) return _callback(Errors.ResourceNotFound);
-      if (type.isDirectory) {
-        createDir(this.tgClient)(path.toString(), false);
-      } else {
-        return _callback(Errors.InvalidOperation);
-      }
-    });
+    if (ctx.type.isDirectory) {
+      call(_callback)(createDir(this.tgClient)(path.toString(), false));
+    } else if (ctx.type.isFile) {
+      _callback(Errors.InvalidOperation);
+    } else {
+      _callback(Errors.InvalidOperation);
+    }
   }
 
   protected _delete(
@@ -97,9 +107,9 @@ export class TGFSFileSystem extends FileSystem {
     this.type(ctx.context, path, (e, type) => {
       if (e) return _callback(Errors.ResourceNotFound);
       if (type.isDirectory) {
-        removeDir(this.tgClient)(path.toString(), true);
+        call(_callback)(removeDir(this.tgClient)(path.toString(), true));
       } else {
-        removeFile(this.tgClient)(path.toString());
+        call(_callback)(removeFile(this.tgClient)(path.toString()));
       }
     });
   }
@@ -112,15 +122,20 @@ export class TGFSFileSystem extends FileSystem {
     list(this.tgClient)(path.toString())
       .then((res) => {
         if (!Array.isArray(res)) {
-          this.tgClient.getFileInfo(res).then((file) => {
-            callback(null, file.getLatest().size);
-          });
+          this.tgClient
+            .getFileInfo(res)
+            .then((file) => {
+              callback(null, file.getLatest().size);
+            })
+            .catch((e) => {
+              callback(e);
+            });
         } else {
           callback(null, 0);
         }
       })
-      .catch(() => {
-        callback(Errors.ResourceNotFound);
+      .catch((e) => {
+        callback(e);
       });
   }
 
@@ -129,12 +144,16 @@ export class TGFSFileSystem extends FileSystem {
     ctx: ReadDirInfo,
     callback: ReturnCallback<string[] | Path[]>,
   ): void {
-    list(this.tgClient)(path.toString()).then((res) => {
-      callback(
-        null,
-        (res as Array<TGFSFileRef | TGFSDirectory>).map((item) => item.name),
-      );
-    });
+    list(this.tgClient)(path.toString())
+      .then((res) => {
+        callback(
+          null,
+          (res as Array<TGFSFileRef | TGFSDirectory>).map((item) => item.name),
+        );
+      })
+      .catch((e) => {
+        callback(e);
+      });
   }
 
   protected getStatDateProperty(
@@ -157,8 +176,8 @@ export class TGFSFileSystem extends FileSystem {
           callback(null, 0);
         }
       })
-      .catch(() => {
-        callback(Errors.ResourceNotFound);
+      .catch((e) => {
+        callback(e);
       });
   }
 
