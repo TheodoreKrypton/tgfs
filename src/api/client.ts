@@ -1,8 +1,11 @@
+import { Writable } from 'stream';
+
 import * as fs from 'fs';
 import { Api, TelegramClient } from 'telegram';
 import { DownloadMediaInterface } from 'telegram/client/downloads';
 import { CustomFile } from 'telegram/client/uploads';
 import { FileLike } from 'telegram/define';
+import { OutFile } from 'telegram/define';
 
 import { TechnicalError } from '../errors/base';
 import { DirectoryIsNotEmptyError } from '../errors/path';
@@ -77,8 +80,8 @@ export class Client {
 
   public async downloadFileAtVersion(
     fileRef: TGFSFileRef,
+    outputFile?: OutFile,
     versionId?: string,
-    outputFile?: fs.PathLike,
   ): Promise<Buffer | null> {
     const tgfsFile = await this.getFileFromFileRef(fileRef);
 
@@ -87,9 +90,8 @@ export class Client {
       : tgfsFile.getLatest();
 
     if (outputFile) {
-      const ws = fs.createWriteStream(outputFile);
       await this.downloadMediaByMessageId(version.messageId, {
-        outputFile: ws,
+        outputFile,
       });
     } else {
       const res = await this.downloadMediaByMessageId(version.messageId);

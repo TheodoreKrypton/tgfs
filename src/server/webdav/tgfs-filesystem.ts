@@ -1,3 +1,6 @@
+import { Readable, Writable } from 'stream';
+
+import * as fs from 'fs';
 import 'webdav-server/lib/index.v2';
 import {
   CreateInfo,
@@ -11,6 +14,8 @@ import {
   LastModifiedDateInfo,
   LocalLockManager,
   LockManagerInfo,
+  OpenReadStreamInfo,
+  OpenWriteStreamInfo,
   Path,
   PropertyManagerInfo,
   ReadDirInfo,
@@ -21,8 +26,6 @@ import {
   TypeInfo,
 } from 'webdav-server/lib/index.v2';
 
-import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
-
 import { Client } from '../../api';
 import {
   createDir,
@@ -32,6 +35,7 @@ import {
   removeFile,
 } from '../../api/ops';
 import { loginAsBot } from '../../auth';
+import { TGFSDirectory, TGFSFileRef } from '../../model/directory';
 import { TGFSPropertyManager } from './tgfs-propertymanager';
 
 export class TGFSFileSystemResource {
@@ -229,5 +233,40 @@ export class TGFSFileSystem extends FileSystem {
       .catch(() => {
         callback(Errors.ResourceNotFound);
       });
+  }
+
+  protected _openWriteStream(
+    path: Path,
+    ctx: OpenWriteStreamInfo,
+    callback: ReturnCallback<Writable>,
+  ): void {
+    console.log('write', path);
+    fs.open(path.toString(), 'w+', (e, fd) => {
+      console.log(e);
+      if (e) return callback(Errors.ResourceNotFound);
+      callback(null, fs.createWriteStream(null, { fd }));
+    });
+  }
+
+  protected _openReadStream(
+    path: Path,
+    ctx: OpenReadStreamInfo,
+    callback: ReturnCallback<Readable>,
+  ): void {
+    list(this.tgClient)(path.toString()).then((fileRef) => {
+      if (fileRef instanceof TGFSFileRef) {
+        this.tgClient
+          .downloadFileAtVersion(fileRef)
+          .then((buffer) => {
+            callback(null, Readable.from(buffer));
+          })
+          .catch((e) => {
+            console.log(e);
+            callback(e);
+          });
+      } else {
+        callback(Errors.InvalidOperation);
+      }
+    });
   }
 }
