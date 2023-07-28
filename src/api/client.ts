@@ -48,6 +48,18 @@ export class Client {
 
   public async getFileInfo(fileRef: TGFSFileRef): Promise<TGFSFile> {
     const file = await this.getFileFromFileRef(fileRef);
+
+    const versions = Object.values(file.versions);
+
+    const fileMessages = await this.getMessagesByIds(
+      versions.map((version) => version.messageId),
+    );
+
+    versions.forEach((version, i) => {
+      const fileMessage = fileMessages[i];
+      version.size = Number(fileMessage.file.size);
+    });
+
     return file;
   }
 

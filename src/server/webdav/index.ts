@@ -1,5 +1,4 @@
 import { v2 as webdav } from 'webdav-server';
-import { PhysicalFileSystem } from 'webdav-server/lib/index.v2';
 
 import { loginAsBot } from '../../auth';
 import { TGFSFileSystem } from './tgfs-filesystem';

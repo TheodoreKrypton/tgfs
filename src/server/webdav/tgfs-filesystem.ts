@@ -84,7 +84,7 @@ export class TGFSFileSystem extends FileSystem {
       if (type.isDirectory) {
         createDir(this.tgClient)(path.toString(), false);
       } else {
-        createEmptyFile(this.tgClient)(path.toString());
+        return _callback(Errors.InvalidOperation);
       }
     });
   }
@@ -109,7 +109,19 @@ export class TGFSFileSystem extends FileSystem {
     ctx: SizeInfo,
     callback: ReturnCallback<number>,
   ): void {
-    callback(null, 0);
+    list(this.tgClient)(path.toString())
+      .then((res) => {
+        if (!Array.isArray(res)) {
+          this.tgClient.getFileInfo(res).then((file) => {
+            callback(null, file.getLatest().size);
+          });
+        } else {
+          callback(null, 0);
+        }
+      })
+      .catch(() => {
+        callback(Errors.ResourceNotFound);
+      });
   }
 
   protected _readDir(
@@ -133,13 +145,17 @@ export class TGFSFileSystem extends FileSystem {
   ): void {
     list(this.tgClient)(path.toString())
       .then((res) => {
-        this.tgClient.getFileFromFileRef(res as TGFSFileRef).then((file) => {
-          if (propertyName === 'mtime') {
-            callback(null, file.getLatest().updatedAt.getTime());
-          } else {
-            callback(null, 0);
-          }
-        });
+        if (!Array.isArray(res)) {
+          this.tgClient.getFileInfo(res).then((file) => {
+            if (propertyName === 'mtime') {
+              callback(null, file.getLatest().updatedAt.getTime());
+            } else {
+              callback(null, file.createdAt.getTime());
+            }
+          });
+        } else {
+          callback(null, 0);
+        }
       })
       .catch(() => {
         callback(Errors.ResourceNotFound);

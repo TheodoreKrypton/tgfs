@@ -1,5 +1,7 @@
 import { createClient } from '../../utils/mock-tg-client';
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 describe('file and directory operations', () => {
   describe('create / remove directories', () => {
     it('should create a directory', async () => {
@@ -48,8 +50,8 @@ describe('file and directory operations', () => {
       const root = client.getRootDirectory();
       await client.putFileUnder('f1', root, Buffer.from('mock-file-content'));
 
+      await sleep(300);
       const content2 = 'mock-file-content-edited';
-
       await client.putFileUnder('f1', root, Buffer.from(content2));
       const fr = root.findFiles(['f1'])[0];
       const f = await client.getFileInfo(fr);
@@ -91,7 +93,7 @@ describe('file and directory operations', () => {
       const root = client.getRootDirectory();
       const content = 'mock-file-content';
       await client.putFileUnder('f1', root, Buffer.from(content));
-
+      await sleep(300);
       await client.putFileUnder(
         'f1',
         root,
@@ -104,7 +106,6 @@ describe('file and directory operations', () => {
       await client.deleteFileAtVersion(fr, f.latestVersionId);
 
       f = await client.getFileInfo(fr);
-
       expect(Object.keys(f.versions)).toHaveLength(1);
       const content2 = await client.downloadFileAtVersion(fr);
       expect(content2.toString()).toEqual(content);

@@ -7,6 +7,7 @@ export class TGFSFileVersion {
   id: string;
   updatedAt: Date;
   messageId: number;
+  size: number;
 
   toObject(): TGFSFileVersionObject {
     return {
@@ -39,6 +40,7 @@ export class TGFSFileVersion {
 export class TGFSFile {
   versions: { [key: string]: TGFSFileVersion } = {};
   latestVersionId: string;
+  createdAt: Date;
 
   constructor(public readonly name: string) {}
 
@@ -52,12 +54,19 @@ export class TGFSFile {
 
   static fromObject(tgfsFileObject: TGFSFileObject): TGFSFile {
     const tgfsFile = new TGFSFile(tgfsFileObject.name);
-    tgfsFile.latestVersionId = tgfsFileObject.versions.reduce((a, b) => {
-      return a.updatedAt > b.updatedAt ? a : b;
-    }).id;
-    tgfsFileObject.versions.forEach((version: TGFSFileVersionObject) => {
-      tgfsFile.versions[version.id] = TGFSFileVersion.fromObject(version);
-    });
+    let lastUpdatedAt = 0;
+    tgfsFile.createdAt = new Date();
+
+    for (const version of tgfsFileObject.versions) {
+      tgfsFile.addVersion(TGFSFileVersion.fromObject(version));
+      if (version.updatedAt > lastUpdatedAt) {
+        lastUpdatedAt = version.updatedAt;
+        tgfsFile.latestVersionId = version.id;
+      }
+      if (version.updatedAt < tgfsFile.createdAt.getTime()) {
+        tgfsFile.createdAt = new Date(version.updatedAt);
+      }
+    }
 
     return tgfsFile;
   }
