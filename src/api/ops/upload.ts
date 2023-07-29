@@ -17,3 +17,14 @@ export const upload =
 
     return await client.putFileUnder(name, dir, local.toString());
   };
+
+export const uploadBytes =
+  (client: Client) => async (bytes: Buffer, remote: fs.PathLike) => {
+    let [basePath, name] = splitPath(remote);
+
+    const dir = await navigateToDir(client)(basePath);
+
+    return await client.putFileUnder(name, dir, bytes);
+  };
+
+// TODO: upload stream

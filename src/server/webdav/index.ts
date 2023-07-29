@@ -1,4 +1,5 @@
 import { v2 as webdav } from 'webdav-server';
+import { PhysicalFileSystem } from 'webdav-server/lib/index.v2';
 
 import { loginAsBot } from '../../auth';
 import { TGFSFileSystem } from './tgfs-filesystem';
@@ -10,7 +11,10 @@ import { TGFSFileSystem } from './tgfs-filesystem';
   await client.init();
 
   server.setFileSystemSync('/', new TGFSFileSystem(client));
-
+  // server.setFileSystemSync(
+  //   '/',
+  //   new PhysicalFileSystem('/home/theodore/repos/tgfs/data'),
+  // );
   server.start((httpServer) => {
     console.log(
       'Server started with success on the port : ' +

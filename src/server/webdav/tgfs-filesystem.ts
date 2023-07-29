@@ -29,10 +29,10 @@ import {
 import { Client } from '../../api';
 import {
   createDir,
-  createEmptyFile,
   list,
   removeDir,
   removeFile,
+  uploadBytes,
 } from '../../api/ops';
 import { loginAsBot } from '../../auth';
 import { TGFSDirectory, TGFSFileRef } from '../../model/directory';
@@ -80,6 +80,7 @@ const call =
     then: (...args: any) => any = () => callback(null),
   ) => {
     promise.then(then).catch((e) => {
+      console.error('error', e);
       callback(e);
     });
   };
@@ -92,28 +93,35 @@ export class TGFSFileSystem extends FileSystem {
   protected _create(
     path: Path,
     ctx: CreateInfo,
-    _callback: SimpleCallback,
+    callback: SimpleCallback,
   ): void {
+    console.log('create', path.toString());
     if (ctx.type.isDirectory) {
-      call(_callback)(createDir(this.tgClient)(path.toString(), false));
+      console.log('create dir');
+      call(callback)(createDir(this.tgClient)(path.toString(), false));
     } else if (ctx.type.isFile) {
-      _callback(Errors.InvalidOperation);
+      if (ctx.context.headers.contentLength === 0) {
+        callback(Errors.InvalidOperation);
+      } else {
+        callback(null);
+      }
     } else {
-      _callback(Errors.InvalidOperation);
+      console.log('create error');
+      callback(Errors.InvalidOperation);
     }
   }
 
   protected _delete(
     path: Path,
     ctx: DeleteInfo,
-    _callback: SimpleCallback,
+    callback: SimpleCallback,
   ): void {
     this.type(ctx.context, path, (e, type) => {
-      if (e) return _callback(Errors.ResourceNotFound);
+      if (e) return callback(Errors.ResourceNotFound);
       if (type.isDirectory) {
-        call(_callback)(removeDir(this.tgClient)(path.toString(), true));
+        call(callback)(removeDir(this.tgClient)(path.toString(), true));
       } else {
-        call(_callback)(removeFile(this.tgClient)(path.toString()));
+        call(callback)(removeFile(this.tgClient)(path.toString()));
       }
     });
   }
@@ -240,12 +248,18 @@ export class TGFSFileSystem extends FileSystem {
     ctx: OpenWriteStreamInfo,
     callback: ReturnCallback<Writable>,
   ): void {
-    console.log('write', path);
-    fs.open(path.toString(), 'w+', (e, fd) => {
-      console.log(e);
-      if (e) return callback(Errors.ResourceNotFound);
-      callback(null, fs.createWriteStream(null, { fd }));
+    const chunks = [];
+    const tgClient = this.tgClient;
+    const writable = new Writable({
+      write(chunk, encoding, next) {
+        chunks.push(chunk);
+        next();
+      },
+      final(cb) {
+        call(cb)(uploadBytes(tgClient)(Buffer.concat(chunks), path.toString()));
+      },
     });
+    callback(null, writable);
   }
 
   protected _openReadStream(
