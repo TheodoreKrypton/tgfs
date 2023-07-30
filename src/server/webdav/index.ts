@@ -1,14 +1,13 @@
-import { SimpleUserManager, v2 as webdav } from 'webdav-server';
-import { PhysicalFileSystem } from 'webdav-server/lib/index.v2';
+import { v2 as webdav } from 'webdav-server';
 
-import { loginAsBot } from '../../auth';
+import { Client } from '../../api';
 import { TGFSFileSystem } from './tgfs-filesystem';
 
-(async () => {
-  const server = new webdav.WebDAVServer();
-
-  const client = await loginAsBot();
-  await client.init();
+export const runWebDAVServer = async (
+  client: Client,
+  options?: webdav.WebDAVServerOptions,
+) => {
+  const server = new webdav.WebDAVServer(options);
 
   server.httpAuthentication = new webdav.HTTPBasicAuthentication({
     getUserByNamePassword: (username, password, cb) => {
@@ -19,14 +18,10 @@ import { TGFSFileSystem } from './tgfs-filesystem';
     },
   });
   server.setFileSystemSync('/', new TGFSFileSystem(client));
-  // server.setFileSystemSync(
-  //   '/',
-  //   new PhysicalFileSystem('/home/theodore/repos/tgfs/data'),
-  // );
   server.start((httpServer) => {
-    console.log(
-      'Server started with success on the port : ' +
-        (httpServer.address() as any).port,
+    const address = httpServer.address() as any;
+    console.info(
+      `WebDAV server is running on ${address.address}:${address.port}`,
     );
   });
-})();
+};

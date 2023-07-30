@@ -95,9 +95,7 @@ export class TGFSFileSystem extends FileSystem {
     ctx: CreateInfo,
     callback: SimpleCallback,
   ): void {
-    console.log('create', path.toString());
     if (ctx.type.isDirectory) {
-      console.log('create dir');
       call(callback)(createDir(this.tgClient)(path.toString(), false));
     } else if (ctx.type.isFile) {
       if (ctx.context.headers.contentLength === 0) {
@@ -106,7 +104,6 @@ export class TGFSFileSystem extends FileSystem {
         callback(null);
       }
     } else {
-      console.log('create error');
       callback(Errors.InvalidOperation);
     }
   }
@@ -275,7 +272,6 @@ export class TGFSFileSystem extends FileSystem {
             callback(null, Readable.from(buffer));
           })
           .catch((e) => {
-            console.log(e);
             callback(e);
           });
       } else {

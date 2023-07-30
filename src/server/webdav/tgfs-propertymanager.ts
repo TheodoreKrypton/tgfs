@@ -35,7 +35,6 @@ export class TGFSPropertyManager implements IPropertyManager {
     callback: Return2Callback<ResourcePropertyValue, PropertyAttributes>,
   ): void {
     const property = this.properties[name];
-    console.log(property);
     callback(
       property ? null : Errors.PropertyNotFound,
       property.value,

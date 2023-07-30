@@ -6,12 +6,12 @@ import { Client } from '../api';
 import { config } from '../config';
 import { Logger } from '../utils/logger';
 
-const apiId = config.TELEGRAM_API_ID;
-const apiHash = config.TELEGRAM_API_HASH;
-
 export const login =
   (relogin: (client: TelegramClient) => Promise<void>) =>
   async (reset: boolean = false) => {
+    const apiId = config.TELEGRAM_API_ID;
+    const apiHash = config.TELEGRAM_API_HASH;
+
     if (!reset && fs.existsSync(config.TELEGRAM_SESSION_FILE)) {
       const session = new StringSession(
         String(fs.readFileSync(config.TELEGRAM_SESSION_FILE)),

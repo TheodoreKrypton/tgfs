@@ -132,3 +132,4 @@ dist
 .vscode
 
 data
+config.yaml

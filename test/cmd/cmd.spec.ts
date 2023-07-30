@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import yargs from 'yargs/yargs';
 
 import { Client } from 'src/api';
 import { createDir } from 'src/api/ops/create-dir';
@@ -6,10 +7,15 @@ import { createEmptyFile } from 'src/api/ops/create-empty-file';
 import { list } from 'src/api/ops/list';
 import { removeDir } from 'src/api/ops/remove-dir';
 import { Executor } from 'src/commands/executor';
-import { parse } from 'src/commands/parser';
+import { parser } from 'src/commands/parser';
 import { TGFSDirectory } from 'src/model/directory';
 
 import { createClient } from '../utils/mock-tg-client';
+
+const parse = () => {
+  const argv = parser(yargs(process.argv)).argv;
+  return argv;
+};
 
 describe('commands', () => {
   let client: Client;
@@ -32,18 +38,13 @@ describe('commands', () => {
       await createEmptyFile(client)('/f1');
       await createDir(client)('/d1', false);
 
-      jest.replaceProperty(process, 'argv', ['node', 'cmd', 'ls', '/']);
+      jest.replaceProperty(process, 'argv', ['ls', '/']);
       await executor.execute(parse());
       expect(console.log).toHaveBeenCalledWith('d1 f1');
     });
 
     it('should throw an error if path does not exist', () => {
-      jest.replaceProperty(process, 'argv', [
-        'node',
-        'cmd',
-        'ls',
-        '/not-exist',
-      ]);
+      jest.replaceProperty(process, 'argv', ['ls', '/not-exist']);
       expect(executor.execute(parse())).rejects.toThrowError();
     });
   });
@@ -54,7 +55,7 @@ describe('commands', () => {
     });
 
     it('should create a directory', async () => {
-      jest.replaceProperty(process, 'argv', ['node', 'cmd', 'mkdir', '/d1']);
+      jest.replaceProperty(process, 'argv', ['mkdir', '/d1']);
       await executor.execute(parse());
 
       const d1 = (await list(client)('/'))[0];
@@ -62,13 +63,7 @@ describe('commands', () => {
     });
 
     it('should create a directory recursively', async () => {
-      jest.replaceProperty(process, 'argv', [
-        'node',
-        'cmd',
-        'mkdir',
-        '/d1/d2/d3',
-        '-p',
-      ]);
+      jest.replaceProperty(process, 'argv', ['mkdir', '/d1/d2/d3', '-p']);
       await executor.execute(parse());
 
       const d3 = ((await list(client)('/d1/d2')) as Array<TGFSDirectory>)[0];
@@ -77,10 +72,10 @@ describe('commands', () => {
     });
 
     it('should throw an error if path already exists', async () => {
-      jest.replaceProperty(process, 'argv', ['node', 'cmd', 'mkdir', '/d1']);
+      jest.replaceProperty(process, 'argv', ['mkdir', '/d1']);
       await executor.execute(parse());
 
-      jest.replaceProperty(process, 'argv', ['node', 'cmd', 'mkdir', '/d1']);
+      jest.replaceProperty(process, 'argv', ['mkdir', '/d1']);
       expect(executor.execute(parse())).rejects.toThrowError();
     });
   });
@@ -94,13 +89,7 @@ describe('commands', () => {
       const fileName = 'mock-file.txt';
 
       fs.writeFileSync(fileName, 'mock-file-content');
-      jest.replaceProperty(process, 'argv', [
-        'node',
-        'cmd',
-        'cp',
-        fileName,
-        '/f1',
-      ]);
+      jest.replaceProperty(process, 'argv', ['cp', fileName, '/f1']);
       await executor.execute(parse());
 
       const f1 = client.getRootDirectory().findFiles(['f1'])[0];
@@ -110,13 +99,7 @@ describe('commands', () => {
     });
 
     it('should throw an error if file does not exist', () => {
-      jest.replaceProperty(process, 'argv', [
-        'node',
-        'cmd',
-        'cp',
-        'not-exist',
-        '/f1',
-      ]);
+      jest.replaceProperty(process, 'argv', ['cp', 'not-exist', '/f1']);
       expect(executor.execute(parse())).rejects.toThrowError();
     });
   });
@@ -133,7 +116,7 @@ describe('commands', () => {
         Buffer.from('content'),
       );
 
-      jest.replaceProperty(process, 'argv', ['node', 'cmd', 'rm', '/f1']);
+      jest.replaceProperty(process, 'argv', ['rm', '/f1']);
       await executor.execute(parse());
 
       expect(client.getRootDirectory().findFiles(['f1']).length).toEqual(0);
@@ -142,19 +125,14 @@ describe('commands', () => {
     it('should remove a directory', async () => {
       await client.createDirectoryUnder('d1', client.getRootDirectory());
 
-      jest.replaceProperty(process, 'argv', ['node', 'cmd', 'rm', '/d1']);
+      jest.replaceProperty(process, 'argv', ['rm', '/d1']);
       await executor.execute(parse());
 
       expect(client.getRootDirectory().findChildren(['d1']).length).toEqual(0);
     });
 
     it('should throw an error if path does not exist', () => {
-      jest.replaceProperty(process, 'argv', [
-        'node',
-        'cmd',
-        'rm',
-        '/not-exist',
-      ]);
+      jest.replaceProperty(process, 'argv', ['rm', '/not-exist']);
       expect(executor.execute(parse())).rejects.toThrowError();
     });
 
@@ -165,21 +143,15 @@ describe('commands', () => {
       );
       await client.putFileUnder('f1', d1, Buffer.from('content'));
 
-      jest.replaceProperty(process, 'argv', ['node', 'cmd', 'rm', '/d1']);
+      jest.replaceProperty(process, 'argv', ['rm', '/d1']);
       expect(executor.execute(parse())).rejects.toThrowError();
     });
 
     it('should remove a directory recursively', async () => {
-      jest.replaceProperty(process, 'argv', [
-        'node',
-        'cmd',
-        'mkdir',
-        '/d1/d2/d3',
-        '-p',
-      ]);
+      jest.replaceProperty(process, 'argv', ['mkdir', '/d1/d2/d3', '-p']);
       await executor.execute(parse());
 
-      jest.replaceProperty(process, 'argv', ['node', 'cmd', 'rm', '/d1', '-r']);
+      jest.replaceProperty(process, 'argv', ['rm', '/d1', '-r']);
       await executor.execute(parse());
 
       expect(client.getRootDirectory().findChildren(['d1']).length).toEqual(0);
@@ -188,7 +160,7 @@ describe('commands', () => {
 
   describe('touch', () => {
     it('should create a file', async () => {
-      jest.replaceProperty(process, 'argv', ['node', 'cmd', 'touch', '/f1']);
+      jest.replaceProperty(process, 'argv', ['touch', '/f1']);
       await executor.execute(parse());
 
       const f1 = client.getRootDirectory().findFiles(['f1'])[0];

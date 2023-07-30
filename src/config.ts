@@ -1,32 +1,32 @@
-import dotenv from 'dotenv';
-import * as fs from 'fs';
-import * as path from 'path';
+import fs from 'fs';
+import yaml from 'js-yaml';
+import path from 'path';
 
-const env = dotenv.config({
-  path: `.env.${process.env.NODE_ENV ?? 'local'}`,
-}).parsed;
+export const config: any = {};
 
-let TELEGRAM_SESSION_FILE = env.TELEGRAM_SESSION_FILE;
-if (TELEGRAM_SESSION_FILE[0] === '~') {
-  TELEGRAM_SESSION_FILE = path.join(
-    process.env.HOME,
-    TELEGRAM_SESSION_FILE.slice(1),
-  );
-}
-if (!fs.existsSync(TELEGRAM_SESSION_FILE)) {
-  const dir = TELEGRAM_SESSION_FILE.substring(
-    0,
-    TELEGRAM_SESSION_FILE.lastIndexOf('/'),
-  );
-  fs.mkdirSync(dir, { recursive: true });
-}
+export const loadConfig = (configPath: string) => {
+  const file = fs.readFileSync(configPath, 'utf8');
+  const cfg = yaml.load(file);
 
-export const config = {
-  TELEGRAM_API_ID: parseInt(env.TELEGRAM_API_ID),
-  TELEGRAM_API_HASH: env.TELEGRAM_API_HASH,
-  TELEGRAM_SESSION: env.TELEGRAM_SESSION,
-  TELEGRAM_SESSION_FILE: TELEGRAM_SESSION_FILE,
-  TELEGRAM_BOT_TOKEN: env.TELEGRAM_BOT_TOKEN,
-  TELEGRAM_PRIVATE_FILE_CHANNEL: `-100${env.TELEGRAM_PRIVATE_FILE_CHANNEL}`,
-  TELEGRAM_PUBLIC_FILE_CHANNEL: env.TELEGRAM_PUBLIC_FILE_CHANNEL,
+  let TELEGRAM_SESSION_FILE = cfg['telegram']['session_file'];
+  if (TELEGRAM_SESSION_FILE[0] === '~') {
+    TELEGRAM_SESSION_FILE = path.join(
+      process.env.HOME,
+      TELEGRAM_SESSION_FILE.slice(1),
+    );
+  }
+  if (!fs.existsSync(TELEGRAM_SESSION_FILE)) {
+    const dir = TELEGRAM_SESSION_FILE.substring(
+      0,
+      TELEGRAM_SESSION_FILE.lastIndexOf('/'),
+    );
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  config.TELEGRAM_API_ID = cfg['telegram']['api_id'];
+  config.TELEGRAM_API_HASH = cfg['telegram']['api_hash'];
+  config.TELEGRAM_SESSION_FILE = TELEGRAM_SESSION_FILE;
+  config.TELEGRAM_BOT_TOKEN = cfg['telegram']['bot_token'];
+  config.TELEGRAM_PRIVATE_FILE_CHANNEL = `-100${cfg['telegram']['private_file_channel']}`;
+  config.TELEGRAM_PUBLIC_FILE_CHANNEL = cfg['telegram']['public_file_channel'];
 };

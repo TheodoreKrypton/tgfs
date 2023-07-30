@@ -8,59 +8,83 @@ Tested on Windows, Ubuntu, MacOS
 
 ## Installation
 
+### Through Git
+
 ```bash
 $ yarn install && yarn build
-$ alias tgfs="yarn cmd"
+$ alias tgfs="yarn start:prod"
 ```
 
-## Step by Step Guide to Set up Environment Variables
+## Step by Step Guide to Set up config
 
-### Create a Telegram app
+### First step
 
-1. Go to [Here](https://my.telegram.org/apps), login with your phone number and create a Telegram app.
-
-### Set up `api_id` and `api_hash`
-
-1. Duplicate the .env.example file and name it .env.local
-2. Copy the `api_id` and `api_hash` from the Telegram app page to the .env.local file (`TELEGRAM_API_ID` and `TELEGRAM_API_HASH` respectively)
+1. Duplicate the `example-config.yaml` file and name it `config.yaml`
+2. Go to [Here](https://my.telegram.org/apps), login with your phone number and create a Telegram app.
+3. Copy the `api_id` and `api_hash` from the Telegram app page (step 2) to the config file (`telegram -> api_id / api_hash`)
 
 ### Set up the channel to store files
 
 1. Create a new Telegram private channel (New Channel in the menu on the left)
 2. There should be a message like "Channel created". Right click the message and copy the post link.
-3. The format of the link should be like `https://t.me/c/1234567/1`, where `1234567` is the channel id. Copy the channel id to the .env.local file (`TELEGRAM_PRIVATE_FILE_CHANNEL`)
+3. The format of the link should be like `https://t.me/c/1234567/1`, where `1234567` is the channel id. Copy the channel id to the config file (`telegram -> private_file_channel`)
 
-### Create a Telegram bot
+### Create a Telegram bot (Optional, if you don't want to use your own account)
 
-1. Go to [BotFather](https://t.me/botfather), create a new bot and copy the token to the .env.local file (`TELEGRAM_BOT_TOKEN`)
+1. Go to [BotFather](https://t.me/botfather), create a new bot and copy the token to the config file (`telegram -> bot_token`)
 2. Add the bot to the channel as an administrator
 
-### Choose where to store the session file
+### Choose where to store the session file (Optional)
 
-1. You can do this by editing the `TELEGRAM_SESSION_FILE` variable in the .env.local file. The default value is `~/.tgfs/account.session`
+1. You can do this by editing the `telegram -> session_file` variable in the config file. The default path is `~/.tgfs/account.session`
 
-## usage
+## cmd usage
 
 - ls
-
+  
   ```bash
-  $ tgfs ls /
+  $ tgfs cmd ls /
   ```
 
 - mkdir
-
+  
   ```bash
-  $ tgfs mkdir /documents
+  $ tgfs cmd mkdir /documents
+  ```
+  
+  ```bash
+  $ tgfs cmd mkdir -p /documents/pictures
   ```
 
 - cp
-
+  
   ```bash
-  $ tgfs cp ~/some-file /
+  $ tgfs cmd cp ~/some-file /
   ```
 
 - rm
-
+  
   ```bash
-  $ tgfs rm /some-file
+  $ tgfs cmd rm /some-file
   ```
+  
+  ```bash
+  $ tgfs cmd rm -r /some-folder
+  ```
+
+## Use it as a WebDAV server
+
+```
+$ tgfs -w [-h HOST] [-p PORT]
+```
+
+or
+
+```
+$ tgfs --webdav [-h HOST] [-p PORT]
+```
+
+Tested WebDAV Clients:
+
+- [Cyberduck](https://cyberduck.io/)
+- [File Stash](https://www.filestash.app/)

@@ -1,15 +1,14 @@
 import { hideBin } from 'yargs/helpers';
-import yargs from 'yargs/yargs';
 
-export const parse = () => {
-  const argv: any = yargs(hideBin(process.argv))
+export const parser = (yargs: any) =>
+  yargs
     .command('ls <path>', 'list all files and directories', {
       path: {
         type: 'string',
         description: 'path to list',
       },
     })
-    .command('mkdir <path>', 'create a directory', (yargs) => {
+    .command('mkdir <path>', 'create a directory', (yargs: any) => {
       return yargs
         .positional('path', {
           type: 'string',
@@ -30,7 +29,7 @@ export const parse = () => {
         type: 'string',
       },
     })
-    .command('rm <path>', 'remove a file or directory', (yargs) => {
+    .command('rm <path>', 'remove a file or directory', (yargs: any) => {
       return yargs
         .positional('path', {
           describe: 'File or directory to remove',
@@ -42,14 +41,11 @@ export const parse = () => {
           type: 'boolean',
         });
     })
-    .command('touch <path>', 'create a file', (yargs) => {
+    .command('touch <path>', 'create a file', (yargs: any) => {
       return yargs.positional('path', {
         describe: 'path to create',
         type: 'string',
       });
     })
     .demandCommand(1, 'You need at least one command before moving on')
-    .help().argv;
-
-  return argv;
-};
+    .help();
