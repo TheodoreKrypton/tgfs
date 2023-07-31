@@ -1,6 +1,3 @@
-import { Writable } from 'stream';
-
-import * as fs from 'fs';
 import { Api, TelegramClient } from 'telegram';
 import { DownloadMediaInterface } from 'telegram/client/downloads';
 import { CustomFile } from 'telegram/client/uploads';

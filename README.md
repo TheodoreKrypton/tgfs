@@ -34,10 +34,6 @@ $ alias tgfs="yarn start:prod"
 1. Go to [BotFather](https://t.me/botfather), create a new bot and copy the token to the config file (`telegram -> bot_token`)
 2. Add the bot to the channel as an administrator
 
-### Choose where to store the session file (Optional)
-
-1. You can do this by editing the `telegram -> session_file` variable in the config file. The default path is `~/.tgfs/account.session`
-
 ## cmd usage
 
 - ls
@@ -75,16 +71,28 @@ $ alias tgfs="yarn start:prod"
 ## Use it as a WebDAV server
 
 ```
-$ tgfs -w [-h HOST] [-p PORT]
+$ tgfs -w
 ```
 
 or
 
 ```
-$ tgfs --webdav [-h HOST] [-p PORT]
+$ tgfs --webdav
 ```
 
 Tested WebDAV Clients:
 
 - [Cyberduck](https://cyberduck.io/)
 - [File Stash](https://www.filestash.app/)
+
+## Config fields explanation
+
+- telegram
+
+  - session_file: The file path to store the session data. If you want to use multiple accounts, you can set different session files for each account.
+
+- webdav
+  - host: The host of the WebDAV server listening on.
+  - port: The port of the WebDAV server listening on.
+  - users: The users of the WebDAV server.
+    - password: The password of the user.

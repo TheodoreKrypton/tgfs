@@ -9,12 +9,12 @@ import { Logger } from '../utils/logger';
 export const login =
   (relogin: (client: TelegramClient) => Promise<void>) =>
   async (reset: boolean = false) => {
-    const apiId = config.TELEGRAM_API_ID;
-    const apiHash = config.TELEGRAM_API_HASH;
+    const apiId = config.telegram.api_id;
+    const apiHash = config.telegram.api_hash;
 
-    if (!reset && fs.existsSync(config.TELEGRAM_SESSION_FILE)) {
+    if (!reset && fs.existsSync(config.telegram.session_file)) {
       const session = new StringSession(
-        String(fs.readFileSync(config.TELEGRAM_SESSION_FILE)),
+        String(fs.readFileSync(config.telegram.session_file)),
       );
       const client = new TelegramClient(session, apiId, apiHash, {
         connectionRetries: 5,
@@ -22,7 +22,7 @@ export const login =
 
       try {
         await client.connect();
-        return new Client(client, config.TELEGRAM_PRIVATE_FILE_CHANNEL);
+        return new Client(client, config.telegram.private_file_channel);
       } catch (err) {
         Logger.error(err);
       }
@@ -35,9 +35,9 @@ export const login =
     await relogin(client);
 
     fs.writeFileSync(
-      config.TELEGRAM_SESSION_FILE,
+      config.telegram.session_file,
       String(client.session.save()),
     );
 
-    return new Client(client, config.TELEGRAM_PRIVATE_FILE_CHANNEL);
+    return new Client(client, config.telegram.private_file_channel);
   };

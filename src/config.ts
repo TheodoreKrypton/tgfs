@@ -8,25 +8,27 @@ export const loadConfig = (configPath: string) => {
   const file = fs.readFileSync(configPath, 'utf8');
   const cfg = yaml.load(file);
 
-  let TELEGRAM_SESSION_FILE = cfg['telegram']['session_file'];
-  if (TELEGRAM_SESSION_FILE[0] === '~') {
-    TELEGRAM_SESSION_FILE = path.join(
-      process.env.HOME,
-      TELEGRAM_SESSION_FILE.slice(1),
-    );
+  let session_file = cfg['telegram']['session_file'];
+  if (session_file[0] === '~') {
+    session_file = path.join(process.env.HOME, session_file.slice(1));
   }
-  if (!fs.existsSync(TELEGRAM_SESSION_FILE)) {
-    const dir = TELEGRAM_SESSION_FILE.substring(
-      0,
-      TELEGRAM_SESSION_FILE.lastIndexOf('/'),
-    );
+  if (!fs.existsSync(session_file)) {
+    const dir = session_file.substring(0, session_file.lastIndexOf('/'));
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  config.TELEGRAM_API_ID = cfg['telegram']['api_id'];
-  config.TELEGRAM_API_HASH = cfg['telegram']['api_hash'];
-  config.TELEGRAM_SESSION_FILE = TELEGRAM_SESSION_FILE;
-  config.TELEGRAM_BOT_TOKEN = cfg['telegram']['bot_token'];
-  config.TELEGRAM_PRIVATE_FILE_CHANNEL = `-100${cfg['telegram']['private_file_channel']}`;
-  config.TELEGRAM_PUBLIC_FILE_CHANNEL = cfg['telegram']['public_file_channel'];
+  config.telegram = {
+    api_id: cfg['telegram']['api_id'],
+    api_hash: cfg['telegram']['api_hash'],
+    bot_token: cfg['telegram']['bot_token'],
+    private_file_channel: `-100${cfg['telegram']['private_file_channel']}`,
+    public_file_channel: cfg['telegram']['public_file_channel'],
+    session_file: session_file,
+  };
+
+  config.webdav = {
+    host: cfg['webdav']['host'],
+    port: cfg['webdav']['port'],
+    users: cfg['webdav']['users'],
+  };
 };

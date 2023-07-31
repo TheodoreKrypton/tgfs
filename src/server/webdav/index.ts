@@ -1,6 +1,7 @@
 import { v2 as webdav } from 'webdav-server';
 
 import { Client } from '../../api';
+import { config } from '../../config';
 import { TGFSFileSystem } from './tgfs-filesystem';
 
 export const runWebDAVServer = async (
@@ -11,7 +12,12 @@ export const runWebDAVServer = async (
 
   server.httpAuthentication = new webdav.HTTPBasicAuthentication({
     getUserByNamePassword: (username, password, cb) => {
-      cb(null, { uid: username, username });
+      const user = config.webdav.users[username];
+      if (user && user.password === password) {
+        cb(null, { uid: username, username });
+      } else {
+        cb(webdav.Errors.UserNotFound);
+      }
     },
     getDefaultUser(cb) {
       cb(null);

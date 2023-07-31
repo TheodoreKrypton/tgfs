@@ -6,7 +6,7 @@ import { Client } from './api';
 import { loginAsBot, loginAsUser } from './auth';
 import { Executor } from './commands/executor';
 import { parser } from './commands/parser';
-import { loadConfig } from './config';
+import { config, loadConfig } from './config';
 import { BusinessError } from './errors/base';
 import { runWebDAVServer } from './server/webdav';
 import { Logger } from './utils/logger';
@@ -23,23 +23,6 @@ const { argv }: any = yargs(hideBin(process.argv))
     describe: 'start webdav server',
     type: 'boolean',
     default: false,
-  })
-  .option('host', {
-    alias: 'h',
-    describe: 'webdav server host',
-    type: 'string',
-    requiresArg: false,
-  })
-  .option('port', {
-    alias: 'p',
-    describe: 'webdav server port',
-    type: 'number',
-    requiresArg: false,
-  })
-  .option('login', {
-    describe: 'login method',
-    choices: ['bot', 'user'],
-    default: 'user',
   })
   .command('cmd *', 'run command', parser);
 
@@ -58,8 +41,8 @@ loadConfig(argv.config);
 
   if (argv.webdav) {
     await runWebDAVServer(client, {
-      port: argv.port,
-      hostname: argv.host,
+      port: argv.port ?? config.webdav.port,
+      hostname: argv.host ?? config.webdav.host,
     });
   } else if (argv._[0] === 'cmd') {
     argv._.shift();

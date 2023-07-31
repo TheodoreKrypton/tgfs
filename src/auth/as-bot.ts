@@ -4,7 +4,7 @@ import { login } from './login';
 
 export const loginAsBot = login(async (client) => {
   await client.start({
-    botAuthToken: config.TELEGRAM_BOT_TOKEN,
+    botAuthToken: config.telegram.bot_token,
     onError: (err) => Logger.error(err),
   });
 });

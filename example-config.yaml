@@ -5,3 +5,10 @@ telegram:
   session_file: ~/.tgfs/your_account.session (optional, default to ~/.tgfs/account.session)
   private_file_channel: your_channel_id (mandatory, refer to README)
   public_file_channel: another_channel_id (optional)
+
+webdav:
+  host: 0.0.0.0
+  port: 1900
+  users:
+    user:
+      password: password
