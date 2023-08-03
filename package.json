@@ -38,10 +38,9 @@
     "typescript": "^5.1.6"
   },
   "pkg": {
-    "scripts": "./dist/src/server/webdav/index.js"
+    "scripts": "./dist/src/index.js"
   },
   "bin": {
-    "tgfs-webdav": "./dist/src/server/webdav/index.js",
-    "tgfs": "./dist/src/cmd.js"
+    "tgfs": "./dist/src/index.js"
   }
 }

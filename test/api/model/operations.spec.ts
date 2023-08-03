@@ -1,6 +1,5 @@
+import { sleep } from '../../../src/utils/sleep';
 import { createClient } from '../../utils/mock-tg-client';
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('file and directory operations', () => {
   describe('create / remove directories', () => {

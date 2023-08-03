@@ -3,13 +3,14 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
 import { Client } from './api';
-import { loginAsBot, loginAsUser } from './auth';
+import { loginAsUser } from './auth';
 import { Executor } from './commands/executor';
 import { parser } from './commands/parser';
 import { config, loadConfig } from './config';
 import { BusinessError } from './errors/base';
 import { runWebDAVServer } from './server/webdav';
 import { Logger } from './utils/logger';
+import { sleep } from './utils/sleep';
 
 const { argv }: any = yargs(hideBin(process.argv))
   .option('config', {
@@ -30,11 +31,12 @@ loadConfig(argv.config);
 
 (async () => {
   let client: Client;
-
-  if (argv.login === 'user') {
-    client = await loginAsUser();
+  const res = await Promise.race([loginAsUser(), sleep(300000)]);
+  if (res instanceof Client) {
+    client = res;
   } else {
-    client = await loginAsBot();
+    Logger.error('login timeout');
+    exit(1);
   }
 
   await client.init();

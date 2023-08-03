@@ -29,11 +29,6 @@ $ alias tgfs="yarn start:prod"
 2. There should be a message like "Channel created". Right click the message and copy the post link.
 3. The format of the link should be like `https://t.me/c/1234567/1`, where `1234567` is the channel id. Copy the channel id to the config file (`telegram -> private_file_channel`)
 
-### Create a Telegram bot (Optional, if you don't want to use your own account)
-
-1. Go to [BotFather](https://t.me/botfather), create a new bot and copy the token to the config file (`telegram -> bot_token`)
-2. Add the bot to the channel as an administrator
-
 ## cmd usage
 
 - ls

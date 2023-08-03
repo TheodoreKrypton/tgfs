@@ -24,6 +24,7 @@ export const loadConfig = (configPath: string) => {
     private_file_channel: `-100${cfg['telegram']['private_file_channel']}`,
     public_file_channel: cfg['telegram']['public_file_channel'],
     session_file: session_file,
+    login: cfg['telegram']['login'],
   };
 
   config.webdav = {
