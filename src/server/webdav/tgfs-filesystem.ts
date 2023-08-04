@@ -1,6 +1,5 @@
 import { Readable, Writable } from 'stream';
 
-import * as fs from 'fs';
 import 'webdav-server/lib/index.v2';
 import {
   CreateInfo,
@@ -13,6 +12,7 @@ import {
   IPropertyManager,
   LastModifiedDateInfo,
   LocalLockManager,
+  LocalPropertyManager,
   LockManagerInfo,
   OpenReadStreamInfo,
   OpenWriteStreamInfo,
@@ -36,19 +36,18 @@ import {
 } from '../../api/ops';
 import { loginAsBot } from '../../auth';
 import { TGFSDirectory, TGFSFileRef } from '../../model/directory';
-import { TGFSPropertyManager } from './tgfs-propertymanager';
 
 export class TGFSFileSystemResource {
-  props: TGFSPropertyManager;
+  props: LocalPropertyManager;
   locks: LocalLockManager;
 
   constructor(data?: TGFSFileSystemResource) {
     if (!data) {
-      this.props = new TGFSPropertyManager();
+      this.props = new LocalPropertyManager();
       this.locks = new LocalLockManager();
     } else {
       const rs = data as TGFSFileSystemResource;
-      this.props = new TGFSPropertyManager(rs.props);
+      this.props = new LocalPropertyManager(rs.props);
       this.locks = new LocalLockManager();
     }
   }
@@ -219,7 +218,7 @@ export class TGFSFileSystem extends FileSystem {
     ctx: PropertyManagerInfo,
     callback: ReturnCallback<IPropertyManager>,
   ): void {
-    callback(null, new TGFSPropertyManager());
+    callback(null, new LocalPropertyManager());
   }
 
   protected _type(
