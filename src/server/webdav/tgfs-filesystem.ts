@@ -96,14 +96,8 @@ export class TGFSFileSystem extends FileSystem {
   ): void {
     if (ctx.type.isDirectory) {
       call(callback)(createDir(this.tgClient)(path.toString(), false));
-    } else if (ctx.type.isFile) {
-      if (ctx.context.headers.contentLength === 0) {
-        callback(null);
-      } else {
-        callback(null);
-      }
     } else {
-      callback(Errors.InvalidOperation);
+      callback(null);
     }
   }
 
