@@ -4,7 +4,8 @@
   "description": "Use telegram as file storage",
   "main": "index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc",
+    "prepublishOnly": "yarn build",
     "start": "yarn build && node dist/src/index.js",
     "start:prod": "node dist/src/index.js",
     "test": "yarn jest",
@@ -44,5 +45,8 @@
   },
   "bin": {
     "tgfs": "./dist/src/index.js"
-  }
+  },
+  "files": [
+    "./dist"
+  ]
 }
