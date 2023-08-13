@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 import { exit } from 'process';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
@@ -11,6 +10,7 @@ import { parser } from './commands/parser';
 import { config, loadConfig } from './config';
 import { BusinessError } from './errors/base';
 import { runWebDAVServer } from './server/webdav';
+import { runSync } from './sync';
 import { Logger } from './utils/logger';
 import { sleep } from './utils/sleep';
 
@@ -42,6 +42,8 @@ loadConfig(argv.config);
   }
 
   await client.init();
+
+  // runSync();
 
   if (argv.webdav) {
     await runWebDAVServer(client, {

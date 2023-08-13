@@ -27,9 +27,18 @@ export const loadConfig = (configPath: string) => {
     login: cfg['telegram']['login'],
   };
 
+  config.tgfs = {
+    download: {
+      chunksize: cfg['tgfs']['download']['chunk_size_kb'] ?? 1024,
+      progress: cfg['tgfs']['download']['progress'] ?? true,
+    },
+  };
+
   config.webdav = {
     host: cfg['webdav']['host'],
     port: cfg['webdav']['port'],
     users: cfg['webdav']['users'],
   };
+
+  config.sync = cfg['sync'];
 };

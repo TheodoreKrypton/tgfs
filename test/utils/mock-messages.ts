@@ -1,26 +1,19 @@
-import { EditMessageParams, SendMessageParams } from 'telegram/client/messages';
-
 export class MockMessages {
   messages: any = {};
   messageId: number = 1;
   pinnedMessageId: number;
 
-  sendMessage(msg: SendMessageParams) {
+  sendMessage(msg: any) {
     const { file, message } = msg;
-    let f: any = file;
-
-    if (file instanceof Buffer) {
-      // file can be CustomFile or a plain buffer
-      f = {
-        buffer: file,
-      };
-    }
 
     const messageId = ++this.messageId;
     this.messages[messageId] = {
       id: messageId,
       text: message,
-      file: f,
+      document:
+        file instanceof Buffer
+          ? { id: messageId, buffer: file, size: file.length }
+          : { id: messageId, ...file },
     };
     return messageId;
   }
@@ -30,16 +23,19 @@ export class MockMessages {
     return {
       id: message.id,
       text: message.text,
-      file: message.file?.buffer ?? message.file,
+      document: message.document,
     };
   }
 
-  editMessage(messageId: number, msg: EditMessageParams) {
+  editMessage(messageId: number, msg: any) {
     const { file, text } = msg;
     this.messages[messageId] = {
       ...this.messages[messageId],
       text,
-      file,
+      document:
+        file instanceof Buffer
+          ? { id: messageId, buffer: file, size: file.length }
+          : { id: messageId, ...file },
     };
   }
 }

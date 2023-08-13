@@ -1,9 +1,12 @@
+import cliProgress from 'cli-progress';
+
+import fs from 'fs';
 import { Api, TelegramClient } from 'telegram';
-import { DownloadMediaInterface } from 'telegram/client/downloads';
+import { IterDownloadFunction } from 'telegram/client/downloads';
 import { CustomFile } from 'telegram/client/uploads';
 import { FileLike } from 'telegram/define';
-import { OutFile } from 'telegram/define';
 
+import { config } from '../config';
 import { TechnicalError } from '../errors/base';
 import { DirectoryIsNotEmptyError } from '../errors/path';
 import { TGFSDirectory, TGFSFileRef } from '../model/directory';
@@ -57,27 +60,54 @@ export class Client {
 
     versions.forEach((version, i) => {
       const fileMessage = fileMessages[i];
-      version.size = Number(fileMessage.file.size);
+      version.size = Number(fileMessage.document.size);
     });
 
     return file;
   }
 
   private async downloadMediaByMessageId(
-    messageIds: number,
-    downloadParams?: DownloadMediaInterface,
+    file: { name: string; messageId: number },
+    withProgressBar?: boolean,
+    options?: IterDownloadFunction,
   ) {
-    return await this.client.downloadMedia(
-      (
-        await this.getMessagesByIds([messageIds])
-      )[0],
-      downloadParams,
-    );
+    const message = (await this.getMessagesByIds([file.messageId]))[0];
+
+    const fileSize = Number(message.document.size);
+    const chunkSize = config.tgfs.download.chunksize * 1024;
+
+    let pgBar: cliProgress.SingleBar;
+    if (withProgressBar) {
+      pgBar = new cliProgress.SingleBar({
+        format: `${file.name} [{bar}] {percentage}%`,
+      });
+      pgBar.start(fileSize, 0);
+    }
+
+    const buffer = Buffer.alloc(fileSize);
+    let i = 0;
+    for await (const chunk of this.client.iterDownload({
+      file: new Api.InputDocumentFileLocation({
+        id: message.document.id,
+        accessHash: message.document.accessHash,
+        fileReference: message.document.fileReference,
+        thumbSize: '',
+      }),
+      requestSize: chunkSize,
+    })) {
+      chunk.copy(buffer, i * chunkSize, 0, Number(chunk.length));
+      i += 1;
+
+      if (withProgressBar) {
+        pgBar.update(i * chunkSize);
+      }
+    }
+    return buffer;
   }
 
   public async downloadFileAtVersion(
     fileRef: TGFSFileRef,
-    outputFile?: OutFile,
+    outputFile?: string | fs.WriteStream,
     versionId?: string,
   ): Promise<Buffer | null> {
     const tgfsFile = await this.getFileFromFileRef(fileRef);
@@ -86,19 +116,27 @@ export class Client {
       ? tgfsFile.getVersion(versionId)
       : tgfsFile.getLatest();
 
-    if (outputFile) {
-      await this.downloadMediaByMessageId(version.messageId, {
-        outputFile,
-      });
-    } else {
-      const res = await this.downloadMediaByMessageId(version.messageId);
-      if (res instanceof Buffer) {
-        return res;
-      } else {
-        throw new TechnicalError(
-          `Downloaded file is not a buffer. ${this.privateChannelId}/${version.messageId}`,
-        );
+    const res = await this.downloadMediaByMessageId(
+      { messageId: version.messageId, name: tgfsFile.name },
+      true,
+    );
+    if (res instanceof Buffer) {
+      if (outputFile) {
+        if (outputFile instanceof fs.WriteStream) {
+          outputFile.write(res);
+        } else {
+          fs.writeFile(outputFile, res, (err) => {
+            if (err) {
+              throw err;
+            }
+          });
+        }
       }
+      return res;
+    } else {
+      throw new TechnicalError(
+        `Downloaded file is not a buffer. ${this.privateChannelId}/${version.messageId}`,
+      );
     }
   }
 
@@ -113,7 +151,14 @@ export class Client {
       return null;
     }
     const metadata = TGFSMetadata.fromObject(
-      JSON.parse(String(await this.downloadMediaByMessageId(pinnedMessage.id))),
+      JSON.parse(
+        String(
+          await this.downloadMediaByMessageId(
+            { messageId: pinnedMessage.id, name: 'metadata.json' },
+            false,
+          ),
+        ),
+      ),
     );
     metadata.msgId = pinnedMessage.id;
     return metadata;

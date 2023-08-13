@@ -2,6 +2,7 @@ import { v2 as webdav } from 'webdav-server';
 
 import { Client } from '../../api';
 import { config } from '../../config';
+import { Logger } from '../../utils/logger';
 import { TGFSFileSystem } from './tgfs-filesystem';
 
 export const runWebDAVServer = async (
@@ -23,10 +24,14 @@ export const runWebDAVServer = async (
       cb(null);
     },
   });
+  server.beforeRequest((ctx, next) => {
+    Logger.info(ctx.request.method, ctx.requested.uri);
+    next();
+  });
   server.setFileSystemSync('/', new TGFSFileSystem(client));
   server.start((httpServer) => {
     const address = httpServer.address() as any;
-    console.info(
+    Logger.info(
       `WebDAV server is running on ${address.address}:${address.port}`,
     );
   });

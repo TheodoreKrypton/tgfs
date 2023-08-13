@@ -1,5 +1,4 @@
 import { Api, TelegramClient } from 'telegram';
-import { DownloadMediaInterface } from 'telegram/client/downloads';
 import { EditMessageParams, SendMessageParams } from 'telegram/client/messages';
 import { SendFileInterface } from 'telegram/client/uploads';
 import { EntityLike } from 'telegram/define';
@@ -8,10 +7,26 @@ import { Client } from 'src/api';
 
 import { MockMessages } from './mock-messages';
 
+jest.mock('src/config', () => {
+  return {
+    config: {
+      tgfs: {
+        download: {
+          chunksize: 1024,
+          progress: false,
+        },
+      },
+    },
+  };
+});
+
 jest.mock('telegram', () => {
   return {
     Api: {
       InputMessagesFilterPinned: jest.fn(),
+      InputDocumentFileLocation: jest.fn().mockImplementation((file) => {
+        return { id: file.id };
+      }),
     },
     TelegramClient: jest
       .fn()
@@ -38,16 +53,29 @@ jest.mock('telegram', () => {
                   return { id: messageId };
                 },
               ),
-            downloadMedia: jest
+            iterDownload: jest
               .fn()
-              .mockImplementation(
-                (
-                  messageOrMedia: { id: number },
-                  downloadParams?: DownloadMediaInterface,
-                ) => {
-                  return mockMessages.getMessage(messageOrMedia.id).file;
-                },
-              ),
+              .mockImplementation((file: any, options?: any) => {
+                const message = mockMessages.getMessage(file.file.id);
+                let done = false;
+                return {
+                  [Symbol.asyncIterator]() {
+                    return {
+                      next() {
+                        const res = Promise.resolve({
+                          value: message.document.buffer,
+                          done,
+                        });
+                        done = !done;
+                        return res;
+                      },
+                      return() {
+                        return { done: true };
+                      },
+                    };
+                  },
+                };
+              }),
             pinMessage: jest
               .fn()
               .mockImplementation((entity: EntityLike, id: number) => {
