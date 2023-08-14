@@ -1,4 +1,5 @@
 import { Api, TelegramClient } from 'telegram';
+import { IterDownloadFunction } from 'telegram/client/downloads';
 import { EditMessageParams, SendMessageParams } from 'telegram/client/messages';
 import { SendFileInterface } from 'telegram/client/uploads';
 import { EntityLike } from 'telegram/define';
@@ -25,7 +26,7 @@ jest.mock('telegram', () => {
     Api: {
       InputMessagesFilterPinned: jest.fn(),
       InputDocumentFileLocation: jest.fn().mockImplementation((file) => {
-        return { id: file.id };
+        return file;
       }),
     },
     TelegramClient: jest
@@ -55,15 +56,18 @@ jest.mock('telegram', () => {
               ),
             iterDownload: jest
               .fn()
-              .mockImplementation((file: any, options?: any) => {
-                const message = mockMessages.getMessage(file.file.id);
+              .mockImplementation((iterFileParams: IterDownloadFunction) => {
+                const { file: fileLoc } = iterFileParams;
+                const file = mockMessages.getFile(
+                  Number((fileLoc as Api.InputDocumentFileLocation).id),
+                );
                 let done = false;
                 return {
                   [Symbol.asyncIterator]() {
                     return {
                       next() {
                         const res = Promise.resolve({
-                          value: message.document.buffer,
+                          value: file.buffer,
                           done,
                         });
                         done = !done;
