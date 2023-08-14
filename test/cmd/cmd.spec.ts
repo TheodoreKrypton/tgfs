@@ -40,7 +40,7 @@ describe('commands', () => {
 
       jest.replaceProperty(process, 'argv', ['ls', '/']);
       await executor.execute(parse());
-      expect(console.log).toHaveBeenCalledWith('d1 f1');
+      expect(console.log).toHaveBeenCalledWith('d1  f1');
     });
 
     it('should throw an error if path does not exist', () => {
