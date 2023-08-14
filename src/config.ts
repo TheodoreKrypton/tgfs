@@ -1,5 +1,6 @@
 import fs from 'fs';
 import yaml from 'js-yaml';
+import os from 'os';
 import path from 'path';
 
 export const config: any = {};
@@ -10,10 +11,10 @@ export const loadConfig = (configPath: string) => {
 
   let session_file = cfg['telegram']['session_file'];
   if (session_file[0] === '~') {
-    session_file = path.join(process.env.HOME, session_file.slice(1));
+    session_file = path.join(os.homedir(), session_file.slice(1));
   }
   if (!fs.existsSync(session_file)) {
-    const dir = session_file.substring(0, session_file.lastIndexOf('/'));
+    const dir = path.dirname(session_file);
     fs.mkdirSync(dir, { recursive: true });
   }
 
