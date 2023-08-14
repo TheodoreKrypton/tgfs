@@ -1,6 +1,5 @@
 import { Readable, Writable } from 'stream';
 
-import 'webdav-server/lib/index.v2';
 import {
   CreateInfo,
   CreationDateInfo,
@@ -36,22 +35,9 @@ import {
 } from '../../api/ops';
 import { loginAsBot } from '../../auth';
 import { TGFSDirectory, TGFSFileRef } from '../../model/directory';
+import { Logger } from '../../utils/logger';
 
-export class TGFSFileSystemResource {
-  props: LocalPropertyManager;
-  locks: LocalLockManager;
-
-  constructor(data?: TGFSFileSystemResource) {
-    if (!data) {
-      this.props = new LocalPropertyManager();
-      this.locks = new LocalLockManager();
-    } else {
-      const rs = data as TGFSFileSystemResource;
-      this.props = new LocalPropertyManager(rs.props);
-      this.locks = new LocalLockManager();
-    }
-  }
-}
+const lockManager = new LocalLockManager();
 
 export class TGFSSerializer implements FileSystemSerializer {
   uid(): string {
@@ -79,7 +65,7 @@ const call =
     then: (...args: any) => any = () => callback(null),
   ) => {
     promise.then(then).catch((e) => {
-      console.error('error', e);
+      Logger.error(e);
       callback(e);
     });
   };
@@ -204,7 +190,7 @@ export class TGFSFileSystem extends FileSystem {
     ctx: LockManagerInfo,
     callback: ReturnCallback<ILockManager>,
   ): void {
-    callback(null, new LocalLockManager());
+    callback(null, lockManager);
   }
 
   protected _propertyManager(
@@ -246,7 +232,14 @@ export class TGFSFileSystem extends FileSystem {
         next();
       },
       final(cb) {
-        call(cb)(uploadBytes(tgClient)(Buffer.concat(chunks), path.toString()));
+        const buffer = Buffer.concat(chunks);
+        if (buffer.length > 0) {
+          call(cb)(
+            uploadBytes(tgClient)(Buffer.concat(chunks), path.toString()),
+          );
+        } else {
+          cb(null);
+        }
       },
     });
     callback(null, writable);

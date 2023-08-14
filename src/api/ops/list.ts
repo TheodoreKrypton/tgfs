@@ -15,7 +15,7 @@ export const list = (client: Client) => async (path: PathLike) => {
     nextDir = dir.findChildren([name])[0];
   }
   if (nextDir) {
-    return [...nextDir.findChildren(), ...dir.findFiles()];
+    return [...nextDir.findChildren(), ...nextDir.findFiles()];
   } else {
     const nextFile = dir.findFiles([name])[0];
     if (nextFile) {

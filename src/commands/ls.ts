@@ -13,7 +13,7 @@ export const ls = (client: Client) => async (argv: { path: PathLike }) => {
       .map((item: TGFSDirectory | TGFSFileRef) => {
         return item.name;
       })
-      .join(' ');
+      .join('  ');
   } else {
     return fileInfo(client, res);
   }

@@ -1,4 +1,5 @@
 import { v2 as webdav } from 'webdav-server';
+import { PhysicalFileSystem } from 'webdav-server/lib/index.v2';
 
 import { Client } from '../../api';
 import { config } from '../../config';
@@ -24,11 +25,17 @@ export const runWebDAVServer = async (
       cb(null);
     },
   });
+
   server.beforeRequest((ctx, next) => {
     Logger.info(ctx.request.method, ctx.requested.uri);
     next();
   });
+  server.afterRequest((ctx, next) => {
+    Logger.info(ctx.request.method, ctx.response.statusCode);
+    next();
+  });
   server.setFileSystemSync('/', new TGFSFileSystem(client));
+
   server.start((httpServer) => {
     const address = httpServer.address() as any;
     Logger.info(
