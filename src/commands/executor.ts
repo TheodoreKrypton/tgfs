@@ -4,7 +4,6 @@ import { cp } from './cp';
 import { ls } from './ls';
 import { mkdir } from './mkdir';
 import { rm } from './rm';
-import { touch } from './touch';
 
 export class Executor {
   constructor(private readonly client: Client) {}
@@ -24,9 +23,6 @@ export class Executor {
         break;
       case 'rm':
         rsp = await rm(this.client)(argv);
-        break;
-      case 'touch':
-        rsp = await touch(this.client)(argv);
         break;
       default:
         throw new UnknownCommandError(argv._[0]);

@@ -3,7 +3,7 @@ import yargs from 'yargs/yargs';
 
 import { Client } from 'src/api';
 import { createDir } from 'src/api/ops/create-dir';
-import { createEmptyFile } from 'src/api/ops/create-empty-file';
+import { uploadBytes } from 'src/api/ops';
 import { list } from 'src/api/ops/list';
 import { removeDir } from 'src/api/ops/remove-dir';
 import { Executor } from 'src/commands/executor';
@@ -35,7 +35,7 @@ describe('commands', () => {
     });
 
     it('should list files and directories', async () => {
-      await createEmptyFile(client)('/f1');
+      await uploadBytes(client)(Buffer.from(''), '/f1');
       await createDir(client)('/d1', false);
 
       jest.replaceProperty(process, 'argv', ['ls', '/']);
@@ -155,16 +155,6 @@ describe('commands', () => {
       await executor.execute(parse());
 
       expect(client.getRootDirectory().findChildren(['d1']).length).toEqual(0);
-    });
-  });
-
-  describe('touch', () => {
-    it('should create a file', async () => {
-      jest.replaceProperty(process, 'argv', ['touch', '/f1']);
-      await executor.execute(parse());
-
-      const f1 = client.getRootDirectory().findFiles(['f1'])[0];
-      expect(f1.name).toEqual('f1');
     });
   });
 });
