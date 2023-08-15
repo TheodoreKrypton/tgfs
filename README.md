@@ -79,7 +79,7 @@ Tested WebDAV Clients:
 
 ### Automatically:
 
-A config file will be auto-generated when you run the program for the first time.
+A config file will be auto-generated when you run the program for the first time. Just follow the instructions to create a Telegram app and a private channel to store the files.
 
 ### Manually:
 
