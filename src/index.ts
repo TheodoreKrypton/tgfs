@@ -7,12 +7,13 @@ import { Client } from './api';
 import { loginAsUser } from './auth';
 import { Executor } from './commands/executor';
 import { parser } from './commands/parser';
-import { config, loadConfig } from './config';
+import { config, createConfig, loadConfig } from './config';
 import { BusinessError } from './errors/base';
 import { runWebDAVServer } from './server/webdav';
 import { runSync } from './sync';
 import { Logger } from './utils/logger';
 import { sleep } from './utils/sleep';
+import fs from 'fs';
 
 const { argv }: any = yargs(hideBin(process.argv))
   .option('config', {
@@ -29,9 +30,13 @@ const { argv }: any = yargs(hideBin(process.argv))
   })
   .command('cmd *', 'run command', parser);
 
-loadConfig(argv.config);
-
 (async () => {
+  let configPath = argv.config;
+  if (!fs.existsSync(configPath)) {
+    configPath = await createConfig();
+  }
+  loadConfig(configPath);
+
   let client: Client;
   const res = await Promise.race([loginAsUser(), sleep(300000)]);
   if (res instanceof Client) {

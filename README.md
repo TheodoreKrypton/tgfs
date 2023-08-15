@@ -21,19 +21,24 @@ $ yarn install && yarn build
 $ alias tgfs="yarn start:prod"
 ```
 
-## Step by Step Guide to Set up config
+## Use it as a WebDAV server
 
-### First step
+```
+$ tgfs -w
+```
 
-1. Duplicate the `example-config.yaml` file and name it `config.yaml`
-2. Go to [Here](https://my.telegram.org/apps), login with your phone number and create a Telegram app.
-3. Copy the `api_id` and `api_hash` from the Telegram app page (step 2) to the config file (`telegram -> api_id / api_hash`)
+or
 
-### Set up the channel to store files
+```
+$ tgfs --webdav
+```
 
-1. Create a new Telegram private channel (New Channel in the menu on the left)
-2. There should be a message like "Channel created". Right click the message and copy the post link.
-3. The format of the link should be like `https://t.me/c/1234567/1`, where `1234567` is the channel id. Copy the channel id to the config file (`telegram -> private_file_channel`)
+Tested WebDAV Clients:
+
+- [Cyberduck](https://cyberduck.io/)
+- [File Stash](https://www.filestash.app/)
+- [WinSCP](https://winscp.net/eng/index.php)
+- [WebDAV Sync](http://www.re.be/webdav_sync/index.xhtml)
 
 ## cmd usage
 
@@ -69,30 +74,38 @@ $ alias tgfs="yarn start:prod"
   $ tgfs cmd rm -r /some-folder
   ```
 
-## Use it as a WebDAV server
 
-```
-$ tgfs -w
-```
+## Step by Step Guide to Set up config
 
-or
+### Automatically:
 
-```
-$ tgfs --webdav
-```
+A config file will be auto-generated when you run the program for the first time.
 
-Tested WebDAV Clients:
+### Manually:
 
-- [Cyberduck](https://cyberduck.io/)
-- [File Stash](https://www.filestash.app/)
-- [WinSCP](https://winscp.net/eng/index.php)
-- [WebDAV Sync](http://www.re.be/webdav_sync/index.xhtml)
+#### First step
+
+1. Duplicate the `example-config.yaml` file and name it `config.yaml`
+2. Go to [Here](https://my.telegram.org/apps), login with your phone number and create a Telegram app.
+3. Copy the `api_id` and `api_hash` from the Telegram app page (step 2) to the config file (`telegram -> api_id / api_hash`)
+
+#### Set up the channel to store files
+
+1. Create a new Telegram private channel (New Channel in the menu on the left)
+2. There should be a message like "Channel created". Right click the message and copy the post link.
+3. The format of the link should be like `https://t.me/c/1234567/1`, where `1234567` is the channel id. Copy the channel id to the config file (`telegram -> private_file_channel`)
+
 
 ## Config fields explanation
 
 - telegram
-
   - session_file: The file path to store the session data. If you want to use multiple accounts, you can set different session files for each account.
+  - login_timeout: Time to wait before login attempt aborts (in milliseconds).
+
+- tgfs
+  - download
+    - porgress: Whether to show a progress bar when downloading files
+    - chunk_size_kb: The chunk size in KB when downloading files. Bigger chunk size means less requests.
 
 - webdav
   - host: The host of the WebDAV server listening on.

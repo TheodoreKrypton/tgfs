@@ -2,6 +2,8 @@ import fs from 'fs';
 import yaml from 'js-yaml';
 import os from 'os';
 import path from 'path';
+import input from 'input';
+import { loginAsUser } from './auth';
 
 export const config: any = {};
 
@@ -31,7 +33,7 @@ export const loadConfig = (configPath: string) => {
   config.tgfs = {
     download: {
       chunksize: cfg['tgfs']['download']['chunk_size_kb'] ?? 1024,
-      progress: cfg['tgfs']['download']['progress'] ?? true,
+      progress: cfg['tgfs']['download']['progress'] === 'true',
     },
   };
 
@@ -43,3 +45,55 @@ export const loadConfig = (configPath: string) => {
 
   config.sync = cfg['sync'];
 };
+
+export const createConfig = async () => {
+  const createNow = await input.confirm('The config file is not found. Create a config file now?')
+
+  if (!createNow) {
+    process.exit(0);
+  }
+
+  const validateNotEmpty = (answer: string) => {
+    if (answer.trim().length > 0) {
+      return true;
+    } else {
+      return 'This field is mandatory!'
+    }
+  }
+
+  const config: any = {};
+
+  const configPath = await input.text('Where do you want to save the config file', { default: path.join(process.cwd(), "config.yaml") });
+
+  config.telegram = {};
+
+  console.log('\nGo to https://my.telegram.org/apps, follow the steps to log in and paste the App api_id and App api_hash here')
+  config.telegram.api_id = Number(await input.text('App api_id', { validate: validateNotEmpty }));
+  config.telegram.api_hash = await input.text('App api_hash', { validate: validateNotEmpty });
+  config.telegram.session_file = await input.text('Where do you want to save the session', { default: '~/.tgfs/account.session' });
+
+  console.log('\nCreate a PRIVATE channel and paste the channel id here');
+  config.telegram.private_file_channel = Number(await input.text('Channel to store the files', { validate: validateNotEmpty }));
+
+  config.tgfs = {
+    download: {
+      progress: 'true',
+      chunk_size_kb: 1024
+    }
+  }
+
+  config.webdav = {
+    host: '0.0.0.0',
+    port: 1900,
+    users: {
+      user: {
+        password: 'password'
+      }
+    }
+  }
+
+  const yamlString = yaml.dump(config);
+
+  fs.writeFileSync(configPath, yamlString);
+  return configPath;
+}
