@@ -36,6 +36,7 @@ $ tgfs --webdav
 Tested WebDAV Clients:
 
 - [Cyberduck](https://cyberduck.io/)
+- [Mountain Duck](https://mountainduck.io/)
 - [File Stash](https://www.filestash.app/)
 - [WinSCP](https://winscp.net/eng/index.php)
 - [WebDAV Sync](http://www.re.be/webdav_sync/index.xhtml)
