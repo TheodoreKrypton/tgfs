@@ -2,9 +2,11 @@ import { Client } from '../api';
 import { TGFSFileRef } from '../model/directory';
 
 export const fileInfo = async (client: Client, fileRef: TGFSFileRef) => {
-  const info = await client.getFileInfo(fileRef);
-  const head = `${info.name}, ${Object.keys(info.versions).length} versions`;
-  const versions = info
+  const fileDesc = await client.getFileDesc(fileRef);
+  const head = `${fileDesc.name}, ${
+    Object.keys(fileDesc.versions).length
+  } versions`;
+  const versions = fileDesc
     .getVersionsSorted()
     .reverse()
     .map((ver) => `${ver.id}: updated at ${ver.updatedAt}`);

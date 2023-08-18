@@ -1,8 +1,9 @@
+import fs from 'fs';
 import { TelegramClient } from 'telegram';
 import { FileLike } from 'telegram/define';
 
 import { TGFSDirectory, TGFSFileRef } from '../../model/directory';
-import { TGFSFile } from '../../model/file';
+import { TGFSFileVersion } from '../../model/file';
 import { validateName } from '../../utils/validate-name';
 import { DirectoryApi } from './directory-api';
 
@@ -18,78 +19,90 @@ export class Client extends DirectoryApi {
     }
   }
 
-  public async newFileUnder(
+  private async createFile(
     name: string,
     where: TGFSDirectory,
-    file: FileLike,
+    fileContent: FileLike,
   ) {
     validateName(name);
 
-    const uploadFileMsg = await this.sendFile(file);
-
-    const tgfsFile = new TGFSFile(name);
-    tgfsFile.addVersionFromFileMessage(uploadFileMsg);
-
-    const tgfsFileMsg = await this.send(JSON.stringify(tgfsFile.toObject()));
-
-    const tgfsFileRef = where.createFileRef(name, tgfsFileMsg);
+    const fdMsg = await this.createFileDesc(name, fileContent);
+    const tgfsFileRef = where.createFileRef(name, fdMsg);
 
     await this.syncMetadata();
 
     return tgfsFileRef;
   }
 
-  public async updateFile(
+  private async updateFile(
     tgfsFileRef: TGFSFileRef,
     file: FileLike,
     versionId?: string,
   ) {
-    const tgfsFile = await this.getFileFromFileRef(tgfsFileRef);
+    const fd = await this.getFileDesc(tgfsFileRef, false);
 
     const uploadFileMsg = await this.sendFile(file);
 
     if (!versionId) {
-      tgfsFile.addVersionFromFileMessage(uploadFileMsg);
+      fd.addVersionFromFileMessage(uploadFileMsg);
     } else {
-      const tgfsFileVersion = tgfsFile.getVersion(versionId);
+      const tgfsFileVersion = fd.getVersion(versionId);
       tgfsFileVersion.messageId = uploadFileMsg.id;
-      tgfsFile.updateVersion(tgfsFileVersion);
+      fd.updateVersion(tgfsFileVersion);
     }
 
-    this.client.editMessage(this.privateChannelId, {
-      message: tgfsFileRef.getMessageId(),
-      text: JSON.stringify(tgfsFile.toObject()),
-    });
-
-    await this.syncMetadata();
+    await this.updateFileDesc(tgfsFileRef, fd);
 
     return tgfsFileRef;
   }
 
-  public async putFileUnder(
-    name: string,
-    where: TGFSDirectory,
-    file: FileLike,
-  ) {
-    const tgfsFileRef = where.findFiles([name])[0];
-    if (tgfsFileRef) {
-      return await this.updateFile(tgfsFileRef, file);
+  public async deleteFile(tgfsFileRef: TGFSFileRef, version?: string) {
+    if (!version) {
+      tgfsFileRef.delete();
+      await this.syncMetadata();
     } else {
-      return await this.newFileUnder(name, where, file);
+      const fd = await this.getFileDesc(tgfsFileRef, false);
+      fd.deleteVersion(version);
+      await this.updateFileDesc(tgfsFileRef, fd);
     }
   }
 
-  public async deleteFileAtVersion(tgfsFileRef: TGFSFileRef, version?: string) {
-    if (!version) {
-      tgfsFileRef.delete();
+  public async uploadFile(
+    where: {
+      name: string;
+      under: TGFSDirectory;
+      versionId?: string;
+    },
+    file: FileLike,
+  ) {
+    const fr = where.under.findFiles([where.name])[0];
+    if (fr) {
+      return await this.updateFile(fr, file, where.versionId);
     } else {
-      const tgfsFile = await this.getFileFromFileRef(tgfsFileRef);
-      tgfsFile.deleteVersion(version);
-      await this.client.editMessage(this.privateChannelId, {
-        message: tgfsFileRef.getMessageId(),
-        text: JSON.stringify(tgfsFile.toObject()),
-      });
+      return await this.createFile(where.name, where.under, file);
     }
-    await this.syncMetadata();
+  }
+
+  public async downloadFileVersion(
+    fileVersion: TGFSFileVersion,
+    asName: string,
+    outputFile?: string | fs.WriteStream,
+  ): Promise<Buffer> {
+    const res = await this.downloadFile(
+      { messageId: fileVersion.messageId, name: asName },
+      true,
+    );
+    if (outputFile) {
+      if (outputFile instanceof fs.WriteStream) {
+        outputFile.write(res);
+      } else {
+        fs.writeFile(outputFile, res, (err) => {
+          if (err) {
+            throw err;
+          }
+        });
+      }
+    }
+    return res;
   }
 }

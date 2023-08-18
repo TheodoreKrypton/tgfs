@@ -10,17 +10,17 @@ export class DirectoryApi extends MetaDataApi {
     super(client);
   }
 
-  public async createRootDirectory() {
+  protected async createRootDirectory() {
     await this.resetMetadata();
     await this.syncMetadata();
 
-    return this.metadata.dir;
+    return this.getRootDirectory();
   }
 
-  public async createDirectoryUnder(name: string, where: TGFSDirectory) {
-    validateName(name);
+  public async createDirectory(where: { name: string; under: TGFSDirectory }) {
+    validateName(where.name);
 
-    const newDirectory = where.createChild(name);
+    const newDirectory = where.under.createChild(where.name);
     await this.syncMetadata();
 
     return newDirectory;
@@ -33,10 +33,10 @@ export class DirectoryApi extends MetaDataApi {
     ) {
       throw new DirectoryIsNotEmptyError();
     }
-    await this.deleteDirectory(directory);
+    await this.dangerouslyDeleteDirectory(directory);
   }
 
-  public async deleteDirectory(directory: TGFSDirectory) {
+  public async dangerouslyDeleteDirectory(directory: TGFSDirectory) {
     directory.delete();
     await this.syncMetadata();
   }

@@ -8,7 +8,7 @@ export const createDir =
     if (!parents) {
       const [basePath, name] = splitPath(path);
       const dir = await navigateToDir(client)(basePath);
-      return await client.createDirectoryUnder(name, dir);
+      return await client.createDirectory({ name: name, under: dir });
     } else {
       if (!path.startsWith('/')) {
         throw new RelativePathError(path);
@@ -23,7 +23,10 @@ export const createDir =
           continue;
         }
 
-        const dir = await client.createDirectoryUnder(p, currentDir);
+        const dir = await client.createDirectory({
+          name: p,
+          under: currentDir,
+        });
         currentDir = dir;
       }
 

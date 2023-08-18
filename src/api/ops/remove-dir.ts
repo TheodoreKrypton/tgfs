@@ -16,6 +16,6 @@ export const removeDir =
       }
     } else {
       const nextDir = name ? dir.findChildren([name])[0] : dir;
-      await client.deleteDirectory(nextDir);
+      await client.dangerouslyDeleteDirectory(nextDir);
     }
   };

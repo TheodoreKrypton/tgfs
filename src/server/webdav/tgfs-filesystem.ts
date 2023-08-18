@@ -65,8 +65,8 @@ const call =
     then: (...args: any) => any = () => callback(null),
   ) => {
     promise.then(then).catch((e) => {
-      Logger.error(e);
       callback(e);
+      Logger.error(e);
     });
   };
 
@@ -107,24 +107,20 @@ export class TGFSFileSystem extends FileSystem {
     ctx: SizeInfo,
     callback: ReturnCallback<number>,
   ): void {
-    list(this.tgClient)(path.toString())
-      .then((res) => {
+    (async () => {
+      try {
+        const res = await list(this.tgClient)(path.toString());
         if (!Array.isArray(res)) {
-          this.tgClient
-            .getFileInfo(res)
-            .then((file) => {
-              callback(null, file.getLatest().size);
-            })
-            .catch((e) => {
-              callback(e);
-            });
+          const fileDesc = await this.tgClient.getFileDesc(res);
+          callback(null, fileDesc.getLatest().size);
         } else {
           callback(null, 0);
         }
-      })
-      .catch((e) => {
-        callback(e);
-      });
+      } catch (err) {
+        callback(Errors.ResourceNotFound);
+        Logger.error(err);
+      }
+    })();
   }
 
   protected _readDir(
@@ -132,16 +128,18 @@ export class TGFSFileSystem extends FileSystem {
     ctx: ReadDirInfo,
     callback: ReturnCallback<string[] | Path[]>,
   ): void {
-    list(this.tgClient)(path.toString())
-      .then((res) => {
+    (async () => {
+      try {
+        const res = await list(this.tgClient)(path.toString());
         callback(
           null,
           (res as Array<TGFSFileRef | TGFSDirectory>).map((item) => item.name),
         );
-      })
-      .catch((e) => {
-        callback(e);
-      });
+      } catch (err) {
+        callback(Errors.ResourceNotFound);
+        Logger.error(err);
+      }
+    })();
   }
 
   protected getStatDateProperty(
@@ -150,23 +148,24 @@ export class TGFSFileSystem extends FileSystem {
     propertyName: string,
     callback: ReturnCallback<number>,
   ): void {
-    list(this.tgClient)(path.toString())
-      .then((res) => {
+    (async () => {
+      try {
+        const res = await list(this.tgClient)(path.toString());
         if (!Array.isArray(res)) {
-          this.tgClient.getFileInfo(res).then((file) => {
-            if (propertyName === 'mtime') {
-              callback(null, file.getLatest().updatedAt.getTime());
-            } else {
-              callback(null, file.createdAt.getTime());
-            }
-          });
+          const fileDesc = await this.tgClient.getFileDesc(res);
+          if (propertyName === 'mtime') {
+            callback(null, fileDesc.getLatest().updatedAt.getTime());
+          } else {
+            callback(null, fileDesc.createdAt.getTime());
+          }
         } else {
           callback(null, 0);
         }
-      })
-      .catch((e) => {
-        callback(e);
-      });
+      } catch (err) {
+        callback(Errors.ResourceNotFound);
+        Logger.error(err);
+      }
+    })();
   }
 
   protected _creationDate(
@@ -206,17 +205,19 @@ export class TGFSFileSystem extends FileSystem {
     ctx: TypeInfo,
     callback: ReturnCallback<ResourceType>,
   ): void {
-    list(this.tgClient)(path.toString())
-      .then((res) => {
+    (async () => {
+      try {
+        const res = await list(this.tgClient)(path.toString());
         if (Array.isArray(res)) {
           callback(null, ResourceType.Directory);
         } else {
           callback(null, ResourceType.File);
         }
-      })
-      .catch(() => {
+      } catch (err) {
         callback(Errors.ResourceNotFound);
-      });
+        Logger.error(err);
+      }
+    })();
   }
 
   protected _openWriteStream(
@@ -250,19 +251,24 @@ export class TGFSFileSystem extends FileSystem {
     ctx: OpenReadStreamInfo,
     callback: ReturnCallback<Readable>,
   ): void {
-    list(this.tgClient)(path.toString()).then((fileRef) => {
-      if (fileRef instanceof TGFSFileRef) {
-        this.tgClient
-          .downloadFileAtVersion(fileRef)
-          .then((buffer) => {
-            callback(null, Readable.from(buffer));
-          })
-          .catch((e) => {
-            callback(e);
-          });
-      } else {
-        callback(Errors.InvalidOperation);
+    (async () => {
+      try {
+        const fileRef = await list(this.tgClient)(path.toString());
+        if (fileRef instanceof TGFSFileRef) {
+          const fileDesc = await this.tgClient.getFileDesc(fileRef);
+          const fileVersion = fileDesc.getLatest();
+          const buffer = await this.tgClient.downloadFileVersion(
+            fileVersion,
+            fileDesc.name,
+          );
+          callback(null, Readable.from(buffer));
+        } else {
+          callback(Errors.InvalidOperation);
+        }
+      } catch (err) {
+        callback(err);
+        Logger.error(err);
       }
-    });
+    })();
   }
 }

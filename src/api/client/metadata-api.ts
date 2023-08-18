@@ -3,10 +3,10 @@ import { CustomFile } from 'telegram/client/uploads';
 
 import { TGFSDirectory } from '../../model/directory';
 import { TGFSMetadata } from '../../model/metadata';
-import { FileApi } from './file-api';
+import { FileDescApi } from './file-desc-api';
 
-export class MetaDataApi extends FileApi {
-  protected metadata: TGFSMetadata;
+export class MetaDataApi extends FileDescApi {
+  private metadata: TGFSMetadata;
 
   protected async initMetadata() {
     this.metadata = await this.getMetadata();
@@ -21,7 +21,7 @@ export class MetaDataApi extends FileApi {
 
   protected async getMetadata() {
     const pinnedMessage = (
-      await this.client.getMessages(this.privateChannelId, {
+      await this.getMessages({
         filter: new Api.InputMessagesFilterPinned(),
       })
     )[0];
@@ -32,7 +32,7 @@ export class MetaDataApi extends FileApi {
     const metadata = TGFSMetadata.fromObject(
       JSON.parse(
         String(
-          await this.downloadMediaByMessageId(
+          await this.downloadFile(
             { messageId: pinnedMessage.id, name: 'metadata.json' },
             false,
           ),
@@ -53,16 +53,13 @@ export class MetaDataApi extends FileApi {
     const buffer = Buffer.from(JSON.stringify(this.metadata.toObject()));
     const file = new CustomFile('metadata.json', buffer.length, '', buffer);
     if (this.metadata.msgId) {
-      return await this.client.editMessage(this.privateChannelId, {
-        message: this.metadata.msgId,
-        file,
-      });
+      return await this.editMessage(this.metadata.msgId, { file });
     } else {
-      const message = await this.client.sendMessage(this.privateChannelId, {
+      const message = await this.sendMessage({
         file,
       });
       this.metadata.msgId = message.id;
-      await this.client.pinMessage(this.privateChannelId, message.id);
+      await this.pinMessage(message.id);
       return message;
     }
   }

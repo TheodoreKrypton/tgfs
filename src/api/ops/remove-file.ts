@@ -8,7 +8,7 @@ export const removeFile = (client: Client) => async (path: string) => {
   const dir = await navigateToDir(client)(basePath);
   const fileRef = dir.findFiles([name])[0];
   if (fileRef) {
-    await client.deleteFileAtVersion(fileRef);
+    await client.deleteFile(fileRef);
   } else {
     throw new FileOrDirectoryDoesNotExistError(path);
   }

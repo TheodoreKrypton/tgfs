@@ -15,7 +15,7 @@ export const upload =
       throw new FileOrDirectoryDoesNotExistError(local.toString());
     }
 
-    return await client.putFileUnder(name, dir, local.toString());
+    return await client.uploadFile({ name, under: dir }, local.toString());
   };
 
 export const uploadBytes =
@@ -24,7 +24,7 @@ export const uploadBytes =
 
     const dir = await navigateToDir(client)(basePath);
 
-    return await client.putFileUnder(name, dir, bytes);
+    return await client.uploadFile({ name, under: dir }, bytes);
   };
 
 // TODO: upload stream

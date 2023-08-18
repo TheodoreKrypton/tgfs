@@ -110,9 +110,8 @@ describe('commands', () => {
     });
 
     it('should remove a file', async () => {
-      await client.putFileUnder(
-        'f1',
-        client.getRootDirectory(),
+      await client.uploadFile(
+        { name: 'f1', under: client.getRootDirectory() },
         Buffer.from('content'),
       );
 
@@ -123,7 +122,10 @@ describe('commands', () => {
     });
 
     it('should remove a directory', async () => {
-      await client.createDirectoryUnder('d1', client.getRootDirectory());
+      await client.createDirectory({
+        name: 'd1',
+        under: client.getRootDirectory(),
+      });
 
       jest.replaceProperty(process, 'argv', ['rm', '/d1']);
       await executor.execute(parse());
@@ -137,11 +139,14 @@ describe('commands', () => {
     });
 
     it('should throw an error if trying to remove a directory that is not empty', async () => {
-      const d1 = await client.createDirectoryUnder(
-        'd1',
-        client.getRootDirectory(),
+      const d1 = await client.createDirectory({
+        name: 'd1',
+        under: client.getRootDirectory(),
+      });
+      await client.uploadFile(
+        { name: 'f1', under: d1 },
+        Buffer.from('content'),
       );
-      await client.putFileUnder('f1', d1, Buffer.from('content'));
 
       jest.replaceProperty(process, 'argv', ['rm', '/d1']);
       expect(executor.execute(parse())).rejects.toThrowError();
