@@ -1,10 +1,12 @@
-import fs from 'fs';
 import { TelegramClient } from 'telegram';
 import { FileLike } from 'telegram/define';
 
-import { TGFSDirectory, TGFSFileRef } from '../../model/directory';
-import { TGFSFileVersion } from '../../model/file';
-import { validateName } from '../../utils/validate-name';
+import fs from 'fs';
+
+import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
+import { TGFSFileVersion } from 'src/model/file';
+import { validateName } from 'src/utils/validate-name';
+
 import { DirectoryApi } from './directory-api';
 
 export class Client extends DirectoryApi {

@@ -1,5 +1,5 @@
-import { Client } from '../api';
-import { TGFSFileRef } from '../model/directory';
+import { Client } from 'src/api';
+import { TGFSFileRef } from 'src/model/directory';
 
 export const fileInfo = async (client: Client, fileRef: TGFSFileRef) => {
   const fileDesc = await client.getFileDesc(fileRef);

@@ -1,8 +1,9 @@
 import { TelegramClient } from 'telegram';
 
-import { DirectoryIsNotEmptyError } from '../../errors/path';
-import { TGFSDirectory } from '../../model/directory';
-import { validateName } from '../../utils/validate-name';
+import { DirectoryIsNotEmptyError } from 'src/errors/path';
+import { TGFSDirectory } from 'src/model/directory';
+import { validateName } from 'src/utils/validate-name';
+
 import { MetaDataApi } from './metadata-api';
 
 export class DirectoryApi extends MetaDataApi {

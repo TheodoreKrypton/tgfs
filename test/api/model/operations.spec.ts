@@ -1,4 +1,5 @@
-import { sleep } from '../../../src/utils/sleep';
+import { sleep } from 'src/utils/sleep';
+
 import { createClient } from '../../utils/mock-tg-client';
 
 describe('file and directory operations', () => {

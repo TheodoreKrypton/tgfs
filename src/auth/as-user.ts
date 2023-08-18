@@ -1,6 +1,7 @@
 import * as input from 'input';
 
-import { Logger } from '../utils/logger';
+import { Logger } from 'src/utils/logger';
+
 import { login } from './login';
 
 export const loginAsUser = login(async (client) => {

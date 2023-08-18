@@ -1,5 +1,3 @@
-import { hideBin } from 'yargs/helpers';
-
 export const parser = (yargs: any) =>
   yargs
     .command('ls <path>', 'list all files and directories', {

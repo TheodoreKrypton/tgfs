@@ -1,5 +1,5 @@
-import { Client } from '../api';
-import { createDir } from '../api/ops';
+import { Client } from 'src/api';
+import { createDir } from 'src/api/ops';
 
 export const mkdir =
   (client: Client) => async (args: { path: string; parents?: boolean }) => {

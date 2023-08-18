@@ -1,6 +1,6 @@
 import chokidar from 'chokidar';
 
-import { config } from '../config';
+import { config } from 'src/config';
 
 export const runSync = () => {
   Object.values(config.sync).forEach((sync: { local: string }) => {

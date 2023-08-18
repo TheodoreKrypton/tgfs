@@ -1,8 +1,9 @@
 import { PathLike } from 'fs';
 
-import { Client } from '../api';
-import { list } from '../api/ops/list';
-import { TGFSDirectory, TGFSFileRef } from '../model/directory';
+import { Client } from 'src/api';
+import { list } from 'src/api/ops';
+import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
+
 import { fileInfo } from './utils';
 
 export const ls = (client: Client) => async (argv: { path: PathLike }) => {

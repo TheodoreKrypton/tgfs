@@ -5,7 +5,7 @@
   "singleQuote": true,
   "semi": true,
   "plugins": ["@trivago/prettier-plugin-sort-imports"],
-  "importOrder": ["^[^(\\.|src/)]", "^src/", "^[\\.]"],
+  "importOrder": ["^telegram/*", "^[^(\\.|src/)]", "^src/", "^[\\.]"],
   "importOrderSeparation": true,
   "importOrderSortSpecifiers": true
 }

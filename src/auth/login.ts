@@ -1,10 +1,11 @@
-import * as fs from 'fs';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 
-import { Client } from '../api';
-import { config } from '../config';
-import { Logger } from '../utils/logger';
+import * as fs from 'fs';
+
+import { Client } from 'src/api';
+import { config } from 'src/config';
+import { Logger } from 'src/utils/logger';
 
 export const login =
   (relogin: (client: TelegramClient) => Promise<void>) =>

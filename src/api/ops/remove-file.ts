@@ -1,5 +1,6 @@
-import { FileOrDirectoryDoesNotExistError } from '../../errors/path';
-import { Client } from '../client';
+import { Client } from 'src/api';
+import { FileOrDirectoryDoesNotExistError } from 'src/errors/path';
+
 import { navigateToDir } from './navigate-to-dir';
 import { splitPath } from './utils';
 

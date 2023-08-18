@@ -1,6 +1,7 @@
 import { Api } from 'telegram';
 
-import { FileOrDirectoryAlreadyExistsError } from '../errors/path';
+import { FileOrDirectoryAlreadyExistsError } from 'src/errors/path';
+
 import { TGFSDirectoryObject, TGFSFileRefObject } from './message';
 
 export class TGFSFileRef {

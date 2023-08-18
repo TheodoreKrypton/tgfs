@@ -1,8 +1,9 @@
 import { Api, TelegramClient } from 'telegram';
 import { FileLike } from 'telegram/define';
 
-import { TGFSFileRef } from '../../model/directory';
-import { TGFSFile } from '../../model/file';
+import { TGFSFileRef } from 'src/model/directory';
+import { TGFSFile } from 'src/model/file';
+
 import { MessageApi } from './message-api';
 
 export class FileDescApi extends MessageApi {

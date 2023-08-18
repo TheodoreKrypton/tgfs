@@ -1,5 +1,5 @@
-import { Client } from '..';
-import { FileOrDirectoryDoesNotExistError } from '../../errors/path';
+import { Client } from 'src/api';
+import { FileOrDirectoryDoesNotExistError } from 'src/errors/path';
 
 export const navigateToDir = (client: Client) => async (path: string) => {
   const pathParts = path

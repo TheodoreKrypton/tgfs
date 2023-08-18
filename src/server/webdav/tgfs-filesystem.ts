@@ -25,17 +25,17 @@ import {
   TypeInfo,
 } from 'webdav-server/lib/index.v2';
 
-import { Client } from '../../api';
+import { Client } from 'src/api';
 import {
   createDir,
   list,
   removeDir,
   removeFile,
   uploadBytes,
-} from '../../api/ops';
-import { loginAsBot } from '../../auth';
-import { TGFSDirectory, TGFSFileRef } from '../../model/directory';
-import { Logger } from '../../utils/logger';
+} from 'src/api/ops';
+import { loginAsBot } from 'src/auth';
+import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
+import { Logger } from 'src/utils/logger';
 
 const lockManager = new LocalLockManager();
 

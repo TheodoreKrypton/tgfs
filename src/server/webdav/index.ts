@@ -1,9 +1,9 @@
 import { v2 as webdav } from 'webdav-server';
-import { PhysicalFileSystem } from 'webdav-server/lib/index.v2';
 
-import { Client } from '../../api';
-import { config } from '../../config';
-import { Logger } from '../../utils/logger';
+import { Client } from 'src/api';
+import { config } from 'src/config';
+import { Logger } from 'src/utils/logger';
+
 import { TGFSFileSystem } from './tgfs-filesystem';
 
 export const runWebDAVServer = async (

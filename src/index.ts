@@ -11,7 +11,6 @@ import { parser } from './commands/parser';
 import { config, createConfig, loadConfig } from './config';
 import { BusinessError } from './errors/base';
 import { runWebDAVServer } from './server/webdav';
-import { runSync } from './sync';
 import { Logger } from './utils/logger';
 import { sleep } from './utils/sleep';
 

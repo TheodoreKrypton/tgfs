@@ -1,7 +1,6 @@
-import { Client } from '../api';
-import { removeDir } from '../api/ops/remove-dir';
-import { removeFile } from '../api/ops/remove-file';
-import { FileOrDirectoryDoesNotExistError } from '../errors/path';
+import { Client } from 'src/api';
+import { removeDir, removeFile } from 'src/api/ops';
+import { FileOrDirectoryDoesNotExistError } from 'src/errors/path';
 
 export const rm =
   (client: Client) => async (argv: { path: string; recursive?: boolean }) => {

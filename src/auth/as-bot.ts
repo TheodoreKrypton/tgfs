@@ -1,5 +1,6 @@
-import { config } from '../config';
-import { Logger } from '../utils/logger';
+import { config } from 'src/config';
+import { Logger } from 'src/utils/logger';
+
 import { login } from './login';
 
 export const loginAsBot = login(async (client) => {

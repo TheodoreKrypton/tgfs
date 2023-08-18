@@ -1,8 +1,9 @@
 import * as fs from 'fs';
 
-import { Client } from '../api';
-import { upload } from '../api/ops/upload';
-import { splitPath } from '../api/ops/utils';
+import { Client } from 'src/api';
+import { upload } from 'src/api/ops';
+import { splitPath } from 'src/api/ops/utils';
+
 import { fileInfo } from './utils';
 
 export const cp =

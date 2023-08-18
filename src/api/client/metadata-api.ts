@@ -1,8 +1,9 @@
 import { Api } from 'telegram';
 import { CustomFile } from 'telegram/client/uploads';
 
-import { TGFSDirectory } from '../../model/directory';
-import { TGFSMetadata } from '../../model/metadata';
+import { TGFSDirectory } from 'src/model/directory';
+import { TGFSMetadata } from 'src/model/metadata';
+
 import { FileDescApi } from './file-desc-api';
 
 export class MetaDataApi extends FileDescApi {

@@ -2,10 +2,7 @@ import * as fs from 'fs';
 import yargs from 'yargs/yargs';
 
 import { Client } from 'src/api';
-import { uploadBytes } from 'src/api/ops';
-import { createDir } from 'src/api/ops/create-dir';
-import { list } from 'src/api/ops/list';
-import { removeDir } from 'src/api/ops/remove-dir';
+import { createDir, list, removeDir, uploadBytes } from 'src/api/ops';
 import { Executor } from 'src/commands/executor';
 import { parser } from 'src/commands/parser';
 import { TGFSDirectory } from 'src/model/directory';
