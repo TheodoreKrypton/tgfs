@@ -1,13 +1,19 @@
 import { BusinessError } from './base';
 
 export class FileOrDirectoryAlreadyExistsError extends BusinessError {
-  constructor(public readonly name: string, public readonly cause?: string) {
+  constructor(
+    public readonly name: string,
+    public readonly cause?: string,
+  ) {
     super(`${name} already exists`, 'FILE_OR_DIR_ALREADY_EXISTS', cause);
   }
 }
 
 export class FileOrDirectoryDoesNotExistError extends BusinessError {
-  constructor(public readonly name: string, public readonly cause?: string) {
+  constructor(
+    public readonly name: string,
+    public readonly cause?: string,
+  ) {
     super(
       `No such file or directory: ${name}`,
       'FILE_OR_DIR_DOES_NOT_EXIST',
@@ -17,7 +23,10 @@ export class FileOrDirectoryDoesNotExistError extends BusinessError {
 }
 
 export class InvalidNameError extends BusinessError {
-  constructor(public readonly name: string, public readonly cause?: string) {
+  constructor(
+    public readonly name: string,
+    public readonly cause?: string,
+  ) {
     super(
       `Invalid name: ${name}. Name cannot begin with -, and cannot contain /`,
       'INVALID_NAME',
@@ -27,7 +36,10 @@ export class InvalidNameError extends BusinessError {
 }
 
 export class RelativePathError extends BusinessError {
-  constructor(public readonly name: string, public readonly cause?: string) {
+  constructor(
+    public readonly name: string,
+    public readonly cause?: string,
+  ) {
     super(
       `Relative path: ${name} is not supported. Path must start with /`,
       'RELATIVE_PATH',

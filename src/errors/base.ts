@@ -1,7 +1,10 @@
 import { ErrorCodes } from './error-codes';
 
 export class TechnicalError extends Error {
-  constructor(public readonly message: string, public readonly cause?: any) {
+  constructor(
+    public readonly message: string,
+    public readonly cause?: any,
+  ) {
     super(message);
   }
 }

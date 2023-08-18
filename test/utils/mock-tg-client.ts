@@ -11,6 +11,9 @@ import { MockMessages } from './mock-messages';
 jest.mock('src/config', () => {
   return {
     config: {
+      telegram: {
+        private_file_channel: 'mock-private-file-channel',
+      },
       tgfs: {
         download: {
           chunksize: 1024,
@@ -115,8 +118,6 @@ jest.mock('telegram', () => {
 export const createClient = async () => {
   const client = new Client(
     new TelegramClient('mock-session', 0, 'mock-api-hash', {}),
-    'mock-private-channel-id',
-    'mock-public-channel-id',
   );
   await client.init();
   return client;

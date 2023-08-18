@@ -2,8 +2,8 @@ import * as fs from 'fs';
 import yargs from 'yargs/yargs';
 
 import { Client } from 'src/api';
-import { createDir } from 'src/api/ops/create-dir';
 import { uploadBytes } from 'src/api/ops';
+import { createDir } from 'src/api/ops/create-dir';
 import { list } from 'src/api/ops/list';
 import { removeDir } from 'src/api/ops/remove-dir';
 import { Executor } from 'src/commands/executor';

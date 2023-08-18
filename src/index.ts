@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from 'fs';
 import { exit } from 'process';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
@@ -13,7 +14,6 @@ import { runWebDAVServer } from './server/webdav';
 import { runSync } from './sync';
 import { Logger } from './utils/logger';
 import { sleep } from './utils/sleep';
-import fs from 'fs';
 
 const { argv }: any = yargs(hideBin(process.argv))
   .option('config', {

@@ -22,7 +22,7 @@ export const login =
 
       try {
         await client.connect();
-        return new Client(client, config.telegram.private_file_channel);
+        return new Client(client);
       } catch (err) {
         Logger.error(err);
       }
@@ -39,5 +39,5 @@ export const login =
       String(client.session.save()),
     );
 
-    return new Client(client, config.telegram.private_file_channel);
+    return new Client(client);
   };

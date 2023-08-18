@@ -75,7 +75,6 @@ Tested WebDAV Clients:
   $ tgfs cmd rm -r /some-folder
   ```
 
-
 ## Step by Step Guide to Set up config
 
 ### Automatically:
@@ -96,14 +95,15 @@ A config file will be auto-generated when you run the program for the first time
 2. There should be a message like "Channel created". Right click the message and copy the post link.
 3. The format of the link should be like `https://t.me/c/1234567/1`, where `1234567` is the channel id. Copy the channel id to the config file (`telegram -> private_file_channel`)
 
-
 ## Config fields explanation
 
 - telegram
+
   - session_file: The file path to store the session data. If you want to use multiple accounts, you can set different session files for each account.
   - login_timeout: Time to wait before login attempt aborts (in milliseconds).
 
 - tgfs
+
   - download
     - porgress: Whether to show a progress bar when downloading files
     - chunk_size_kb: The chunk size in KB when downloading files. Bigger chunk size means less requests.
