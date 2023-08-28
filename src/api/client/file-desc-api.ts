@@ -16,6 +16,7 @@ export class FileDescApi extends MessageApi {
     fileContent: FileLike,
   ): Promise<Api.Message> {
     const uploadFileMsg = await this.sendFile(fileContent);
+    console.log(uploadFileMsg);
 
     const tgfsFile = new TGFSFile(name);
     tgfsFile.addVersionFromFileMessage(uploadFileMsg);
