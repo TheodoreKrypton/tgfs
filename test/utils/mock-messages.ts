@@ -1,3 +1,5 @@
+import { text } from 'stream/consumers';
+
 export class MockMessages {
   messages: any = {};
   messageId: number = 1;
@@ -63,5 +65,11 @@ export class MockMessages {
     if (file) {
       this.messages[messageId].document = this.createFile(file);
     }
+  }
+
+  search(kw: string) {
+    return Object.values(this.messages).filter(
+      (msg: any) => msg.text?.includes(kw),
+    );
   }
 }

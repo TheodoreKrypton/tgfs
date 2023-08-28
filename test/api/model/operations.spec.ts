@@ -89,6 +89,23 @@ describe('file and directory operations', () => {
       expect(content.toString()).toEqual(content2);
     });
 
+    // it('should not reupload the original file', async () => {
+    //   const client = await createClient();
+    //   const root = client.getRootDirectory();
+
+    //   const content = 'original file content to test reupload of a same file';
+
+    //   await client.uploadFile(
+    //     { name: 'f1', under: root },
+    //     Buffer.from(content),
+    //   );
+
+    //   await client.uploadFile(
+    //     { name: 'f2', under: root },
+    //     Buffer.from(content),
+    //   );
+    // });
+
     it('should remove a file', async () => {
       const client = await createClient();
       const root = client.getRootDirectory();

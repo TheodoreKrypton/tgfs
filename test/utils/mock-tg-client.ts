@@ -41,11 +41,14 @@ jest.mock('telegram', () => {
             getMessages: jest
               .fn()
               .mockImplementation((channelId: string, options: any) => {
-                let { filter, ids } = options;
+                let { filter, ids, search } = options;
                 if (filter instanceof Api.InputMessagesFilterPinned) {
                   return mockMessages.pinnedMessageId
                     ? [mockMessages.getMessage(mockMessages.pinnedMessageId)]
                     : [];
+                }
+                if (search) {
+                  return mockMessages.search(search);
                 }
                 return ids.map((id: number) => mockMessages.getMessage(id));
               }),
@@ -105,6 +108,7 @@ jest.mock('telegram', () => {
                 (entity: EntityLike, sendFileParams: SendFileInterface) => {
                   const id = mockMessages.sendMessage({
                     file: sendFileParams.file,
+                    text: sendFileParams.caption,
                   });
                   return { id };
                 },
