@@ -1,4 +1,5 @@
 import cliProgress from 'cli-progress';
+import { Hash, createHash } from 'crypto';
 
 import { Api, TelegramClient } from 'telegram';
 import { IterDownloadFunction } from 'telegram/client/downloads';
@@ -7,9 +8,12 @@ import {
   IterMessagesParams,
   SendMessageParams,
 } from 'telegram/client/messages';
-import { FileLike, MessageLike } from 'telegram/define';
+import { FileLike } from 'telegram/define';
+
+import fs from 'fs';
 
 import { config } from 'src/config';
+import { TechnicalError } from 'src/errors/base';
 
 export class MessageApi {
   private readonly privateChannelId = config.telegram.private_file_channel;
@@ -44,9 +48,38 @@ export class MessageApi {
     return await this.client.pinMessage(this.privateChannelId, messageId);
   }
 
+  private async sha256(file: FileLike): Promise<Hash> {
+    if (typeof file === 'string') {
+      return new Promise((resolve) => {
+        const rs = fs.createReadStream(file);
+        const hash = createHash('sha256');
+        rs.on('end', () => {
+          hash.end();
+          resolve(hash);
+        });
+        rs.pipe(hash);
+      });
+    } else if (file instanceof Buffer) {
+      return createHash('sha256').update(file);
+    } else {
+      throw new TechnicalError('File format is illegal');
+    }
+  }
+
   protected async sendFile(file: FileLike) {
+    const fileHash = (await this.sha256(file)).digest('hex');
+
+    const existingFile = await this.getMessages({
+      search: `#sha256IS${fileHash}`,
+    });
+
+    if (existingFile.length > 0) {
+      return existingFile[0];
+    }
+
     return await this.client.sendFile(this.privateChannelId, {
       file,
+      caption: `#sha256IS${fileHash}`,
       workers: 16,
     });
   }
