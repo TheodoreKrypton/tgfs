@@ -6,7 +6,7 @@ import { Logger } from 'src/utils/logger';
 
 import { TGFSFileSystem } from './tgfs-filesystem';
 
-export const runWebDAVServer = async (
+export const webdavServer = (
   client: Client,
   options?: webdav.WebDAVServerOptions,
 ) => {
@@ -36,10 +36,14 @@ export const runWebDAVServer = async (
   });
   server.setFileSystemSync('/', new TGFSFileSystem(client));
 
-  server.start((httpServer) => {
-    const address = httpServer.address() as any;
-    Logger.info(
-      `WebDAV server is running on ${address.address}:${address.port}`,
-    );
-  });
+  return server;
+
+  // server.start((httpServer) => {
+  //   const address = httpServer.address() as any;
+  //   let host = address.address;
+  //   if (host === '0.0.0.0' || host === '::') {
+  //     host = ip.address();
+  //   }
+  //   Logger.info(`WebDAV server is running on ${host}:${address.port}/${path}`);
+  // });
 };
