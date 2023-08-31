@@ -87,4 +87,5 @@ const { argv }: any = yargs(hideBin(process.argv))
   }
 
   Logger.info(`WebDAV server is running on ${host}:${port}/webdav`);
+  Logger.info(`Monitor is running on ${host}:${port}/monitor`);
 })();

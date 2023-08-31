@@ -89,6 +89,9 @@ export class FileApi extends DirectoryApi {
   }
 
   private writeContent(content: Buffer, outputFile?: string | fs.WriteStream) {
+    if (!outputFile) {
+      return;
+    }
     if (outputFile instanceof fs.WriteStream) {
       outputFile.write(content);
       outputFile.end();
