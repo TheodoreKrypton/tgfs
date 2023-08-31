@@ -176,11 +176,7 @@ export class TGFSFileSystem extends FileSystem {
         if (!Array.isArray(res)) {
           const fileDesc = await this.tgClient.getFileDesc(res);
           if (propertyName === 'mtime') {
-            if (fileDesc.isEmptyFile()) {
-              callback(null, Date.now());
-            } else {
-              callback(null, fileDesc.getLatest().updatedAt.getTime());
-            }
+            callback(null, fileDesc.getLatest().updatedAt.getTime());
           } else {
             callback(null, fileDesc.createdAt.getTime());
           }
@@ -281,11 +277,9 @@ export class TGFSFileSystem extends FileSystem {
       try {
         const fileRef = await list(this.tgClient)(path.toString());
         if (fileRef instanceof TGFSFileRef) {
-          const fileDesc = await this.tgClient.getFileDesc(fileRef);
-          const fileVersion = fileDesc.getLatest();
-          const buffer = await this.tgClient.downloadFileVersion(
-            fileVersion,
-            fileDesc.name,
+          const buffer = await this.tgClient.downloadLatestVersion(
+            fileRef,
+            fileRef.name,
           );
           callback(null, Readable.from(buffer));
         } else {

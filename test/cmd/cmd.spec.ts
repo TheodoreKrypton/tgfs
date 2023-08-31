@@ -40,6 +40,19 @@ describe('commands', () => {
       expect(console.log).toHaveBeenCalledWith('d1  f1');
     });
 
+    it('should display file info', async () => {
+      await uploadFromBytes(client)(Buffer.from(''), '/f1');
+      jest.replaceProperty(process, 'argv', ['ls', '/f1']);
+      await executor.execute(parse());
+
+      const fr = client.getRootDirectory().findFiles(['f1'])[0];
+      const fd = await client.getFileDesc(fr);
+
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining(fd.latestVersionId),
+      );
+    });
+
     it('should throw an error if path does not exist', () => {
       jest.replaceProperty(process, 'argv', ['ls', '/not-exist']);
       expect(executor.execute(parse())).rejects.toThrowError();
@@ -68,12 +81,29 @@ describe('commands', () => {
       expect(d3.name).toEqual('d3');
     });
 
+    it('should create a directory recursively under an existing path', async () => {
+      jest.replaceProperty(process, 'argv', ['mkdir', '/d1/d2', '-p']);
+      await executor.execute(parse());
+
+      jest.replaceProperty(process, 'argv', ['mkdir', '/d1/d2/d3', '-p']);
+      await executor.execute(parse());
+
+      const d3 = ((await list(client)('/d1/d2')) as Array<TGFSDirectory>)[0];
+
+      expect(d3.name).toEqual('d3');
+    });
+
     it('should throw an error if path already exists', async () => {
       jest.replaceProperty(process, 'argv', ['mkdir', '/d1']);
       await executor.execute(parse());
 
       jest.replaceProperty(process, 'argv', ['mkdir', '/d1']);
-      expect(executor.execute(parse())).rejects.toThrowError();
+      await expect(executor.execute(parse())).rejects.toThrowError();
+    });
+
+    it('should throw an error if the path does not start with /', async () => {
+      jest.replaceProperty(process, 'argv', ['mkdir', 'd1']);
+      await expect(executor.execute(parse())).rejects.toThrowError();
     });
   });
 

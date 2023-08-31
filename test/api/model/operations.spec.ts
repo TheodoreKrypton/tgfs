@@ -1,3 +1,5 @@
+import fs from 'fs';
+
 import { sleep } from 'src/utils/sleep';
 
 import { createClient } from '../../utils/mock-tg-client';
@@ -9,6 +11,18 @@ describe('file and directory operations', () => {
       const root = client.getRootDirectory();
       const d1 = await client.createDirectory({ name: 'd1', under: root });
       expect(root.findChildren(['d1'])[0]).toEqual(d1);
+    });
+
+    it('should throw an error if the directory name is illegal', async () => {
+      const client = await createClient();
+      const root = client.getRootDirectory();
+
+      await expect(
+        client.createDirectory({ name: '-d1', under: root }),
+      ).rejects.toThrowError();
+      await expect(
+        client.createDirectory({ name: 'd/1', under: root }),
+      ).rejects.toThrowError();
     });
 
     it('should remove a directory', async () => {
@@ -61,7 +75,7 @@ describe('file and directory operations', () => {
       const fr = root.findFiles(['f1'])[0];
       const fd = await client.getFileDesc(fr);
       expect(Object.keys(fd.versions)).toHaveLength(2);
-      const content = await client.downloadFileVersion(fd.getLatest(), 'f1');
+      const content = await client.downloadLatestVersion(fr, 'f1');
       expect(content.toString()).toEqual(content2);
     });
 
@@ -83,9 +97,7 @@ describe('file and directory operations', () => {
         Buffer.from(content2),
       );
 
-      const newFd = await client.getFileDesc(fr);
-
-      const content = await client.downloadFileVersion(newFd.getLatest(), 'f1');
+      const content = await client.downloadLatestVersion(fr, 'f1');
       expect(content.toString()).toEqual(content2);
     });
 
@@ -140,10 +152,56 @@ describe('file and directory operations', () => {
 
       f = await client.getFileDesc(fr);
       expect(Object.keys(f.versions)).toHaveLength(1);
-      const fd = await client.getFileDesc(fr);
-      const fv = fd.getLatest();
-      const content2 = await client.downloadFileVersion(fv, 'f1');
+      const content2 = await client.downloadLatestVersion(fr, 'f1');
       expect(content2.toString()).toEqual(content);
+    });
+
+    it('should download a file as a local file', async () => {
+      const client = await createClient();
+      const root = client.getRootDirectory();
+      const content = 'mock-file-content';
+      await client.uploadFile(
+        { name: 'f1', under: root },
+        Buffer.from(content),
+      );
+
+      const fr = root.findFiles(['f1'])[0];
+      const localFileName = 'test-download-file-content';
+
+      await client.downloadLatestVersion(fr, 'f1', localFileName);
+
+      const contentRead = fs.readFileSync(localFileName);
+      expect(contentRead.toString()).toEqual(content);
+
+      fs.rmSync(localFileName);
+    });
+
+    it('should download a file as a write stream', (done) => {
+      (async () => {
+        const client = await createClient();
+        const root = client.getRootDirectory();
+        const content = 'mock-file-content';
+        await client.uploadFile(
+          { name: 'f1', under: root },
+          Buffer.from(content),
+        );
+
+        const fr = root.findFiles(['f1'])[0];
+        const localFileName = 'test-download-file-content-2';
+        const ws = fs.createWriteStream(localFileName);
+        ws.on('finish', () => {
+          try {
+            const contentRead = fs.readFileSync(localFileName);
+            expect(contentRead.toString()).toEqual(content);
+            fs.rmSync(localFileName);
+            done();
+          } catch (err) {
+            done(err);
+          }
+        });
+
+        await client.downloadLatestVersion(fr, 'f1', ws);
+      })();
     });
   });
 });

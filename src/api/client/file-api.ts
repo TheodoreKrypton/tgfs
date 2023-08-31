@@ -14,13 +14,6 @@ export class FileApi extends DirectoryApi {
     super(client);
   }
 
-  public async init() {
-    await this.initMetadata();
-    if (!this.getRootDirectory()) {
-      await this.createRootDirectory();
-    }
-  }
-
   private async createFile(
     name: string,
     where: TGFSDirectory,
@@ -38,19 +31,29 @@ export class FileApi extends DirectoryApi {
 
   private async updateFile(
     tgfsFileRef: TGFSFileRef,
-    file: FileLike,
+    file?: FileLike,
     versionId?: string,
   ) {
     const fd = await this.getFileDesc(tgfsFileRef, false);
 
-    const uploadFileMsg = await this.sendFile(file);
+    if (file) {
+      const uploadFileMsg = await this.sendFile(file);
 
-    if (!versionId) {
-      fd.addVersionFromFileMessage(uploadFileMsg);
+      if (!versionId) {
+        fd.addVersionFromFileMessage(uploadFileMsg);
+      } else {
+        const tgfsFileVersion = fd.getVersion(versionId);
+        tgfsFileVersion.messageId = uploadFileMsg.id;
+        fd.updateVersion(tgfsFileVersion);
+      }
     } else {
-      const tgfsFileVersion = fd.getVersion(versionId);
-      tgfsFileVersion.messageId = uploadFileMsg.id;
-      fd.updateVersion(tgfsFileVersion);
+      if (!versionId) {
+        fd.addEmptyVersion();
+      } else {
+        const tgfsFileVersion = fd.getVersion(versionId);
+        tgfsFileVersion.messageId = TGFSFileVersion.EMPTY_FILE;
+        fd.updateVersion(tgfsFileVersion);
+      }
     }
 
     await this.updateFileDesc(tgfsFileRef, fd);
@@ -88,12 +91,9 @@ export class FileApi extends DirectoryApi {
   private writeContent(content: Buffer, outputFile?: string | fs.WriteStream) {
     if (outputFile instanceof fs.WriteStream) {
       outputFile.write(content);
+      outputFile.end();
     } else {
-      fs.writeFile(outputFile, content, (err) => {
-        if (err) {
-          throw err;
-        }
-      });
+      fs.writeFileSync(outputFile, content);
     }
   }
 

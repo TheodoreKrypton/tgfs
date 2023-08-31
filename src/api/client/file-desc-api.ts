@@ -20,6 +20,8 @@ export class FileDescApi extends MessageApi {
     if (fileContent) {
       const uploadFileMsg = await this.sendFile(fileContent);
       tgfsFile.addVersionFromFileMessage(uploadFileMsg);
+    } else {
+      tgfsFile.addEmptyVersion();
     }
 
     return await this.sendMessage(JSON.stringify(tgfsFile.toObject()));
@@ -35,11 +37,15 @@ export class FileDescApi extends MessageApi {
     if (withVersionInfo) {
       const versions = Object.values(fileDesc.versions);
 
+      const nonEmptyVersions = versions.filter(
+        (version) => version.messageId > 0,
+      ); // may contain empty versions
+
       const fileMessages = await this.getMessages(
-        versions.map((version) => version.messageId),
+        nonEmptyVersions.map((version) => version.messageId),
       );
 
-      versions.forEach((version, i) => {
+      nonEmptyVersions.forEach((version, i) => {
         const fileMessage = fileMessages[i];
         version.size = Number(fileMessage.document.size);
       });

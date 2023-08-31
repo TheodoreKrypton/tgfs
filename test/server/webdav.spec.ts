@@ -38,6 +38,18 @@ describe('TGFSFileSystem', () => {
       const rsp2 = await request(server).propfind('/d1');
       expect(rsp2.statusCode).toEqual(207);
     });
+
+    it('should report 405 for directory that already exists', async () => {
+      const rsp = await request(server).mkcol('/d2');
+      expect(rsp.statusCode).toEqual(201);
+      const rsp2 = await request(server).mkcol('/d2');
+      expect(rsp2.statusCode).toEqual(405);
+    });
+
+    it('should report 500 if the directory name is illegal', async () => {
+      const rsp = await request(server).mkcol('/-d1');
+      expect(rsp.statusCode).toEqual(500);
+    });
   });
 
   describe('delete directory', () => {
@@ -64,12 +76,27 @@ describe('TGFSFileSystem', () => {
       expect(rsp.statusCode).toEqual(207);
     });
 
+    it('should show the file', async () => {
+      const rsp = await request(server).propfind('/');
+      expect(rsp.text).toEqual(expect.stringContaining('f1'));
+    });
+
     it('should upload a file with overwrite', async () => {
       await request(server)
         .put('/f1')
         .set('Content-Type', 'text/plain')
         .send('mock-file-content');
       const rsp = await request(server).propfind('/f1');
+      expect(rsp.statusCode).toEqual(207);
+    });
+
+    it('should create an empty file', async () => {
+      await request(server)
+        .put('/f2')
+        .set('Content-Type', 'text/plain')
+        .send('')
+        .expect(201);
+      const rsp = await request(server).propfind('/f2');
       expect(rsp.statusCode).toEqual(207);
     });
 

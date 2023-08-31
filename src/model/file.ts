@@ -5,6 +5,8 @@ import { v4 as uuid } from 'uuid';
 import { TGFSFileObject, TGFSFileVersionObject } from './message';
 
 export class TGFSFileVersion {
+  static EMPTY_FILE = -1;
+
   id: string;
   updatedAt: Date;
   messageId: number;
@@ -17,6 +19,14 @@ export class TGFSFileVersion {
       updatedAt: this.updatedAt.getTime(),
       messageId: this.messageId,
     };
+  }
+
+  static empty(): TGFSFileVersion {
+    const tgfsFileVersion = new TGFSFileVersion();
+    tgfsFileVersion.id = uuid();
+    tgfsFileVersion.updatedAt = new Date();
+    tgfsFileVersion.messageId = this.EMPTY_FILE;
+    return tgfsFileVersion;
   }
 
   static fromFileMessage(message: Api.Message): TGFSFileVersion {
@@ -84,6 +94,12 @@ export class TGFSFile {
     this.versions[version.id] = version;
   }
 
+  addEmptyVersion() {
+    const version = TGFSFileVersion.empty();
+    this.addVersion(version);
+    this.latestVersionId = version.id;
+  }
+
   addVersionFromFileMessage(message: Api.Message) {
     const version = TGFSFileVersion.fromFileMessage(message);
     this.addVersion(version);
@@ -105,6 +121,6 @@ export class TGFSFile {
   }
 
   isEmptyFile(): boolean {
-    return Object.keys(this.versions).length === 0;
+    return this.getLatest().messageId === TGFSFileVersion.EMPTY_FILE;
   }
 }
