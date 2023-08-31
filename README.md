@@ -40,6 +40,7 @@ Tested WebDAV Clients:
 - [File Stash](https://www.filestash.app/)
 - [WinSCP](https://winscp.net/eng/index.php)
 - [WebDAV Sync](http://www.re.be/webdav_sync/index.xhtml)
+- [Joplin](https://joplinapp.org/)
 
 ## cmd usage
 
