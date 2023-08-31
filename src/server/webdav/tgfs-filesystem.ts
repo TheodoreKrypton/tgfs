@@ -31,9 +31,15 @@ import {
   list,
   removeDir,
   removeFile,
-  uploadBytes,
+  uploadFromBytes,
 } from 'src/api/ops';
+import { createEmptyFile } from 'src/api/ops/create-empty-file';
 import { loginAsBot } from 'src/auth';
+import {
+  FileOrDirectoryAlreadyExistsError,
+  FileOrDirectoryDoesNotExistError,
+  InvalidNameError,
+} from 'src/errors';
 import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
 import { Logger } from 'src/utils/logger';
 
@@ -58,6 +64,18 @@ export class TGFSSerializer implements FileSystemSerializer {
   }
 }
 
+const handleError = (callback: (e) => any) => (err) => {
+  if (err instanceof FileOrDirectoryAlreadyExistsError) {
+    callback(Errors.ResourceAlreadyExists);
+  } else if (err instanceof FileOrDirectoryDoesNotExistError) {
+    callback(Errors.ResourceNotFound);
+  } else if (err instanceof InvalidNameError) {
+    callback(Errors.IllegalArguments);
+  } else {
+    callback(Errors.InvalidOperation);
+  }
+};
+
 const call =
   (callback: SimpleCallback) =>
   (
@@ -65,7 +83,7 @@ const call =
     then: (...args: any) => any = () => callback(null),
   ) => {
     promise.then(then).catch((e) => {
-      callback(e);
+      handleError(callback)(e);
       Logger.error(e);
     });
   };
@@ -83,7 +101,7 @@ export class TGFSFileSystem extends FileSystem {
     if (ctx.type.isDirectory) {
       call(callback)(createDir(this.tgClient)(path.toString(), false));
     } else {
-      callback(null);
+      call(callback)(createEmptyFile(this.tgClient)(path.toString()));
     }
   }
 
@@ -112,12 +130,16 @@ export class TGFSFileSystem extends FileSystem {
         const res = await list(this.tgClient)(path.toString());
         if (!Array.isArray(res)) {
           const fileDesc = await this.tgClient.getFileDesc(res);
-          callback(null, fileDesc.getLatest().size);
+          if (fileDesc.isEmptyFile()) {
+            callback(null, 0);
+          } else {
+            callback(null, fileDesc.getLatest().size);
+          }
         } else {
           callback(null, 0);
         }
       } catch (err) {
-        callback(Errors.ResourceNotFound);
+        handleError(callback)(err);
         Logger.error(err);
       }
     })();
@@ -136,7 +158,7 @@ export class TGFSFileSystem extends FileSystem {
           (res as Array<TGFSFileRef | TGFSDirectory>).map((item) => item.name),
         );
       } catch (err) {
-        callback(Errors.ResourceNotFound);
+        handleError(callback)(err);
         Logger.error(err);
       }
     })();
@@ -154,7 +176,11 @@ export class TGFSFileSystem extends FileSystem {
         if (!Array.isArray(res)) {
           const fileDesc = await this.tgClient.getFileDesc(res);
           if (propertyName === 'mtime') {
-            callback(null, fileDesc.getLatest().updatedAt.getTime());
+            if (fileDesc.isEmptyFile()) {
+              callback(null, Date.now());
+            } else {
+              callback(null, fileDesc.getLatest().updatedAt.getTime());
+            }
           } else {
             callback(null, fileDesc.createdAt.getTime());
           }
@@ -162,7 +188,7 @@ export class TGFSFileSystem extends FileSystem {
           callback(null, 0);
         }
       } catch (err) {
-        callback(Errors.ResourceNotFound);
+        handleError(callback)(err);
         Logger.error(err);
       }
     })();
@@ -214,7 +240,7 @@ export class TGFSFileSystem extends FileSystem {
           callback(null, ResourceType.File);
         }
       } catch (err) {
-        callback(Errors.ResourceNotFound);
+        handleError(callback)(err);
         Logger.error(err);
       }
     })();
@@ -236,10 +262,10 @@ export class TGFSFileSystem extends FileSystem {
         const buffer = Buffer.concat(chunks);
         if (buffer.length > 0) {
           call(cb)(
-            uploadBytes(tgClient)(Buffer.concat(chunks), path.toString()),
+            uploadFromBytes(tgClient)(Buffer.concat(chunks), path.toString()),
           );
         } else {
-          cb(null);
+          call(cb)(createEmptyFile(tgClient)(path.toString()));
         }
       },
     });
@@ -266,7 +292,7 @@ export class TGFSFileSystem extends FileSystem {
           callback(Errors.InvalidOperation);
         }
       } catch (err) {
-        callback(err);
+        handleError(callback)(err);
         Logger.error(err);
       }
     })();

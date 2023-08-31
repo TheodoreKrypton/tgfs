@@ -103,4 +103,8 @@ export class TGFSFile {
   deleteVersion(uuid: string) {
     delete this.versions[uuid];
   }
+
+  isEmptyFile(): boolean {
+    return Object.keys(this.versions).length === 0;
+  }
 }

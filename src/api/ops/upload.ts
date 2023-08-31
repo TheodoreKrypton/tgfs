@@ -6,7 +6,7 @@ import { FileOrDirectoryDoesNotExistError } from 'src/errors/path';
 import { navigateToDir } from './navigate-to-dir';
 import { splitPath } from './utils';
 
-export const upload =
+export const uploadFromLocal =
   (client: Client) => async (local: fs.PathLike, remote: fs.PathLike) => {
     let [basePath, name] = splitPath(remote);
 
@@ -19,7 +19,7 @@ export const upload =
     return await client.uploadFile({ name, under: dir }, local.toString());
   };
 
-export const uploadBytes =
+export const uploadFromBytes =
   (client: Client) => async (bytes: Buffer, remote: fs.PathLike) => {
     let [basePath, name] = splitPath(remote);
 

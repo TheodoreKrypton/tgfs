@@ -13,11 +13,14 @@ export class FileDescApi extends MessageApi {
 
   public async createFileDesc(
     name: string,
-    fileContent: FileLike,
+    fileContent?: FileLike,
   ): Promise<Api.Message> {
-    const uploadFileMsg = await this.sendFile(fileContent);
     const tgfsFile = new TGFSFile(name);
-    tgfsFile.addVersionFromFileMessage(uploadFileMsg);
+
+    if (fileContent) {
+      const uploadFileMsg = await this.sendFile(fileContent);
+      tgfsFile.addVersionFromFileMessage(uploadFileMsg);
+    }
 
     return await this.sendMessage(JSON.stringify(tgfsFile.toObject()));
   }

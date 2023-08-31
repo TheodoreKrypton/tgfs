@@ -1,4 +1,5 @@
 import { v2 as webdav } from 'webdav-server';
+import { PhysicalFileSystem } from 'webdav-server/lib/index.v2';
 
 import { Client } from 'src/api';
 import { config } from 'src/config';
@@ -35,15 +36,9 @@ export const webdavServer = (
     next();
   });
   server.setFileSystemSync('/', new TGFSFileSystem(client));
-
+  // server.setFileSystemSync(
+  //   '/',
+  //   new PhysicalFileSystem('/home/theodore/repos/tgfs/data'),
+  // );
   return server;
-
-  // server.start((httpServer) => {
-  //   const address = httpServer.address() as any;
-  //   let host = address.address;
-  //   if (host === '0.0.0.0' || host === '::') {
-  //     host = ip.address();
-  //   }
-  //   Logger.info(`WebDAV server is running on ${host}:${address.port}/${path}`);
-  // });
 };

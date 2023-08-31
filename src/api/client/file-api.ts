@@ -24,7 +24,7 @@ export class FileApi extends DirectoryApi {
   private async createFile(
     name: string,
     where: TGFSDirectory,
-    fileContent: FileLike,
+    fileContent?: FileLike,
   ) {
     validateName(name);
 
@@ -75,7 +75,7 @@ export class FileApi extends DirectoryApi {
       under: TGFSDirectory;
       versionId?: string;
     },
-    file: FileLike,
+    file?: FileLike,
   ) {
     const fr = where.under.findFiles([where.name])[0];
     if (fr) {
@@ -83,6 +83,34 @@ export class FileApi extends DirectoryApi {
     } else {
       return await this.createFile(where.name, where.under, file);
     }
+  }
+
+  private writeContent(content: Buffer, outputFile?: string | fs.WriteStream) {
+    if (outputFile instanceof fs.WriteStream) {
+      outputFile.write(content);
+    } else {
+      fs.writeFile(outputFile, content, (err) => {
+        if (err) {
+          throw err;
+        }
+      });
+    }
+  }
+
+  public async downloadLatestVersion(
+    fileRef: TGFSFileRef,
+    asName: string,
+    outputFile?: string | fs.WriteStream,
+  ): Promise<Buffer> {
+    const fileDesc = await this.getFileDesc(fileRef);
+    let res = Buffer.from('');
+    if (fileDesc.isEmptyFile()) {
+      this.writeContent(res, outputFile);
+    } else {
+      const version = fileDesc.getLatest();
+      return await this.downloadFileVersion(version, asName, outputFile);
+    }
+    return res;
   }
 
   public async downloadFileVersion(
@@ -95,15 +123,7 @@ export class FileApi extends DirectoryApi {
       true,
     );
     if (outputFile) {
-      if (outputFile instanceof fs.WriteStream) {
-        outputFile.write(res);
-      } else {
-        fs.writeFile(outputFile, res, (err) => {
-          if (err) {
-            throw err;
-          }
-        });
-      }
+      this.writeContent(res, outputFile);
     }
     return res;
   }
