@@ -7,13 +7,17 @@ telegram:
   public_file_channel: another_channel_id (optional)
 
 tgfs:
-  download:
-    progress: true
-    chunk_size_kb: 1024
-
-webdav:
   host: 0.0.0.0
   port: 1900
   users:
     user:
       password: password
+  download:
+    progress: true
+    chunk_size_kb: 1024
+
+webdav:
+  path: /webdav
+
+monitor:
+  path: /monitor

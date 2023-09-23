@@ -15,7 +15,7 @@ export const webdavServer = (
 
   server.httpAuthentication = new webdav.HTTPBasicAuthentication({
     getUserByNamePassword: (username, password, cb) => {
-      const user = config.webdav.users[username];
+      const user = config.tgfs.users[username];
       if (user && user.password === password) {
         cb(null, { uid: username, username });
       } else {

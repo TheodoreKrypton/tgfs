@@ -30,6 +30,9 @@ export const loadConfig = (configPath: string) => {
   };
 
   config.tgfs = {
+    host: cfg['tgfs']['host'],
+    port: cfg['tgfs']['port'],
+    users: cfg['webdav']['users'],
     download: {
       chunksize: cfg['tgfs']['download']['chunk_size_kb'] ?? 1024,
       progress: cfg['tgfs']['download']['progress'] === 'true',
@@ -37,9 +40,11 @@ export const loadConfig = (configPath: string) => {
   };
 
   config.webdav = {
-    host: cfg['webdav']['host'],
-    port: cfg['webdav']['port'],
-    users: cfg['webdav']['users'],
+    path: cfg['webdav']['path'] ?? '/webdav',
+  };
+
+  config.monitor = {
+    path: cfg['monitor']['path'] ?? '/monitor',
   };
 
   config.sync = cfg['sync'];
@@ -47,7 +52,7 @@ export const loadConfig = (configPath: string) => {
 
 export const createConfig = async () => {
   const createNow = await input.confirm(
-    'The config file is not found. Create a config file now?',
+    'The config file is malformed or not found. Create a config file now?',
   );
 
   if (!createNow) {
@@ -93,13 +98,6 @@ export const createConfig = async () => {
   );
 
   config.tgfs = {
-    download: {
-      progress: 'true',
-      chunk_size_kb: 1024,
-    },
-  };
-
-  config.webdav = {
     host: '0.0.0.0',
     port: 1900,
     users: {
@@ -107,6 +105,18 @@ export const createConfig = async () => {
         password: 'password',
       },
     },
+    download: {
+      progress: 'true',
+      chunk_size_kb: 1024,
+    },
+  };
+
+  config.webdav = {
+    path: '/webdav',
+  };
+
+  config.monitor = {
+    path: '/monitor',
   };
 
   const yamlString = yaml.dump(config);

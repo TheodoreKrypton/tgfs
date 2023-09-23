@@ -39,7 +39,13 @@ const { argv }: any = yargs(hideBin(process.argv))
   if (!fs.existsSync(configPath)) {
     configPath = await createConfig();
   }
-  loadConfig(configPath);
+
+  try {
+    loadConfig(configPath);
+  } catch (err) {
+    configPath = await createConfig();
+    loadConfig(configPath);
+  }
 
   let client: Client;
   const res = await Promise.race([loginAsUser(), sleep(300000)]);
@@ -56,11 +62,11 @@ const { argv }: any = yargs(hideBin(process.argv))
 
   const app = express();
 
-  app.use('/monitor', monitor);
+  app.use(config.monitor.path, monitor);
 
   if (argv.webdav) {
     const server = webdavServer(client);
-    app.use(webdav.extensions.express('/webdav', server));
+    app.use(webdav.extensions.express(config.webdav.path, server));
   } else if (argv._[0] === 'cmd') {
     argv._.shift();
     try {
@@ -77,8 +83,8 @@ const { argv }: any = yargs(hideBin(process.argv))
     }
   }
 
-  const port = argv.port ?? config.webdav.port;
-  let host = argv.host ?? config.webdav.host;
+  const port = argv.port ?? config.tgfs.port;
+  let host = argv.host ?? config.tgfs.host;
 
   app.listen(port, host);
 
@@ -86,6 +92,8 @@ const { argv }: any = yargs(hideBin(process.argv))
     host = ip.address();
   }
 
-  Logger.info(`WebDAV server is running on ${host}:${port}/webdav`);
-  Logger.info(`Monitor is running on ${host}:${port}/monitor`);
+  Logger.info(
+    `WebDAV server is running on ${host}:${port}${config.webdav.path}`,
+  );
+  Logger.info(`Monitor is running on ${host}:${port}${config.monitor.path}`);
 })();
