@@ -1,6 +1,6 @@
 {
   "name": "tgfs",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Use telegram as file storage",
   "main": "index.js",
   "scripts": {
