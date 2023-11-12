@@ -15,10 +15,48 @@ import fs from 'fs';
 import { config } from 'src/config';
 import { TechnicalError } from 'src/errors/base';
 
-export class MessageApi {
-  private readonly privateChannelId = config.telegram.private_file_channel;
+class MessageBroker {
+  protected readonly privateChannelId = config.telegram.private_file_channel;
 
-  constructor(protected readonly client: TelegramClient) {}
+  constructor(
+    protected readonly client: TelegramClient,
+    protected buffer: Array<{
+      ids: number[];
+      resolve: (result: unknown) => void;
+    }> = [],
+    protected timeout: NodeJS.Timeout = null,
+  ) {}
+
+  async getMessagesByIds(ids: number[]) {
+    return new Promise((resolve, reject) => {
+      this.buffer.push({ ids, resolve });
+      if (this.timeout) {
+        clearTimeout(this.timeout);
+      }
+      this.timeout = setTimeout(async () => {
+        let buffer = [];
+        [buffer, this.buffer] = [[...this.buffer], []];
+        const ids = [...new Set(buffer.map((item) => item.ids).flat())];
+        const messages = await this.client.getMessages(this.privateChannelId, {
+          ids,
+        });
+        const messageMap = new Map();
+        messages.forEach((message) => {
+          messageMap.set(message.id, message);
+        });
+        buffer.forEach((item) => {
+          const result = item.ids.map((id: number) => messageMap.get(id));
+          item.resolve(result);
+        });
+      }, 500);
+    });
+  }
+}
+
+export class MessageApi extends MessageBroker {
+  constructor(protected readonly client: TelegramClient) {
+    super(client);
+  }
 
   protected async sendMessage(message: string | SendMessageParams) {
     if (typeof message === 'string') {
@@ -27,10 +65,7 @@ export class MessageApi {
     return await this.client.sendMessage(this.privateChannelId, message);
   }
 
-  protected async getMessages(params: number[] | Partial<IterMessagesParams>) {
-    if (Array.isArray(params)) {
-      params = { ids: params };
-    }
+  protected async getMessages(params: Partial<IterMessagesParams>) {
     return await this.client.getMessages(this.privateChannelId, params);
   }
 
@@ -89,7 +124,7 @@ export class MessageApi {
     withProgressBar?: boolean,
     options?: IterDownloadFunction,
   ) {
-    const message = (await this.getMessages([file.messageId]))[0];
+    const message = (await this.getMessagesByIds([file.messageId]))[0];
 
     const fileSize = Number(message.document.size);
     const chunkSize = config.tgfs.download.chunksize * 1024;

@@ -1,5 +1,4 @@
 import { v2 as webdav } from 'webdav-server';
-import { PhysicalFileSystem } from 'webdav-server/lib/index.v2';
 
 import { Client } from 'src/api';
 import { config } from 'src/config';
@@ -36,9 +35,5 @@ export const webdavServer = (
     next();
   });
   server.setFileSystemSync('/', new TGFSFileSystem(client));
-  // server.setFileSystemSync(
-  //   '/',
-  //   new PhysicalFileSystem('/home/theodore/repos/tgfs/data'),
-  // );
   return server;
 };

@@ -14,7 +14,6 @@ import { Executor } from './commands/executor';
 import { parser } from './commands/parser';
 import { config, createConfig, loadConfig } from './config';
 import { BusinessError } from './errors/base';
-import monitor from './server/monitor';
 import { webdavServer } from './server/webdav';
 import { Logger } from './utils/logger';
 import { sleep } from './utils/sleep';
@@ -62,8 +61,6 @@ const { argv }: any = yargs(hideBin(process.argv))
 
   const app = express();
 
-  app.use(config.monitor.path, monitor);
-
   if (argv.webdav) {
     const server = webdavServer(client);
     app.use(webdav.extensions.express(config.webdav.path, server));
@@ -83,8 +80,8 @@ const { argv }: any = yargs(hideBin(process.argv))
     }
   }
 
-  const port = argv.port ?? config.tgfs.port;
-  let host = argv.host ?? config.tgfs.host;
+  const port = argv.port ?? config.webdav.port;
+  let host = argv.host ?? config.webdav.host;
 
   app.listen(port, host);
 
@@ -95,5 +92,4 @@ const { argv }: any = yargs(hideBin(process.argv))
   Logger.info(
     `WebDAV server is running on ${host}:${port}${config.webdav.path}`,
   );
-  Logger.info(`Monitor is running on ${host}:${port}${config.monitor.path}`);
 })();

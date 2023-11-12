@@ -7,8 +7,6 @@ telegram:
   public_file_channel: another_channel_id (optional)
 
 tgfs:
-  host: 0.0.0.0
-  port: 1900
   users:
     user:
       password: password
@@ -17,7 +15,10 @@ tgfs:
     chunk_size_kb: 1024
 
 webdav:
-  path: /webdav
+  host: 0.0.0.0
+  port: 1900
+  path: /
 
 monitor:
-  path: /monitor
+  bot_token: your_bot_token (mandatory, refer to README)
+  chat_id: your_chat_id (mandatory, refer to README)

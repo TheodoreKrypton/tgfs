@@ -31,7 +31,7 @@ export class FileDescApi extends MessageApi {
     fileRef: TGFSFileRef,
     withVersionInfo: boolean = true,
   ): Promise<TGFSFile> {
-    const message = (await this.getMessages([fileRef.getMessageId()]))[0];
+    const message = (await this.getMessagesByIds([fileRef.getMessageId()]))[0];
     const fileDesc = TGFSFile.fromObject(JSON.parse(message.text));
 
     if (withVersionInfo) {
@@ -41,7 +41,7 @@ export class FileDescApi extends MessageApi {
         (version) => version.messageId > 0,
       ); // may contain empty versions
 
-      const fileMessages = await this.getMessages(
+      const fileMessages = await this.getMessagesByIds(
         nonEmptyVersions.map((version) => version.messageId),
       );
 

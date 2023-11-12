@@ -26,13 +26,10 @@ export const loadConfig = (configPath: string) => {
     private_file_channel: `-100${cfg['telegram']['private_file_channel']}`,
     public_file_channel: cfg['telegram']['public_file_channel'],
     session_file: session_file,
-    login: cfg['telegram']['login'],
   };
 
   config.tgfs = {
-    host: cfg['tgfs']['host'],
-    port: cfg['tgfs']['port'],
-    users: cfg['webdav']['users'],
+    users: cfg['tgfs']['users'],
     download: {
       chunksize: cfg['tgfs']['download']['chunk_size_kb'] ?? 1024,
       progress: cfg['tgfs']['download']['progress'] === 'true',
@@ -40,14 +37,13 @@ export const loadConfig = (configPath: string) => {
   };
 
   config.webdav = {
-    path: cfg['webdav']['path'] ?? '/webdav',
+    host: cfg['webdav']['host'] ?? '0.0.0.0',
+    port: cfg['webdav']['port'] ?? 1900,
+    path: cfg['webdav']['path'] ?? '/',
   };
 
   config.monitor = {
-    path: cfg['monitor']['path'] ?? '/monitor',
   };
-
-  config.sync = cfg['sync'];
 };
 
 export const createConfig = async () => {
