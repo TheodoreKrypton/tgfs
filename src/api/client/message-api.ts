@@ -23,13 +23,14 @@ class MessageBroker {
     protected buffer: Array<{
       ids: number[];
       resolve: (result: unknown) => void;
+      reject: (error: unknown) => void;
     }> = [],
     protected timeout: NodeJS.Timeout = null,
   ) {}
 
   async getMessagesByIds(ids: number[]) {
     return new Promise((resolve, reject) => {
-      this.buffer.push({ ids, resolve });
+      this.buffer.push({ ids, resolve, reject });
       if (this.timeout) {
         clearTimeout(this.timeout);
       }
@@ -37,18 +38,28 @@ class MessageBroker {
         let buffer = [];
         [buffer, this.buffer] = [[...this.buffer], []];
         const ids = [...new Set(buffer.map((item) => item.ids).flat())];
-        const messages = await this.client.getMessages(this.privateChannelId, {
-          ids,
-        });
-        const messageMap = new Map();
-        messages.forEach((message) => {
-          messageMap.set(message.id, message);
-        });
-        buffer.forEach((item) => {
-          const result = item.ids.map((id: number) => messageMap.get(id));
-          item.resolve(result);
-        });
-      }, 500);
+
+        try {
+          const messages = await this.client.getMessages(
+            this.privateChannelId,
+            {
+              ids,
+            },
+          );
+          const messageMap = new Map();
+          messages.forEach((message) => {
+            messageMap.set(message.id, message);
+          });
+          buffer.forEach((item) => {
+            const result = item.ids.map((id: number) => messageMap.get(id));
+            item.resolve(result);
+          });
+        } catch (err) {
+          buffer.forEach((item) => {
+            item.reject(err);
+          });
+        }
+      }, 100);
     });
   }
 }
