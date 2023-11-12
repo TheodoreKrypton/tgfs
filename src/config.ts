@@ -42,8 +42,7 @@ export const loadConfig = (configPath: string) => {
     path: cfg['webdav']['path'] ?? '/',
   };
 
-  config.monitor = {
-  };
+  config.monitor = {};
 };
 
 export const createConfig = async () => {
@@ -94,8 +93,6 @@ export const createConfig = async () => {
   );
 
   config.tgfs = {
-    host: '0.0.0.0',
-    port: 1900,
     users: {
       user: {
         password: 'password',
@@ -108,11 +105,9 @@ export const createConfig = async () => {
   };
 
   config.webdav = {
-    path: '/webdav',
-  };
-
-  config.monitor = {
-    path: '/monitor',
+    host: '0.0.0.0',
+    port: 1900,
+    path: '/',
   };
 
   const yamlString = yaml.dump(config);
