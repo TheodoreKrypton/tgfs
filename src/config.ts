@@ -42,7 +42,10 @@ export const loadConfig = (configPath: string) => {
     path: cfg['webdav']['path'] ?? '/',
   };
 
-  config.monitor = {};
+  config.monitor = {
+    bot_token: cfg['monitor']['bot_token'],
+    chat_id: cfg['monitor']['chat_id'],
+  };
 };
 
 export const createConfig = async () => {

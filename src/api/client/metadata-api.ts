@@ -33,10 +33,10 @@ export class MetaDataApi extends FileDescApi {
     const metadata = TGFSMetadata.fromObject(
       JSON.parse(
         String(
-          await this.downloadFile(
-            { messageId: pinnedMessage.id, name: 'metadata.json' },
-            false,
-          ),
+          await this.downloadFile({
+            messageId: pinnedMessage.id,
+            name: 'metadata.json',
+          }),
         ),
       ),
     );

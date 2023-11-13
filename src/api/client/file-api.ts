@@ -121,10 +121,10 @@ export class FileApi extends DirectoryApi {
     asName: string,
     outputFile?: string | fs.WriteStream,
   ): Promise<Buffer> {
-    const res = await this.downloadFile(
-      { messageId: fileVersion.messageId, name: asName },
-      true,
-    );
+    const res = await this.downloadFile({
+      messageId: fileVersion.messageId,
+      name: asName,
+    });
     if (outputFile) {
       this.writeContent(res, outputFile);
     }

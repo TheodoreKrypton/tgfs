@@ -1,4 +1,3 @@
-import cliProgress from 'cli-progress';
 import { Hash, createHash } from 'crypto';
 
 import { Api, TelegramClient } from 'telegram';
@@ -132,21 +131,12 @@ export class MessageApi extends MessageBroker {
 
   protected async downloadFile(
     file: { name: string; messageId: number },
-    withProgressBar?: boolean,
     options?: IterDownloadFunction,
   ) {
     const message = (await this.getMessagesByIds([file.messageId]))[0];
 
     const fileSize = Number(message.document.size);
     const chunkSize = config.tgfs.download.chunksize * 1024;
-
-    let pgBar: cliProgress.SingleBar;
-    if (withProgressBar) {
-      pgBar = new cliProgress.SingleBar({
-        format: `${file.name} [{bar}] {percentage}%`,
-      });
-      pgBar.start(fileSize, 0);
-    }
 
     const buffer = Buffer.alloc(fileSize);
     let i = 0;
@@ -161,10 +151,6 @@ export class MessageApi extends MessageBroker {
     })) {
       chunk.copy(buffer, i * chunkSize, 0, Number(chunk.length));
       i += 1;
-
-      if (withProgressBar) {
-        pgBar.update(i * chunkSize);
-      }
     }
     return buffer;
   }

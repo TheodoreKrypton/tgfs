@@ -1,11 +1,15 @@
-import express from 'express';
+import { Telegraf } from 'telegraf';
+import { message } from 'telegraf/filters';
 
-import { db } from './db';
+import { config } from 'src/config';
 
-const monitor = express();
+const bot = new Telegraf(config.monitor.bot_token);
+bot.start((ctx) => ctx.reply('Welcome'));
+bot.help((ctx) => ctx.reply('Send me a sticker'));
+bot.on(message('sticker'), (ctx) => ctx.reply('👍'));
+bot.hears('hi', (ctx) => ctx.reply('Hey there'));
+bot.launch();
 
-monitor.get('/tasks', function (req, res) {
-  res.send(db.getTasks());
-});
-
-export default monitor;
+// Enable graceful stop
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
