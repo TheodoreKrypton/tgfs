@@ -14,6 +14,7 @@ import { Executor } from './commands/executor';
 import { parser } from './commands/parser';
 import { config, createConfig, loadConfig } from './config';
 import { BusinessError } from './errors/base';
+import { startBot } from './server/monitor';
 import { webdavServer } from './server/webdav';
 import { Logger } from './utils/logger';
 import { sleep } from './utils/sleep';
@@ -92,4 +93,6 @@ const { argv }: any = yargs(hideBin(process.argv))
   Logger.info(
     `WebDAV server is running on ${host}:${port}${config.webdav.path}`,
   );
+
+  startBot();
 })();

@@ -3,13 +3,26 @@ import { message } from 'telegraf/filters';
 
 import { config } from 'src/config';
 
-const bot = new Telegraf(config.monitor.bot_token);
-bot.start((ctx) => ctx.reply('Welcome'));
-bot.help((ctx) => ctx.reply('Send me a sticker'));
-bot.on(message('sticker'), (ctx) => ctx.reply('👍'));
-bot.hears('hi', (ctx) => ctx.reply('Hey there'));
-bot.launch();
+export const createBot = () => {
+  const bot = new Telegraf(config.monitor.bot_token);
 
-// Enable graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+  bot.use(async (ctx, next) => {
+    if (ctx.chat.id !== config.monitor.chat_id) {
+      return;
+    }
+    await next();
+  });
+
+  bot.catch((err) => {
+    console.error(err);
+  });
+
+  bot.on(message('sticker'), (ctx) => ctx.reply('👍'));
+  bot.hears('hi', (ctx) => ctx.reply(ctx.chat.id.toString()));
+  return bot;
+};
+
+export const startBot = () => {
+  const bot = createBot();
+  bot.launch();
+};
