@@ -14,7 +14,7 @@ import { Executor } from './commands/executor';
 import { parser } from './commands/parser';
 import { config, createConfig, loadConfig } from './config';
 import { BusinessError } from './errors/base';
-import { startBot } from './server/monitor';
+import { managerServer, startBot } from './server/manager';
 import { webdavServer } from './server/webdav';
 import { Logger } from './utils/logger';
 import { sleep } from './utils/sleep';
@@ -60,11 +60,32 @@ const { argv }: any = yargs(hideBin(process.argv))
 
   // runSync();
 
-  const app = express();
+  const startServer = (
+    name: string,
+    app: any,
+    host: string,
+    port: number,
+    path: string,
+  ) => {
+    const masterApp = express();
+    masterApp.use(path, app);
+    masterApp.listen(port, host);
+
+    if (host === '0.0.0.0' || host === '::') {
+      host = ip.address();
+    }
+    Logger.info(`${name} is running on ${host}:${port}${path}`);
+  };
 
   if (argv.webdav) {
     const server = webdavServer(client);
-    app.use(webdav.extensions.express(config.webdav.path, server));
+    startServer(
+      'WebDAV',
+      webdav.extensions.express('/', server),
+      config.webdav.host,
+      config.webdav.port,
+      config.webdav.path,
+    );
   } else if (argv._[0] === 'cmd') {
     argv._.shift();
     try {
@@ -81,18 +102,13 @@ const { argv }: any = yargs(hideBin(process.argv))
     }
   }
 
-  const port = argv.port ?? config.webdav.port;
-  let host = argv.host ?? config.webdav.host;
-
-  app.listen(port, host);
-
-  if (host === '0.0.0.0' || host === '::') {
-    host = ip.address();
-  }
-
-  Logger.info(
-    `WebDAV server is running on ${host}:${port}${config.webdav.path}`,
+  startServer(
+    'Manager',
+    managerServer,
+    config.manager.host,
+    config.manager.port,
+    config.manager.path,
   );
 
-  startBot();
+  await startBot();
 })();

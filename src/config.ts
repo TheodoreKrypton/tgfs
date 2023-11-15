@@ -42,9 +42,14 @@ export const loadConfig = (configPath: string) => {
     path: cfg['webdav']['path'] ?? '/',
   };
 
-  config.monitor = {
-    bot_token: cfg['monitor']['bot_token'],
-    chat_id: cfg['monitor']['chat_id'],
+  config.manager = {
+    host: cfg['manager']['host'] ?? '0.0.0.0',
+    port: cfg['manager']['port'] ?? 1901,
+    path: cfg['manager']['path'] ?? '/',
+    bot: {
+      token: cfg['manager']['bot']['token'],
+      chat_id: cfg['manager']['bot']['chat_id'],
+    },
   };
 };
 
@@ -111,6 +116,16 @@ export const createConfig = async () => {
     host: '0.0.0.0',
     port: 1900,
     path: '/',
+  };
+
+  config.manager = {
+    host: '0.0.0.0',
+    port: 1901,
+    path: '/',
+    bot: {
+      token: '',
+      chat_id: 0,
+    },
   };
 
   const yamlString = yaml.dump(config);

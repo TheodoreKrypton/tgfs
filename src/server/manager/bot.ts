@@ -2,12 +2,13 @@ import { Telegraf } from 'telegraf';
 import { message } from 'telegraf/filters';
 
 import { config } from 'src/config';
+import { Logger } from 'src/utils/logger';
 
 export const createBot = () => {
-  const bot = new Telegraf(config.monitor.bot_token);
+  const bot = new Telegraf(config.manager.bot.token);
 
   bot.use(async (ctx, next) => {
-    if (ctx.chat.id !== config.monitor.chat_id) {
+    if (ctx.chat.id !== config.manager.bot.chat_id) {
       return;
     }
     await next();
@@ -24,5 +25,13 @@ export const createBot = () => {
 
 export const startBot = () => {
   const bot = createBot();
+
   bot.launch();
+
+  // if (bot)
+  //   bot.telegram
+  //     .getMe()
+  //     .then((res) =>
+  //       console.log(`Bot started on https://t.me/${res.username}`),
+  //     );
 };

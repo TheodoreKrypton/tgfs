@@ -19,6 +19,10 @@ webdav:
   port: 1900
   path: /
 
-monitor:
-  bot_token: your_bot_token (mandatory, refer to README)
-  chat_id: your_chat_id (mandatory, refer to README)
+manager:
+  host: 0.0.0.0
+  port: 1901
+  path: /
+  bot:
+    token: your_bot_token (optional, apply from @BotFather)
+    chat_id: your_chat_id (optional, the chat id between you and your bot. The bot will not reply/send anything to other chats.)
