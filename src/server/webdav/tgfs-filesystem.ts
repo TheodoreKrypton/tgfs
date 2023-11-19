@@ -58,7 +58,7 @@ export class TGFSSerializer implements FileSystemSerializer {
     (async () => {
       const client = await loginAsBot();
       await client.init();
-      const fileSystem = new TGFSFileSystem(serializedData.rootPath);
+      const fileSystem = new TGFSFileSystem(client);
       callback(null, fileSystem);
     })();
   }

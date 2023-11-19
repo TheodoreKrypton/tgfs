@@ -26,12 +26,13 @@ export const createBot = () => {
 export const startBot = () => {
   const bot = createBot();
 
-  bot.launch();
-
-  // if (bot)
-  //   bot.telegram
-  //     .getMe()
-  //     .then((res) =>
-  //       console.log(`Bot started on https://t.me/${res.username}`),
-  //     );
+  bot.launch().catch((err) => {
+    if (err.code === 'ETIMEOUT') {
+      Logger.error('Timeout when connecting to Telegram Bot API, retrying...');
+      // retry until success
+      setTimeout(() => {
+        startBot();
+      }, 100);
+    }
+  });
 };

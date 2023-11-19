@@ -6,24 +6,34 @@ import { Logger } from 'src/utils/logger';
 
 import { TGFSFileSystem } from './tgfs-filesystem';
 
+class Authentication extends webdav.HTTPBasicAuthentication {
+  getUser(
+    ctx: webdav.HTTPRequestContext,
+    callback: (error: Error, user: webdav.IUser) => void,
+  ) {
+    const cb = (error: Error, user: webdav.IUser) => {
+      if (error) {
+        callback(webdav.Errors.BadAuthentication, null);
+      } else {
+        callback(null, user);
+      }
+    };
+    super.getUser(ctx, cb);
+  }
+}
+
 export const webdavServer = (
   client: Client,
   options?: webdav.WebDAVServerOptions,
 ) => {
-  const server = new webdav.WebDAVServer(options);
+  const userManager = new webdav.SimpleUserManager();
+  Object.keys(config.tgfs.users).forEach((user: string) => {
+    userManager.addUser(user, config.tgfs.users[user].password, true);
+  });
 
-  server.httpAuthentication = new webdav.HTTPBasicAuthentication({
-    getUserByNamePassword: (username, password, cb) => {
-      const user = config.tgfs.users[username];
-      if (user && user.password === password) {
-        cb(null, { uid: username, username });
-      } else {
-        cb(webdav.Errors.UserNotFound);
-      }
-    },
-    getDefaultUser(cb) {
-      cb(null);
-    },
+  const server = new webdav.WebDAVServer({
+    ...options,
+    httpAuthentication: new Authentication(userManager),
   });
 
   server.beforeRequest((ctx, next) => {

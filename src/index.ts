@@ -110,5 +110,5 @@ const { argv }: any = yargs(hideBin(process.argv))
     config.manager.path,
   );
 
-  await startBot();
+  startBot();
 })();
