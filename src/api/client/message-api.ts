@@ -13,6 +13,7 @@ import fs from 'fs';
 
 import { config } from 'src/config';
 import { TechnicalError } from 'src/errors/base';
+import { db } from 'src/server/manager/db';
 
 class MessageBroker {
   protected readonly privateChannelId = config.telegram.private_file_channel;
@@ -138,6 +139,8 @@ export class MessageApi extends MessageBroker {
     const fileSize = Number(message.document.size);
     const chunkSize = config.tgfs.download.chunksize * 1024;
 
+    const task = db.createTask(file.name, 0, 'download');
+
     const buffer = Buffer.alloc(fileSize);
     let i = 0;
     for await (const chunk of this.client.iterDownload({
@@ -151,7 +154,10 @@ export class MessageApi extends MessageBroker {
     })) {
       chunk.copy(buffer, i * chunkSize, 0, Number(chunk.length));
       i += 1;
+      task.reportProgress(i * chunkSize);
     }
+
+    task.finish();
     return buffer;
   }
 }

@@ -62,7 +62,7 @@ const { argv }: any = yargs(hideBin(process.argv))
 
   const startServer = (
     name: string,
-    app: any,
+    app: (req: any, res: any, next: any) => void,
     host: string,
     port: number,
     path: string,
@@ -104,7 +104,10 @@ const { argv }: any = yargs(hideBin(process.argv))
 
   startServer(
     'Manager',
-    managerServer,
+    (req, res, next) => {
+      managerServer(req, res);
+      next();
+    },
     config.manager.host,
     config.manager.port,
     config.manager.path,
