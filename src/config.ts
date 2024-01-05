@@ -4,7 +4,48 @@ import yaml from 'js-yaml';
 import os from 'os';
 import path from 'path';
 
-export const config: any = {};
+type Config = {
+  telegram: {
+    api_id: number;
+    api_hash: string;
+    bot_token: string;
+    private_file_channel: string;
+    public_file_channel: string;
+    session_file: string;
+  };
+  tgfs: {
+    users: {
+      [key: string]: {
+        password: string;
+      };
+    };
+    download: {
+      progress: boolean;
+      chunksize: number;
+    };
+    jwt: {
+      secret: string;
+      algorithm: string;
+      expiration: number;
+    };
+  };
+  webdav: {
+    host: string;
+    port: number;
+    path: string;
+  };
+  manager: {
+    host: string;
+    port: number;
+    path: string;
+    bot: {
+      token: string;
+      chat_id: number;
+    };
+  };
+};
+
+export const config = {} as Config;
 
 export const loadConfig = (configPath: string) => {
   const file = fs.readFileSync(configPath, 'utf8');
@@ -33,6 +74,11 @@ export const loadConfig = (configPath: string) => {
     download: {
       chunksize: cfg['tgfs']['download']['chunk_size_kb'] ?? 1024,
       progress: cfg['tgfs']['download']['progress'] === 'true',
+    },
+    jwt: {
+      secret: cfg['tgfs']['jwt']['secret'],
+      algorithm: cfg['tgfs']['jwt']['algorithm'] ?? 'HS256',
+      expiration: cfg['tgfs']['jwt']['expiration'],
     },
   };
 
@@ -109,6 +155,19 @@ export const createConfig = async () => {
     download: {
       progress: 'true',
       chunk_size_kb: 1024,
+    },
+    jwt: {
+      secret: (() => {
+        const chars =
+          'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let secret = '';
+        for (let i = 0; i < 64; i++) {
+          secret += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return secret;
+      })(),
+      algorithm: 'HS256',
+      expiration: 3600 * 24 * 7,
     },
   };
 
