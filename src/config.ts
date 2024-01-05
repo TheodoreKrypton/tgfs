@@ -87,6 +87,11 @@ export const loadConfig = (configPath: string): Config => {
         chunk_size_kb: cfg['tgfs']['download']['chunk_size_kb'] ?? 1024,
       },
     },
+    jwt: {
+      secret: cfg['tgfs']['jwt']['secret'],
+      algorithm: cfg['tgfs']['jwt']['algorithm'] ?? 'HS256',
+      expiration: cfg['tgfs']['jwt']['expiration'],
+    },
     webdav: {
       host: cfg['webdav']['host'] ?? '0.0.0.0',
       port: cfg['webdav']['port'] ?? 1900,
@@ -175,6 +180,19 @@ export const createConfig = async (): Promise<string> => {
       download: {
         chunk_size_kb: 1024,
       },
+    },
+    jwt: {
+      secret: (() => {
+        const chars =
+          'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let secret = '';
+        for (let i = 0; i < 64; i++) {
+          secret += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return secret;
+      })(),
+      algorithm: 'HS256',
+      expiration: 3600 * 24 * 7,
     },
     webdav: {
       host: '0.0.0.0',

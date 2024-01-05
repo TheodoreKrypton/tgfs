@@ -27,7 +27,7 @@ export const webdavServer = (
   options?: webdav.WebDAVServerOptions,
 ) => {
   const userManager = new webdav.SimpleUserManager();
-  Object.keys(config.tgfs.users).forEach((user: string) => {
+  Object.keys(config.tgfs.users).forEach((user) => {
     userManager.addUser(user, config.tgfs.users[user].password, true);
   });
 
