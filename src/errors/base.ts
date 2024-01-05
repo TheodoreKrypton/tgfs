@@ -1,9 +1,14 @@
+import HTTPErrors from 'http-errors';
+
 import { ErrorCodes } from './error-codes';
 
 export class TechnicalError extends Error {
   constructor(
     public readonly message: string,
     public readonly cause?: any,
+    public readonly httpError: {
+      new (message: string): HTTPErrors.HttpError;
+    } = HTTPErrors.InternalServerError,
   ) {
     super(message);
   }
@@ -14,8 +19,11 @@ export class BusinessError extends TechnicalError {
     public readonly message: string,
     public readonly code: ErrorCodes,
     public readonly cause?: any,
+    public readonly httpError: {
+      new (message: string): HTTPErrors.HttpError;
+    } = HTTPErrors.InternalServerError,
   ) {
-    super(message, cause);
+    super(message, cause, httpError);
   }
 }
 
