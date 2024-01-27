@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 import express from 'express';
-
 import fs from 'fs';
+
+import { TelegramClient } from 'telegram';
+
+import { Telegraf } from 'telegraf';
+
 import ip from 'ip';
 import { exit } from 'process';
 import { v2 as webdav } from 'webdav-server';
@@ -9,7 +13,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
 import { Client } from './api';
-import { loginAsUser } from './auth';
+import { loginAsAccount, loginAsBot } from './auth';
 import { Executor } from './commands/executor';
 import { parser } from './commands/parser';
 import { config, createConfig, loadConfig } from './config';
@@ -47,15 +51,20 @@ const { argv }: any = yargs(hideBin(process.argv))
     loadConfig(configPath);
   }
 
-  let client: Client;
-  const res = await Promise.race([loginAsUser(), sleep(300000)]);
-  if (res instanceof Client) {
-    client = res;
+  // account login
+  let account: TelegramClient;
+  let res = await Promise.race([loginAsAccount(), sleep(300000)]);
+  if (res instanceof TelegramClient) {
+    account = res;
   } else {
-    Logger.error('login timeout');
+    Logger.error('account login timeout');
     exit(1);
   }
 
+  // bot login
+  let bot = loginAsBot();
+
+  const client = new Client(account, bot);
   await client.init();
 
   // runSync();

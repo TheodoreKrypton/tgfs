@@ -82,17 +82,22 @@ Tested WebDAV Clients:
 
 ## Step by Step Guide to Set up config
 
+> For feature development purpose, any configuration is **unstable** at the current stage. You may need to reconfigure following any update.
+
 ### Automatically:
 
 A config file will be auto-generated when you run the program for the first time. Just follow the instructions to create a Telegram app and a private channel to store the files.
 
 ### Manually:
 
-#### First step
+#### Preparation
 
 1. Duplicate the `example-config.yaml` file and name it `config.yaml`
-2. Go to [Here](https://my.telegram.org/apps), login with your phone number and create a Telegram app.
-3. Copy the `api_id` and `api_hash` from the Telegram app page (step 2) to the config file (`telegram -> api_id / api_hash`)
+
+#### Set up account details
+
+1. Go to [Here](https://my.telegram.org/apps), login with your phone number and create a Telegram app.
+2. Copy the `api_id` and `api_hash` from the Telegram app page (step 2) to the config file (`telegram -> api_id / api_hash`)
 
 #### Set up the channel to store files
 

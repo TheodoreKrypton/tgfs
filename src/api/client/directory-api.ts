@@ -1,5 +1,7 @@
 import { TelegramClient } from 'telegram';
 
+import { Telegram } from 'telegraf';
+
 import { DirectoryIsNotEmptyError } from 'src/errors/path';
 import { TGFSDirectory } from 'src/model/directory';
 import { validateName } from 'src/utils/validate-name';
@@ -7,8 +9,11 @@ import { validateName } from 'src/utils/validate-name';
 import { MetaDataApi } from './metadata-api';
 
 export class DirectoryApi extends MetaDataApi {
-  constructor(protected readonly client: TelegramClient) {
-    super(client);
+  constructor(
+    protected readonly account: TelegramClient,
+    protected readonly bot: Telegram,
+  ) {
+    super(account, bot);
   }
 
   protected async createRootDirectory() {

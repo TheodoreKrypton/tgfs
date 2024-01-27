@@ -1,5 +1,6 @@
-import { Api, TelegramClient } from 'telegram';
-import { FileLike } from 'telegram/define';
+import { TelegramClient } from 'telegram';
+
+import { Telegram } from 'telegraf';
 
 import { TGFSFileRef } from 'src/model/directory';
 import { TGFSFile } from 'src/model/file';
@@ -7,19 +8,22 @@ import { TGFSFile } from 'src/model/file';
 import { MessageApi } from './message-api';
 
 export class FileDescApi extends MessageApi {
-  constructor(protected readonly client: TelegramClient) {
-    super(client);
+  constructor(
+    protected readonly account: TelegramClient,
+    protected readonly bot: Telegram,
+  ) {
+    super(account, bot);
   }
 
   public async createFileDesc(
     name: string,
-    fileContent?: FileLike,
-  ): Promise<Api.Message> {
+    fileContent?: string | Buffer,
+  ): Promise<number> {
     const tgfsFile = new TGFSFile(name);
 
     if (fileContent) {
-      const uploadFileMsg = await this.sendFile(fileContent);
-      tgfsFile.addVersionFromFileMessage(uploadFileMsg);
+      const id = await this.sendFile(fileContent);
+      tgfsFile.addVersionFromFileMessageId(id);
     } else {
       tgfsFile.addEmptyVersion();
     }
@@ -32,6 +36,7 @@ export class FileDescApi extends MessageApi {
     withVersionInfo: boolean = true,
   ): Promise<TGFSFile> {
     const message = (await this.getMessagesByIds([fileRef.getMessageId()]))[0];
+
     const fileDesc = TGFSFile.fromObject(JSON.parse(message.text));
 
     if (withVersionInfo) {
@@ -47,16 +52,21 @@ export class FileDescApi extends MessageApi {
 
       nonEmptyVersions.forEach((version, i) => {
         const fileMessage = fileMessages[i];
-        version.size = Number(fileMessage.document.size);
+        if (fileMessage) {
+          version.size = Number(fileMessage.document.size);
+        } else {
+          version.setInvalid();
+        }
       });
     }
 
     return fileDesc;
   }
 
-  public async updateFileDesc(fr: TGFSFileRef, fd: TGFSFile) {
-    return await this.editMessage(fr.getMessageId(), {
-      text: JSON.stringify(fd.toObject()),
-    });
+  public async updateFileDesc(fr: TGFSFileRef, fd: TGFSFile): Promise<number> {
+    return await this.editMessageText(
+      fr.getMessageId(),
+      JSON.stringify(fd.toObject()),
+    );
   }
 }

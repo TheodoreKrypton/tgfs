@@ -1,4 +1,4 @@
-import { text } from 'stream/consumers';
+type MessageType = { file?: any; message?: string };
 
 export class MockMessages {
   messages: any = {};
@@ -28,7 +28,7 @@ export class MockMessages {
     };
   }
 
-  sendMessage(msg: any) {
+  sendMessage(msg: MessageType) {
     const { file, message } = msg;
 
     const messageId = ++this.messageId;
@@ -56,12 +56,14 @@ export class MockMessages {
     return this.files[fileId];
   }
 
-  editMessage(messageId: number, msg: any) {
-    const { file, text } = msg;
-    this.messages[messageId] = {
-      ...this.messages[messageId],
-      text,
-    };
+  editMessage(messageId: number, msg: MessageType) {
+    const { file, message } = msg;
+    if (message) {
+      this.messages[messageId] = {
+        ...this.messages[messageId],
+        text: message,
+      };
+    }
     if (file) {
       this.messages[messageId].document = this.createFile(file);
     }

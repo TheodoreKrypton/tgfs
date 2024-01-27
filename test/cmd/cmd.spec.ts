@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+
 import yargs from 'yargs/yargs';
 
 import { Client } from 'src/api';

@@ -34,7 +34,7 @@ import {
   uploadFromBytes,
 } from 'src/api/ops';
 import { createEmptyFile } from 'src/api/ops/create-empty-file';
-import { loginAsBot } from 'src/auth';
+import { loginAsAccount, loginAsBot } from 'src/auth';
 import {
   FileOrDirectoryAlreadyExistsError,
   FileOrDirectoryDoesNotExistError,
@@ -56,7 +56,9 @@ export class TGFSSerializer implements FileSystemSerializer {
 
   unserialize(serializedData: any, callback: ReturnCallback<FileSystem>): void {
     (async () => {
-      const client = await loginAsBot();
+      const account = await loginAsAccount();
+      const bot = loginAsBot();
+      const client = new Client(account, bot);
       await client.init();
       const fileSystem = new TGFSFileSystem(client);
       callback(null, fileSystem);

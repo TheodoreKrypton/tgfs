@@ -95,8 +95,8 @@ export class TGFSDirectory {
     }
   }
 
-  public createFileRef(name: string, fileMessage: Api.Message) {
-    const fr = new TGFSFileRef(fileMessage.id, name, this);
+  public createFileRef(name: string, fileMessageId: number) {
+    const fr = new TGFSFileRef(fileMessageId, name, this);
     if (this.findFiles([fr.name])[0]) {
       throw new FileOrDirectoryAlreadyExistsError(fr.name);
     }

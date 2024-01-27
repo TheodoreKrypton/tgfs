@@ -1,7 +1,8 @@
-import { TelegramClient } from 'telegram';
-import { FileLike } from 'telegram/define';
-
 import fs from 'fs';
+
+import { TelegramClient } from 'telegram';
+
+import { Telegram } from 'telegraf';
 
 import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
 import { TGFSFileVersion } from 'src/model/file';
@@ -10,65 +11,69 @@ import { validateName } from 'src/utils/validate-name';
 import { DirectoryApi } from './directory-api';
 
 export class FileApi extends DirectoryApi {
-  constructor(protected readonly client: TelegramClient) {
-    super(client);
+  constructor(
+    protected readonly account: TelegramClient,
+    protected readonly bot: Telegram,
+  ) {
+    super(account, bot);
   }
 
   private async createFile(
     name: string,
     where: TGFSDirectory,
-    fileContent?: FileLike,
+    fileContent?: string | Buffer,
   ) {
     validateName(name);
 
-    const fdMsg = await this.createFileDesc(name, fileContent);
-    const tgfsFileRef = where.createFileRef(name, fdMsg);
+    const id = await this.createFileDesc(name, fileContent);
+    const fr = where.createFileRef(name, id);
 
     await this.syncMetadata();
 
-    return tgfsFileRef;
+    return fr;
   }
 
   private async updateFile(
-    tgfsFileRef: TGFSFileRef,
-    file?: FileLike,
+    fr: TGFSFileRef,
+    file?: string | Buffer,
     versionId?: string,
   ) {
-    const fd = await this.getFileDesc(tgfsFileRef, false);
+    const fd = await this.getFileDesc(fr, false);
 
     if (file) {
-      const uploadFileMsg = await this.sendFile(file);
+      const id = await this.sendFile(file);
 
       if (!versionId) {
-        fd.addVersionFromFileMessage(uploadFileMsg);
+        fd.addVersionFromFileMessageId(id);
       } else {
-        const tgfsFileVersion = fd.getVersion(versionId);
-        tgfsFileVersion.messageId = uploadFileMsg.id;
-        fd.updateVersion(tgfsFileVersion);
+        const fv = fd.getVersion(versionId);
+        fv.messageId = id;
+
+        fd.updateVersion(fv);
       }
     } else {
       if (!versionId) {
         fd.addEmptyVersion();
       } else {
-        const tgfsFileVersion = fd.getVersion(versionId);
-        tgfsFileVersion.messageId = TGFSFileVersion.EMPTY_FILE;
-        fd.updateVersion(tgfsFileVersion);
+        const fv = fd.getVersion(versionId);
+        fv.setInvalid();
+        fd.updateVersion(fv);
       }
     }
 
-    await this.updateFileDesc(tgfsFileRef, fd);
+    await this.updateFileDesc(fr, fd);
 
-    return tgfsFileRef;
+    return fr;
   }
 
-  public async deleteFile(tgfsFileRef: TGFSFileRef, version?: string) {
+  public async deleteFile(fr: TGFSFileRef, version?: string) {
     if (!version) {
-      tgfsFileRef.delete();
+      fr.delete();
       await this.syncMetadata();
     } else {
-      const fd = await this.getFileDesc(tgfsFileRef, false);
+      const fd = await this.getFileDesc(fr, false);
       fd.deleteVersion(version);
-      await this.updateFileDesc(tgfsFileRef, fd);
+      await this.updateFileDesc(fr, fd);
     }
   }
 
@@ -78,7 +83,7 @@ export class FileApi extends DirectoryApi {
       under: TGFSDirectory;
       versionId?: string;
     },
-    file?: FileLike,
+    file?: string | Buffer,
   ) {
     const fr = where.under.findFiles([where.name])[0];
     if (fr) {
@@ -101,28 +106,28 @@ export class FileApi extends DirectoryApi {
   }
 
   public async downloadLatestVersion(
-    fileRef: TGFSFileRef,
+    fr: TGFSFileRef,
     asName: string,
     outputFile?: string | fs.WriteStream,
   ): Promise<Buffer> {
-    const fileDesc = await this.getFileDesc(fileRef);
+    const fd = await this.getFileDesc(fr);
     let res = Buffer.from('');
-    if (fileDesc.isEmptyFile()) {
+    if (fd.isEmptyFile()) {
       this.writeContent(res, outputFile);
     } else {
-      const version = fileDesc.getLatest();
+      const version = fd.getLatest();
       return await this.downloadFileVersion(version, asName, outputFile);
     }
     return res;
   }
 
   public async downloadFileVersion(
-    fileVersion: TGFSFileVersion,
+    fv: TGFSFileVersion,
     asName: string,
     outputFile?: string | fs.WriteStream,
   ): Promise<Buffer> {
     const res = await this.downloadFile({
-      messageId: fileVersion.messageId,
+      messageId: fv.messageId,
       name: asName,
     });
     if (outputFile) {

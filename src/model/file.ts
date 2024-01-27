@@ -25,15 +25,15 @@ export class TGFSFileVersion {
     const tgfsFileVersion = new TGFSFileVersion();
     tgfsFileVersion.id = uuid();
     tgfsFileVersion.updatedAt = new Date();
-    tgfsFileVersion.messageId = this.EMPTY_FILE;
+    tgfsFileVersion.setInvalid();
     return tgfsFileVersion;
   }
 
-  static fromFileMessage(message: Api.Message): TGFSFileVersion {
+  static fromFileMessageId(fileMessageId: number): TGFSFileVersion {
     const tgfsFileVersion = new TGFSFileVersion();
     tgfsFileVersion.id = uuid();
     tgfsFileVersion.updatedAt = new Date();
-    tgfsFileVersion.messageId = message.id;
+    tgfsFileVersion.messageId = fileMessageId;
     return tgfsFileVersion;
   }
 
@@ -45,6 +45,11 @@ export class TGFSFileVersion {
     tgfsFileVersion.updatedAt = new Date(tgfsFileVersionObject['updatedAt']);
     tgfsFileVersion.messageId = tgfsFileVersionObject['messageId'];
     return tgfsFileVersion;
+  }
+
+  setInvalid() {
+    this.messageId = TGFSFileVersion.EMPTY_FILE;
+    this.size = 0;
   }
 }
 
@@ -100,8 +105,8 @@ export class TGFSFile {
     this.latestVersionId = version.id;
   }
 
-  addVersionFromFileMessage(message: Api.Message) {
-    const version = TGFSFileVersion.fromFileMessage(message);
+  addVersionFromFileMessageId(fileMessageId: number) {
+    const version = TGFSFileVersion.fromFileMessageId(fileMessageId);
     this.addVersion(version);
     this.latestVersionId = version.id;
   }

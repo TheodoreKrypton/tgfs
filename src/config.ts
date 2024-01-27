@@ -10,22 +10,30 @@ export const loadConfig = (configPath: string) => {
   const file = fs.readFileSync(configPath, 'utf8');
   const cfg = yaml.load(file);
 
-  let session_file = cfg['telegram']['session_file'];
-  if (session_file[0] === '~') {
-    session_file = path.join(os.homedir(), session_file.slice(1));
-  }
-  if (!fs.existsSync(session_file)) {
-    const dir = path.dirname(session_file);
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  const createSessionFileDir = (session_file: string) => {
+    if (session_file[0] === '~') {
+      session_file = path.join(os.homedir(), session_file.slice(1));
+    }
+    if (!fs.existsSync(session_file)) {
+      const dir = path.dirname(session_file);
+      fs.mkdirSync(dir, { recursive: true });
+    }
+  };
+
+  createSessionFileDir(cfg['telegram']['account']['session_file']);
+  createSessionFileDir(cfg['telegram']['bot']['session_file']);
 
   config.telegram = {
-    api_id: cfg['telegram']['api_id'],
-    api_hash: cfg['telegram']['api_hash'],
-    bot_token: cfg['telegram']['bot_token'],
+    account: {
+      api_id: cfg['telegram']['account']['api_id'],
+      api_hash: cfg['telegram']['account']['api_hash'],
+      session_file: cfg['telegram']['account']['session_file'],
+    },
+    bot: {
+      token: cfg['telegram']['bot']['token'],
+    },
     private_file_channel: `-100${cfg['telegram']['private_file_channel']}`,
     public_file_channel: cfg['telegram']['public_file_channel'],
-    session_file: session_file,
   };
 
   config.tgfs = {
@@ -77,20 +85,30 @@ export const createConfig = async () => {
     { default: path.join(process.cwd(), 'config.yaml') },
   );
 
-  config.telegram = {};
+  config.telegram = {
+    account: {},
+    bot: {},
+  };
 
   console.log(
     '\nGo to https://my.telegram.org/apps, follow the steps to log in and paste the App api_id and App api_hash here',
   );
-  config.telegram.api_id = Number(
+  config.telegram.account.api_id = Number(
     await input.text('App api_id', { validate: validateNotEmpty }),
   );
-  config.telegram.api_hash = await input.text('App api_hash', {
+  config.telegram.account.api_hash = await input.text('App api_hash', {
     validate: validateNotEmpty,
   });
-  config.telegram.session_file = await input.text(
+  config.telegram.account.session_file = await input.text(
     'Where do you want to save the session',
     { default: '~/.tgfs/account.session' },
+  );
+
+  console.log(
+    '\nGo to https://t.me/botfather to create a Bot and paste the bot token here.',
+  );
+  config.telegram.bot.token = Number(
+    await input.text('Bot token', { validate: validateNotEmpty }),
   );
 
   console.log('\nCreate a PRIVATE channel and paste the channel id here');

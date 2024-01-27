@@ -1,2 +1,2 @@
-export { loginAsBot } from './as-bot';
-export { loginAsUser } from './as-user';
+export { loginAsBot } from './bot';
+export { loginAsAccount } from './account';

@@ -1,10 +1,15 @@
 import { TelegramClient } from 'telegram';
 
+import { Telegram } from 'telegraf';
+
 import { FileApi } from './file-api';
 
 export class Client extends FileApi {
-  constructor(protected readonly client: TelegramClient) {
-    super(client);
+  constructor(
+    protected readonly account: TelegramClient,
+    protected readonly bot: Telegram,
+  ) {
+    super(account, bot);
   }
 
   public async init() {

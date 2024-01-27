@@ -1,11 +1,18 @@
 import fs from 'fs';
 
+import { Client } from 'src/api';
 import { sleep } from 'src/utils/sleep';
 
 import { createClient } from '../../utils/mock-tg-client';
 
 describe('file and directory operations', () => {
   describe('create / remove directories', () => {
+    var client: Client;
+
+    beforeEach(async () => {
+      client = await createClient();
+    });
+
     it('should create a directory', async () => {
       const client = await createClient();
       const root = client.getRootDirectory();
@@ -48,8 +55,13 @@ describe('file and directory operations', () => {
   });
 
   describe('create / remove files', () => {
+    var client: Client;
+
+    beforeEach(async () => {
+      client = await createClient();
+    });
+
     it('should create a file', async () => {
-      const client = await createClient();
       const root = client.getRootDirectory();
       const f1 = await client.uploadFile(
         { name: 'f1', under: root },
@@ -59,7 +71,6 @@ describe('file and directory operations', () => {
     });
 
     it('should add a file version', async () => {
-      const client = await createClient();
       const root = client.getRootDirectory();
       await client.uploadFile(
         { name: 'f1', under: root },
@@ -80,7 +91,6 @@ describe('file and directory operations', () => {
     });
 
     it('should edit a file version', async () => {
-      const client = await createClient();
       const root = client.getRootDirectory();
 
       await client.uploadFile(
@@ -89,7 +99,7 @@ describe('file and directory operations', () => {
       );
 
       const content2 = 'mock-file-content-edited';
-      const fr = root.findFiles(['f1'])[0];
+      let fr = root.findFiles(['f1'])[0];
       const fd = await client.getFileDesc(fr);
 
       await client.uploadFile(
@@ -119,7 +129,6 @@ describe('file and directory operations', () => {
     // });
 
     it('should remove a file', async () => {
-      const client = await createClient();
       const root = client.getRootDirectory();
 
       const f1 = await client.uploadFile(
@@ -132,7 +141,6 @@ describe('file and directory operations', () => {
     });
 
     it('should remove a file version', async () => {
-      const client = await createClient();
       const root = client.getRootDirectory();
       const content = 'mock-file-content';
       await client.uploadFile(
@@ -157,7 +165,6 @@ describe('file and directory operations', () => {
     });
 
     it('should download a file as a local file', async () => {
-      const client = await createClient();
       const root = client.getRootDirectory();
       const content = 'mock-file-content';
       await client.uploadFile(
@@ -178,7 +185,6 @@ describe('file and directory operations', () => {
 
     it('should download a file as a write stream', (done) => {
       (async () => {
-        const client = await createClient();
         const root = client.getRootDirectory();
         const content = 'mock-file-content';
         await client.uploadFile(
