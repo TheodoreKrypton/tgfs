@@ -1,4 +1,5 @@
 import fs from 'fs';
+
 import input from 'input';
 import yaml from 'js-yaml';
 import os from 'os';
@@ -10,24 +11,21 @@ export const loadConfig = (configPath: string) => {
   const file = fs.readFileSync(configPath, 'utf8');
   const cfg = yaml.load(file);
 
-  const createSessionFileDir = (session_file: string) => {
-    if (session_file[0] === '~') {
-      session_file = path.join(os.homedir(), session_file.slice(1));
-    }
-    if (!fs.existsSync(session_file)) {
-      const dir = path.dirname(session_file);
-      fs.mkdirSync(dir, { recursive: true });
-    }
-  };
+  let session_file = cfg['telegram']['account']['session_file'];
 
-  createSessionFileDir(cfg['telegram']['account']['session_file']);
-  createSessionFileDir(cfg['telegram']['bot']['session_file']);
+  if (session_file[0] === '~') {
+    session_file = path.join(os.homedir(), session_file.slice(1));
+  }
+  if (!fs.existsSync(session_file)) {
+    const dir = path.dirname(session_file);
+    fs.mkdirSync(dir, { recursive: true });
+  }
 
   config.telegram = {
     account: {
       api_id: cfg['telegram']['account']['api_id'],
       api_hash: cfg['telegram']['account']['api_hash'],
-      session_file: cfg['telegram']['account']['session_file'],
+      session_file,
     },
     bot: {
       token: cfg['telegram']['bot']['token'],
@@ -107,9 +105,9 @@ export const createConfig = async () => {
   console.log(
     '\nGo to https://t.me/botfather to create a Bot and paste the bot token here.',
   );
-  config.telegram.bot.token = Number(
-    await input.text('Bot token', { validate: validateNotEmpty }),
-  );
+  config.telegram.bot.token = await input.text('Bot token', {
+    validate: validateNotEmpty,
+  });
 
   console.log('\nCreate a PRIVATE channel and paste the channel id here');
   config.telegram.private_file_channel = Number(

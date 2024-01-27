@@ -47,6 +47,7 @@ const { argv }: any = yargs(hideBin(process.argv))
   try {
     loadConfig(configPath);
   } catch (err) {
+    Logger.debug(err);
     configPath = await createConfig();
     loadConfig(configPath);
   }

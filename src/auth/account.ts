@@ -1,7 +1,8 @@
+import * as fs from 'fs';
+
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 
-import * as fs from 'fs';
 import * as input from 'input';
 
 import { config } from 'src/config';
@@ -10,11 +11,12 @@ import { Logger } from 'src/utils/logger';
 export const loginAsAccount = async (
   reset: boolean = false,
 ): Promise<TelegramClient> => {
-  const apiId = config.telegram.reader.api_id;
-  const apiHash = config.telegram.reader.api_hash;
-  const session_file = config.telegram.reader.session_file;
+  const apiId = config.telegram.account.api_id;
+  const apiHash = config.telegram.account.api_hash;
+  const session_file = config.telegram.account.session_file;
 
   if (!reset && fs.existsSync(session_file)) {
+    console.log(`using session file: ${session_file}`);
     const session = new StringSession(String(fs.readFileSync(session_file)));
     const client = new TelegramClient(session, apiId, apiHash, {
       connectionRetries: 5,

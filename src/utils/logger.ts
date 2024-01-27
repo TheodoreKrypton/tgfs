@@ -7,6 +7,12 @@ export class Logger {
     return new Date(Date.now() - this.tzOffset).toISOString().slice(0, -1);
   }
 
+  static debug(...args: any[]) {
+    if (process.env.DEBUG === 'true') {
+      console.debug(`[${this.getTime()}] [DEBUG]`, ...args);
+    }
+  }
+
   static info(...args: any[]) {
     console.info(`[${this.getTime()}] [INFO]`, ...args);
   }

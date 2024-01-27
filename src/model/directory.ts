@@ -1,5 +1,3 @@
-import { Api } from 'telegram';
-
 import { FileOrDirectoryAlreadyExistsError } from 'src/errors/path';
 
 import { TGFSDirectoryObject, TGFSFileRefObject } from './message';
