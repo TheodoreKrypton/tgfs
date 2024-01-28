@@ -1,11 +1,13 @@
-import { Api, TelegramClient } from 'telegram';
+import { Api } from 'telegram';
+import { TelegramClient } from 'telegram';
 import { IterDownloadFunction } from 'telegram/client/downloads';
 import { SendFileInterface } from 'telegram/client/uploads';
 import { EntityLike } from 'telegram/define';
 
 import { Telegram } from 'telegraf';
 
-import { Client } from 'src/api';
+import { createClient } from 'src/api';
+import { Config } from 'src/config';
 
 import { MockMessages } from './mock-messages';
 
@@ -13,28 +15,44 @@ let mockMessages = null;
 
 jest.mock('src/config', () => {
   return {
+    ...jest.requireActual('src/config'),
     config: {
       telegram: {
         private_file_channel: 'mock-private-file-channel',
       },
       tgfs: {
         download: {
-          chunksize: 1024,
-          progress: false,
+          chunk_size_kb: 1024,
         },
       },
-    },
+    } as Partial<Config>,
+  };
+});
+
+jest.mock('src/api/impl/gramjs', () => {
+  return {
+    ...jest.requireActual('src/api/impl/gramjs'),
+    loginAsAccount: jest.fn().mockImplementation(async () => {
+      return new TelegramClient('mock-session', 0, 'mock-api-hash', {});
+    }),
+    loginAsBot: jest.fn().mockImplementation(async () => {
+      return new TelegramClient('mock-session', 0, 'mock-api-hash', {});
+    }),
+  };
+});
+
+jest.mock('src/api/impl/telegraf', () => {
+  return {
+    ...jest.requireActual('src/api/impl/telegraf'),
+    createBot: jest.fn().mockImplementation(() => {
+      return new Telegram('mock-token');
+    }),
   };
 });
 
 jest.mock('telegram', () => {
   return {
-    Api: {
-      InputMessagesFilterPinned: jest.fn(),
-      InputDocumentFileLocation: jest.fn().mockImplementation((file) => {
-        return file;
-      }),
-    },
+    ...jest.requireActual('telegram'),
     TelegramClient: jest
       .fn()
       .mockImplementation(
@@ -43,7 +61,7 @@ jest.mock('telegram', () => {
             getMessages: jest
               .fn()
               .mockImplementation((channelId: string, options: any) => {
-                let { filter, ids, search } = options;
+                const { filter, ids, search } = options;
                 if (filter instanceof Api.InputMessagesFilterPinned) {
                   return mockMessages.pinnedMessageId
                     ? [mockMessages.getMessage(mockMessages.pinnedMessageId)]
@@ -85,13 +103,30 @@ jest.mock('telegram', () => {
               .fn()
               .mockImplementation(
                 (entity: EntityLike, sendFileParams: SendFileInterface) => {
-                  const id = mockMessages.sendMessage({
-                    file: sendFileParams.file,
-                    message: sendFileParams.caption as string,
-                  });
+                  let id = 0;
+                  if (sendFileParams instanceof Api.InputFileBig) {
+                    id = mockMessages.sendMessage({
+                      file: {
+                        id: sendFileParams.id,
+                        parts: sendFileParams.parts,
+                        name: sendFileParams.name,
+                      },
+                    });
+                  } else {
+                    id = mockMessages.sendMessage({
+                      file: sendFileParams.file,
+                    });
+                  }
+
                   return { id };
                 },
               ),
+
+            invoke: jest.fn().mockImplementation((request: any) => {
+              if (request instanceof Api.upload.SaveBigFilePart) {
+                return true;
+              }
+            }),
           };
         },
       ),
@@ -169,15 +204,8 @@ jest.mock('telegraf', () => {
   };
 });
 
-export const createClient = async () => {
+export const createMockClient = async () => {
   mockMessages = new MockMessages();
-
-  const client = new Client(
-    new TelegramClient('mock-session', 1, 'mock-api-hash', {}),
-    new Telegram('mock-bot-token'),
-  );
-
-  await client.init();
-
+  const client = await createClient();
   return client;
 };

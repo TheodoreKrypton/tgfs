@@ -1,27 +1,30 @@
 import fs from 'fs';
 
+import { Api } from 'telegram';
+
 import { Client } from 'src/api';
+import { saveToBuffer, saveToFile } from 'src/api/utils';
 import { sleep } from 'src/utils/sleep';
 
-import { createClient } from '../../utils/mock-tg-client';
+import { createMockClient } from '../../utils/mock-tg-client';
 
 describe('file and directory operations', () => {
   describe('create / remove directories', () => {
     var client: Client;
 
     beforeEach(async () => {
-      client = await createClient();
+      client = await createMockClient();
     });
 
     it('should create a directory', async () => {
-      const client = await createClient();
+      const client = await createMockClient();
       const root = client.getRootDirectory();
       const d1 = await client.createDirectory({ name: 'd1', under: root });
       expect(root.findChildren(['d1'])[0]).toEqual(d1);
     });
 
     it('should throw an error if the directory name is illegal', async () => {
-      const client = await createClient();
+      const client = await createMockClient();
       const root = client.getRootDirectory();
 
       await expect(
@@ -33,7 +36,7 @@ describe('file and directory operations', () => {
     });
 
     it('should remove a directory', async () => {
-      const client = await createClient();
+      const client = await createMockClient();
       const root = client.getRootDirectory();
 
       const d1 = await client.createDirectory({ name: 'd1', under: root });
@@ -42,7 +45,7 @@ describe('file and directory operations', () => {
     });
 
     it('should remove all directories', async () => {
-      const client = await createClient();
+      const client = await createMockClient();
 
       const d1 = await client.createDirectory({
         name: 'd1',
@@ -58,16 +61,53 @@ describe('file and directory operations', () => {
     var client: Client;
 
     beforeEach(async () => {
-      client = await createClient();
+      client = await createMockClient();
     });
 
-    it('should create a file', async () => {
+    it('should create a small file from buffer', async () => {
       const root = client.getRootDirectory();
       const f1 = await client.uploadFile(
         { name: 'f1', under: root },
         Buffer.from('mock-file-content'),
       );
       expect(root.findFiles(['f1'])[0]).toEqual(f1);
+    });
+
+    it('should create a small file from path', async () => {
+      fs.writeFileSync('./mock-file.txt', 'mock-file-content');
+
+      const root = client.getRootDirectory();
+      const f1 = await client.uploadFile(
+        { name: 'f1', under: root },
+        './mock-file.txt',
+      );
+      expect(root.findFiles(['f1'])[0]).toEqual(f1);
+
+      fs.rmSync('./mock-file.txt');
+    });
+
+    it('should create a big file from buffer', async () => {
+      const content = Buffer.alloc(1024 * 1024 * 100, 'a');
+
+      const root = client.getRootDirectory();
+
+      const f1 = await client.uploadFile({ name: 'f1', under: root }, content);
+      expect(root.findFiles(['f1'])[0]).toEqual(f1);
+    });
+
+    it('should create a big file from path', async () => {
+      const content = Buffer.alloc(1024 * 1024 * 100, 'a');
+      fs.writeFileSync('./mock-file.txt', content);
+
+      const root = client.getRootDirectory();
+
+      const f1 = await client.uploadFile(
+        { name: 'f1', under: root },
+        './mock-file.txt',
+      );
+      expect(root.findFiles(['f1'])[0]).toEqual(f1);
+
+      // fs.rmSync('./mock-file.txt');
     });
 
     it('should add a file version', async () => {
@@ -86,7 +126,9 @@ describe('file and directory operations', () => {
       const fr = root.findFiles(['f1'])[0];
       const fd = await client.getFileDesc(fr);
       expect(Object.keys(fd.versions)).toHaveLength(2);
-      const content = await client.downloadLatestVersion(fr, 'f1');
+      const content = await saveToBuffer(
+        client.downloadLatestVersion(fr, 'f1'),
+      );
       expect(content.toString()).toEqual(content2);
     });
 
@@ -107,7 +149,9 @@ describe('file and directory operations', () => {
         Buffer.from(content2),
       );
 
-      const content = await client.downloadLatestVersion(fr, 'f1');
+      const content = await saveToBuffer(
+        client.downloadLatestVersion(fr, 'f1'),
+      );
       expect(content.toString()).toEqual(content2);
     });
 
@@ -160,7 +204,9 @@ describe('file and directory operations', () => {
 
       f = await client.getFileDesc(fr);
       expect(Object.keys(f.versions)).toHaveLength(1);
-      const content2 = await client.downloadLatestVersion(fr, 'f1');
+      const content2 = await saveToBuffer(
+        client.downloadLatestVersion(fr, 'f1'),
+      );
       expect(content2.toString()).toEqual(content);
     });
 
@@ -175,39 +221,12 @@ describe('file and directory operations', () => {
       const fr = root.findFiles(['f1'])[0];
       const localFileName = 'test-download-file-content';
 
-      await client.downloadLatestVersion(fr, 'f1', localFileName);
+      await saveToFile(client.downloadLatestVersion(fr, 'f1'), localFileName);
 
       const contentRead = fs.readFileSync(localFileName);
       expect(contentRead.toString()).toEqual(content);
 
       fs.rmSync(localFileName);
-    });
-
-    it('should download a file as a write stream', (done) => {
-      (async () => {
-        const root = client.getRootDirectory();
-        const content = 'mock-file-content';
-        await client.uploadFile(
-          { name: 'f1', under: root },
-          Buffer.from(content),
-        );
-
-        const fr = root.findFiles(['f1'])[0];
-        const localFileName = 'test-download-file-content-2';
-        const ws = fs.createWriteStream(localFileName);
-        ws.on('finish', () => {
-          try {
-            const contentRead = fs.readFileSync(localFileName);
-            expect(contentRead.toString()).toEqual(content);
-            fs.rmSync(localFileName);
-            done();
-          } catch (err) {
-            done(err);
-          }
-        });
-
-        await client.downloadLatestVersion(fr, 'f1', ws);
-      })();
     });
   });
 });

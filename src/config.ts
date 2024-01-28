@@ -5,61 +5,107 @@ import yaml from 'js-yaml';
 import os from 'os';
 import path from 'path';
 
-export const config: any = {};
-
-export const loadConfig = (configPath: string) => {
-  const file = fs.readFileSync(configPath, 'utf8');
-  const cfg = yaml.load(file);
-
-  let session_file = cfg['telegram']['account']['session_file'];
-
-  if (session_file[0] === '~') {
-    session_file = path.join(os.homedir(), session_file.slice(1));
-  }
-  if (!fs.existsSync(session_file)) {
-    const dir = path.dirname(session_file);
-    fs.mkdirSync(dir, { recursive: true });
-  }
-
-  config.telegram = {
+export type Config = {
+  telegram: {
+    api_id: number;
+    api_hash: string;
     account: {
-      api_id: cfg['telegram']['account']['api_id'],
-      api_hash: cfg['telegram']['account']['api_hash'],
-      session_file,
-    },
+      session_file: string;
+    };
     bot: {
-      token: cfg['telegram']['bot']['token'],
-    },
-    private_file_channel: `-100${cfg['telegram']['private_file_channel']}`,
-    public_file_channel: cfg['telegram']['public_file_channel'],
+      token: string;
+      session_file: string;
+    };
+    private_file_channel: string;
+    public_file_channel: string;
   };
-
-  config.tgfs = {
-    users: cfg['tgfs']['users'],
+  tgfs: {
+    users: {
+      [key: string]: {
+        password: string;
+      };
+    };
     download: {
-      chunksize: cfg['tgfs']['download']['chunk_size_kb'] ?? 1024,
-      progress: cfg['tgfs']['download']['progress'] === 'true',
-    },
+      chunk_size_kb: number;
+    };
   };
-
-  config.webdav = {
-    host: cfg['webdav']['host'] ?? '0.0.0.0',
-    port: cfg['webdav']['port'] ?? 1900,
-    path: cfg['webdav']['path'] ?? '/',
+  webdav: {
+    host: string;
+    port: number;
+    path: string;
   };
-
-  config.manager = {
-    host: cfg['manager']['host'] ?? '0.0.0.0',
-    port: cfg['manager']['port'] ?? 1901,
-    path: cfg['manager']['path'] ?? '/',
+  manager: {
+    host: string;
+    port: number;
+    path: string;
     bot: {
-      token: cfg['manager']['bot']['token'],
-      chat_id: cfg['manager']['bot']['chat_id'],
-    },
+      token: string;
+      chat_id: number;
+    };
   };
 };
 
-export const createConfig = async () => {
+export let config: Config;
+
+export const loadConfig = (configPath: string): Config => {
+  const file = fs.readFileSync(configPath, 'utf8');
+  const cfg = yaml.load(file);
+
+  const getSessionFilePath = (session_file: string) => {
+    if (session_file[0] === '~') {
+      session_file = path.join(os.homedir(), session_file.slice(1));
+    }
+    if (!fs.existsSync(session_file)) {
+      const dir = path.dirname(session_file);
+      fs.mkdirSync(dir, { recursive: true });
+    }
+
+    return session_file;
+  };
+
+  config = {
+    telegram: {
+      api_id: cfg['telegram']['api_id'],
+      api_hash: cfg['telegram']['api_hash'],
+      account: {
+        session_file: getSessionFilePath(
+          cfg['telegram']['account']['session_file'],
+        ),
+      },
+      bot: {
+        token: cfg['telegram']['bot']['token'],
+        session_file: getSessionFilePath(
+          cfg['telegram']['bot']['session_file'],
+        ),
+      },
+      private_file_channel: `-100${cfg['telegram']['private_file_channel']}`,
+      public_file_channel: cfg['telegram']['public_file_channel'],
+    },
+    tgfs: {
+      users: cfg['tgfs']['users'],
+      download: {
+        chunk_size_kb: cfg['tgfs']['download']['chunk_size_kb'] ?? 1024,
+      },
+    },
+    webdav: {
+      host: cfg['webdav']['host'] ?? '0.0.0.0',
+      port: cfg['webdav']['port'] ?? 1900,
+      path: cfg['webdav']['path'] ?? '/',
+    },
+    manager: {
+      host: cfg['manager']['host'] ?? '0.0.0.0',
+      port: cfg['manager']['port'] ?? 1901,
+      path: cfg['manager']['path'] ?? '/',
+      bot: {
+        token: cfg['manager']['bot']['token'],
+        chat_id: cfg['manager']['bot']['chat_id'],
+      },
+    },
+  };
+  return config;
+};
+
+export const createConfig = async (): Promise<string> => {
   const createNow = await input.confirm(
     'The config file is malformed or not found. Create a config file now?',
   );
@@ -76,75 +122,77 @@ export const createConfig = async () => {
     }
   };
 
-  const config: any = {};
-
   const configPath = await input.text(
-    'Where do you want to save the config file',
+    'Where do you want to save this config file',
     { default: path.join(process.cwd(), 'config.yaml') },
   );
 
-  config.telegram = {
-    account: {},
-    bot: {},
-  };
-
-  console.log(
-    '\nGo to https://my.telegram.org/apps, follow the steps to log in and paste the App api_id and App api_hash here',
-  );
-  config.telegram.account.api_id = Number(
-    await input.text('App api_id', { validate: validateNotEmpty }),
-  );
-  config.telegram.account.api_hash = await input.text('App api_hash', {
-    validate: validateNotEmpty,
-  });
-  config.telegram.account.session_file = await input.text(
-    'Where do you want to save the session',
-    { default: '~/.tgfs/account.session' },
-  );
-
-  console.log(
-    '\nGo to https://t.me/botfather to create a Bot and paste the bot token here.',
-  );
-  config.telegram.bot.token = await input.text('Bot token', {
-    validate: validateNotEmpty,
-  });
-
-  console.log('\nCreate a PRIVATE channel and paste the channel id here');
-  config.telegram.private_file_channel = Number(
-    await input.text('Channel to store the files', {
-      validate: validateNotEmpty,
-    }),
-  );
-
-  config.tgfs = {
-    users: {
-      user: {
-        password: 'password',
+  const res: Config = {
+    telegram: {
+      api_id: Number(
+        await input.text(
+          'Visit https://my.telegram.org/apps, create an app and paste the app_id, app_token here\nApp api_id',
+          {
+            validate: validateNotEmpty,
+          },
+        ),
+      ),
+      api_hash: (await input.text('App api_hash', {
+        validate: validateNotEmpty,
+      })) as string,
+      account: {
+        session_file: (await input.text(
+          'Where do you want to save the account session',
+          { default: '~/.tgfs/account.session' },
+        )) as string,
+      },
+      bot: {
+        session_file: (await input.text(
+          'Where do you want to save the bot session',
+          { default: '~/.tgfs/bot.session' },
+        )) as string,
+        token: (await input.text(
+          'Create a bot from https://t.me/botfather and paste the bot token here\nBot token',
+          {
+            validate: validateNotEmpty,
+          },
+        )) as string,
+      },
+      private_file_channel: await input.text(
+        'Create a PRIVATE channel and paste the channel id here\nChannel to store the files',
+        {
+          validate: validateNotEmpty,
+        },
+      ),
+      public_file_channel: '',
+    },
+    tgfs: {
+      users: {
+        user: {
+          password: 'password',
+        },
+      },
+      download: {
+        chunk_size_kb: 1024,
       },
     },
-    download: {
-      progress: 'true',
-      chunk_size_kb: 1024,
+    webdav: {
+      host: '0.0.0.0',
+      port: 1900,
+      path: '/',
+    },
+    manager: {
+      host: '0.0.0.0',
+      port: 1901,
+      path: '/',
+      bot: {
+        token: '',
+        chat_id: 0,
+      },
     },
   };
 
-  config.webdav = {
-    host: '0.0.0.0',
-    port: 1900,
-    path: '/',
-  };
-
-  config.manager = {
-    host: '0.0.0.0',
-    port: 1901,
-    path: '/',
-    bot: {
-      token: '',
-      chat_id: 0,
-    },
-  };
-
-  const yamlString = yaml.dump(config);
+  const yamlString = yaml.dump(res);
 
   fs.writeFileSync(configPath, yamlString);
   return configPath;

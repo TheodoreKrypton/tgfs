@@ -1,7 +1,10 @@
-type MessageType = { file?: any; message?: string };
+type InputMessage = { file?: any; message?: string };
+type Message = { id: number; text?: string; document?: any };
 
 export class MockMessages {
-  messages: any = {};
+  messages: {
+    [key: number]: Message;
+  } = {};
   messageId: number = 1;
   pinnedMessageId: number;
 
@@ -28,7 +31,7 @@ export class MockMessages {
     };
   }
 
-  sendMessage(msg: MessageType) {
+  sendMessage(msg: InputMessage) {
     const { file, message } = msg;
 
     const messageId = ++this.messageId;
@@ -56,7 +59,7 @@ export class MockMessages {
     return this.files[fileId];
   }
 
-  editMessage(messageId: number, msg: MessageType) {
+  editMessage(messageId: number, msg: InputMessage) {
     const { file, message } = msg;
     if (message) {
       this.messages[messageId] = {

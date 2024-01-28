@@ -1,9 +1,3 @@
-import fs from 'fs';
-
-import { TelegramClient } from 'telegram';
-
-import { Telegram } from 'telegraf';
-
 import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
 import { TGFSFileVersion } from 'src/model/file';
 import { validateName } from 'src/utils/validate-name';
@@ -11,13 +5,6 @@ import { validateName } from 'src/utils/validate-name';
 import { DirectoryApi } from './directory-api';
 
 export class FileApi extends DirectoryApi {
-  constructor(
-    protected readonly account: TelegramClient,
-    protected readonly bot: Telegram,
-  ) {
-    super(account, bot);
-  }
-
   private async createFile(
     name: string,
     where: TGFSDirectory,
@@ -93,46 +80,24 @@ export class FileApi extends DirectoryApi {
     }
   }
 
-  private writeContent(content: Buffer, outputFile?: string | fs.WriteStream) {
-    if (!outputFile) {
-      return;
-    }
-    if (outputFile instanceof fs.WriteStream) {
-      outputFile.write(content);
-      outputFile.end();
-    } else {
-      fs.writeFileSync(outputFile, content);
-    }
-  }
-
-  public async downloadLatestVersion(
+  public async *downloadLatestVersion(
     fr: TGFSFileRef,
     asName: string,
-    outputFile?: string | fs.WriteStream,
-  ): Promise<Buffer> {
+  ): AsyncGenerator<Buffer> {
     const fd = await this.getFileDesc(fr);
-    let res = Buffer.from('');
+
     if (fd.isEmptyFile()) {
-      this.writeContent(res, outputFile);
+      yield Buffer.from('');
     } else {
       const version = fd.getLatest();
-      return await this.downloadFileVersion(version, asName, outputFile);
+      yield* this.downloadFileVersion(version, asName);
     }
-    return res;
   }
 
-  public async downloadFileVersion(
+  public downloadFileVersion(
     fv: TGFSFileVersion,
     asName: string,
-    outputFile?: string | fs.WriteStream,
-  ): Promise<Buffer> {
-    const res = await this.downloadFile({
-      messageId: fv.messageId,
-      name: asName,
-    });
-    if (outputFile) {
-      this.writeContent(res, outputFile);
-    }
-    return res;
+  ): AsyncGenerator<Buffer> {
+    return this.downloadFile(asName, fv.messageId);
   }
 }

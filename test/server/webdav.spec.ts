@@ -5,13 +5,13 @@ import { v2 as webdav } from 'webdav-server';
 
 import { TGFSFileSystem } from 'src/server/webdav/tgfs-filesystem';
 
-import { createClient } from '../utils/mock-tg-client';
+import { createMockClient } from '../utils/mock-tg-client';
 
 describe('TGFSFileSystem', () => {
   let server: http.Server;
 
   beforeAll(async () => {
-    const mockClient = await createClient();
+    const mockClient = await createMockClient();
     const webDAVServer = new webdav.WebDAVServer();
     webDAVServer.setFileSystemSync('/', new TGFSFileSystem(mockClient));
     webDAVServer.start((httpServer) => {

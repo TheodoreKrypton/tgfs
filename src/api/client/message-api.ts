@@ -1,27 +1,26 @@
 import { Hash, createHash } from 'crypto';
 import fs from 'fs';
 
-import { Api, TelegramClient } from 'telegram';
-import { generateRandomBytes, readBigIntFromBuffer } from 'telegram/Helpers.js';
-import { getAppropriatedPartSize } from 'telegram/Utils';
-import { IterDownloadFunction } from 'telegram/client/downloads';
-import { IterMessagesParams } from 'telegram/client/messages';
-
-import { Telegram } from 'telegraf';
+import { Api } from 'telegram';
 
 import bigInt from 'big-integer';
 import path from 'path';
 
+import { IBotApi, ITDLibApi } from 'src/api/interface';
+import { BigFile } from 'src/api/types';
+import { generateFileId, getAppropriatedPartSize } from 'src/api/utils';
 import { config } from 'src/config';
 import { TechnicalError } from 'src/errors/base';
 import { db } from 'src/server/manager/db';
 
 class MessageBroker {
-  public readonly privateChannelId = config.telegram.private_file_channel;
+  public readonly privateChannelId = Number(
+    config.telegram.private_file_channel,
+  );
 
   constructor(
-    protected readonly account: TelegramClient,
-    protected buffer: Array<{
+    protected readonly tdlib: ITDLibApi,
+    protected requests: Array<{
       ids: number[];
       resolve: (result: unknown) => void;
       reject: (error: unknown) => void;
@@ -29,37 +28,35 @@ class MessageBroker {
     protected timeout: NodeJS.Timeout = null,
   ) {}
 
-  async getMessagesByIds(ids: number[]) {
+  async getMessages(ids: number[]): Promise<Api.Message[]> {
     return new Promise((resolve, reject) => {
-      this.buffer.push({ ids, resolve, reject });
+      this.requests.push({ ids, resolve, reject });
       if (this.timeout) {
         clearTimeout(this.timeout);
       }
       this.timeout = setTimeout(async () => {
-        let buffer = [];
-        [buffer, this.buffer] = [[...this.buffer], []];
-        const ids = [...new Set(buffer.map((item) => item.ids).flat())];
+        let requests = [];
+        [requests, this.requests] = [[...this.requests], []];
+        const ids = [...new Set(requests.map((item) => item.ids).flat())];
 
         try {
-          const messages = await this.account.getMessages(
-            this.privateChannelId,
-            {
-              ids,
-            },
-          );
+          const messages = await this.tdlib.getMessages({
+            chatId: this.privateChannelId,
+            messageIds: ids,
+          });
           const messageMap = new Map();
           messages.forEach((message) => {
             if (message) {
-              messageMap.set(message.id, message);
+              messageMap.set(message.messageId, message);
             }
           });
-          buffer.forEach((item) => {
-            const result = item.ids.map((id: number) => messageMap.get(id));
-            item.resolve(result);
+          requests.forEach((request) => {
+            const result = request.ids.map((id: number) => messageMap.get(id));
+            request.resolve(result);
           });
         } catch (err) {
-          buffer.forEach((item) => {
-            item.reject(err);
+          requests.forEach((request) => {
+            request.reject(err);
           });
         }
       }, 100);
@@ -78,12 +75,8 @@ export class FileUploader {
   partCnt: number = -1;
   uploaded: number = 0;
 
-  constructor(private readonly client: TelegramClient) {
-    this.fileId = FileUploader.generateFileId();
-  }
-
-  private static generateFileId() {
-    return readBigIntFromBuffer(generateRandomBytes(8), true, true);
+  constructor(private readonly tdlib: ITDLibApi) {
+    this.fileId = generateFileId();
   }
 
   public open(filePath: string) {
@@ -117,14 +110,14 @@ export class FileUploader {
     let retry = 3;
     while (retry) {
       try {
-        await this.client.invoke(
-          new Api.upload.SaveBigFilePart({
-            fileId: this.fileId,
-            filePart: this.partCnt,
-            fileTotalParts: this.parts,
-            bytes: buffer,
-          }),
-        );
+        // console.log(this.partCnt);
+        const rsp = await this.tdlib.saveBigFilePart({
+          fileId: this.fileId,
+          filePart: this.partCnt,
+          fileTotalParts: this.parts,
+          bytes: buffer,
+        });
+        // console.log(rsp);
         return chunkLength;
       } catch (err) {
         console.error(err);
@@ -143,28 +136,19 @@ export class FileUploader {
   ) {
     this.open(filePath);
 
+    const createWorker = async (workerId: number): Promise<void> => {
+      while (!this.done()) {
+        await this.uploadNextPart();
+        if (callback) {
+          callback(this.uploaded);
+        }
+      }
+    };
+
     const promises: Array<Promise<void>> = [];
     for (let i = 0; i < workers; i++) {
-      promises.push(
-        new Promise((resolve, reject) => {
-          while (!this.done()) {
-            this.uploadNextPart()
-              .then((uploaded) => {
-                console.log(i, uploaded);
-                if (callback) {
-                  callback(uploaded);
-                }
-              })
-              .catch((err) => {
-                reject(err);
-              });
-          }
-          resolve();
-        }),
-      );
+      promises.push(createWorker(i));
     }
-
-    console.log("Uploading file '" + this.fileName + "'...");
 
     await Promise.all(promises);
 
@@ -175,64 +159,58 @@ export class FileUploader {
     return this.uploaded >= this.fileSize;
   }
 
-  public getUploadedFile() {
-    return new Api.InputFileBig({
+  public getUploadedFile(): BigFile {
+    return {
       id: this.fileId,
       parts: this.parts,
       name: this.fileName,
-    });
+    };
   }
 }
 
 export class MessageApi extends MessageBroker {
   constructor(
-    protected readonly account: TelegramClient,
-    protected readonly bot: Telegram,
+    protected readonly tdlib: ITDLibApi,
+    protected readonly bot: IBotApi,
   ) {
-    super(account);
+    super(tdlib);
   }
 
-  protected async sendMessage(message: string): Promise<number> {
-    return (await this.bot.sendMessage(this.privateChannelId, message))
-      .message_id;
-  }
-
-  protected async getMessages(params: Partial<IterMessagesParams>) {
-    return await this.account.getMessages(this.privateChannelId, params);
+  protected async sendText(message: string): Promise<number> {
+    return (
+      await this.bot.sendText({
+        chatId: this.privateChannelId,
+        text: message,
+      })
+    ).messageId;
   }
 
   protected async editMessageText(
     messageId: number,
     message: string,
   ): Promise<number> {
-    await this.bot.editMessageText(
-      this.privateChannelId,
-      messageId,
-      undefined,
-      message,
-    );
-    return messageId;
+    return (
+      await this.bot.editMessageText({
+        chatId: this.privateChannelId,
+        messageId,
+        text: message,
+      })
+    ).messageId;
   }
 
   protected async editMessageMedia(messageId: number, media: Buffer) {
-    if (typeof media === 'string') {
-    } else {
-      return await this.bot.editMessageMedia(
-        this.privateChannelId,
-        messageId,
-        undefined,
-        {
-          type: 'document',
-          media: {
-            source: media,
-          },
-        },
-      );
-    }
+    return await this.bot.editMessageMedia({
+      chatId: this.privateChannelId,
+      messageId,
+      buffer: media,
+    });
   }
 
   protected async pinMessage(messageId: number) {
-    return await this.bot.pinChatMessage(this.privateChannelId, messageId);
+    return await this.bot.pinMessage({
+      chatId: this.privateChannelId,
+      messageId,
+    });
   }
 
   private async sha256(file: string | Buffer): Promise<Hash> {
@@ -256,98 +234,93 @@ export class MessageApi extends MessageBroker {
   private async sendBigFileFromPath(filePath: string) {
     const WORKERS = 15;
 
-    const uploader = new FileUploader(this.account);
+    const uploader = new FileUploader(this.tdlib);
     await uploader.upload(filePath, WORKERS, (uploaded) => {
-      console.log(uploaded);
+      // console.log(uploaded);
     });
     const file = uploader.getUploadedFile();
 
-    return await this.account.sendFile(this.privateChannelId, {
+    return await this.tdlib.sendBigFile({
+      chatId: this.privateChannelId,
       file,
     });
   }
 
-  private async sendBigFileAsBuffer(file: Buffer) {
-    return await this.account.sendFile(this.privateChannelId, {
-      file,
+  private async sendBigFileFromBuffer(buffer: Buffer) {
+    return await this.tdlib.sendFileFromBuffer({
+      chatId: this.privateChannelId,
+      buffer,
     });
   }
 
   private async sendBigFile(file: string | Buffer) {
     return await (typeof file === 'string'
       ? this.sendBigFileFromPath(file)
-      : this.sendBigFileAsBuffer(file));
+      : this.sendBigFileFromBuffer(file));
   }
 
   private async sendSmallFileFromPath(filePath: string) {
-    return await this.bot.sendDocument(this.privateChannelId, {
-      source: filePath,
-      filename: path.basename(filePath),
+    return await this.bot.sendFileFromPath({
+      chatId: this.privateChannelId,
+      name: path.basename(filePath),
+      filePath,
     });
   }
 
-  private async sendSmallFileAsBuffer(file: Buffer) {
-    return await this.bot.sendDocument(this.privateChannelId, {
-      source: file,
-      filename: 'unnamed',
+  private async sendSmallFileFromBuffer(buffer: Buffer) {
+    return await this.bot.sendFileFromBuffer({
+      chatId: this.privateChannelId,
+      name: 'unnamed',
+      buffer,
     });
   }
 
   private async sendSmallFile(file: string | Buffer) {
     return await (typeof file === 'string'
       ? this.sendSmallFileFromPath(file)
-      : this.sendSmallFileAsBuffer(file));
+      : this.sendSmallFileFromBuffer(file));
   }
 
   protected async sendFile(file: string | Buffer): Promise<number> {
     const fileHash = (await this.sha256(file)).digest('hex');
 
-    const existingFile = await this.getMessages({
+    const existingFile = await this.tdlib.searchMessages({
+      chatId: this.privateChannelId,
       search: `#sha256IS${fileHash}`,
     });
 
     if (existingFile.length > 0) {
-      return existingFile[0].id;
+      return existingFile[0].messageId;
     }
 
     const fileSize =
       typeof file === 'string' ? fs.statSync(file).size : file.length;
 
     if (fileSize < 50 * 1024 * 1024) {
-      return (await this.sendSmallFile(file)).message_id;
+      return (await this.sendSmallFile(file)).messageId;
     } else {
-      return (await this.sendBigFile(file)).id;
+      return (await this.sendBigFile(file)).messageId;
     }
   }
 
-  protected async downloadFile(
-    file: { name: string; messageId: number },
-    options?: IterDownloadFunction,
-  ) {
-    const message = (await this.getMessagesByIds([file.messageId]))[0];
+  protected async *downloadFile(
+    name: string,
+    messageId: number,
+  ): AsyncGenerator<Buffer> {
+    const task = db.createTask(name, 0, 'download');
 
-    const fileSize = Number(message.document.size);
-    const chunkSize = config.tgfs.download.chunksize * 1024;
+    let downloaded = 0;
 
-    const task = db.createTask(file.name, 0, 'download');
-
-    const buffer = Buffer.alloc(fileSize);
-    let i = 0;
-    for await (const chunk of this.account.iterDownload({
-      file: new Api.InputDocumentFileLocation({
-        id: message.document.id,
-        accessHash: message.document.accessHash,
-        fileReference: message.document.fileReference,
-        thumbSize: '',
-      }),
-      requestSize: chunkSize,
+    for await (const buffer of this.tdlib.downloadFile({
+      chatId: this.privateChannelId,
+      messageId: messageId,
+      chunkSize: config.tgfs.download.chunk_size_kb,
     })) {
-      chunk.copy(buffer, i * chunkSize, 0, Number(chunk.length));
-      i += 1;
-      task.reportProgress(i * chunkSize);
+      yield buffer;
+      downloaded += buffer.length;
+      task.reportProgress(downloaded);
     }
 
     task.finish();
-    return buffer;
   }
 }

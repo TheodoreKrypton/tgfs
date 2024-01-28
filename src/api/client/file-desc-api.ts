@@ -1,20 +1,9 @@
-import { TelegramClient } from 'telegram';
-
-import { Telegram } from 'telegraf';
-
 import { TGFSFileRef } from 'src/model/directory';
 import { TGFSFile } from 'src/model/file';
 
 import { MessageApi } from './message-api';
 
 export class FileDescApi extends MessageApi {
-  constructor(
-    protected readonly account: TelegramClient,
-    protected readonly bot: Telegram,
-  ) {
-    super(account, bot);
-  }
-
   public async createFileDesc(
     name: string,
     fileContent?: string | Buffer,
@@ -28,14 +17,14 @@ export class FileDescApi extends MessageApi {
       tgfsFile.addEmptyVersion();
     }
 
-    return await this.sendMessage(JSON.stringify(tgfsFile.toObject()));
+    return await this.sendText(JSON.stringify(tgfsFile.toObject()));
   }
 
   public async getFileDesc(
     fileRef: TGFSFileRef,
     withVersionInfo: boolean = true,
   ): Promise<TGFSFile> {
-    const message = (await this.getMessagesByIds([fileRef.getMessageId()]))[0];
+    const message = (await this.getMessages([fileRef.getMessageId()]))[0];
 
     const fileDesc = TGFSFile.fromObject(JSON.parse(message.text));
 
@@ -46,7 +35,7 @@ export class FileDescApi extends MessageApi {
         (version) => version.messageId > 0,
       ); // may contain empty versions
 
-      const fileMessages = await this.getMessagesByIds(
+      const fileMessages = await this.getMessages(
         nonEmptyVersions.map((version) => version.messageId),
       );
 

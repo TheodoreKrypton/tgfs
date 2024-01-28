@@ -1,6 +1,4 @@
-import { Api } from 'telegram';
-import { CustomFile } from 'telegram/client/uploads';
-
+import { saveToBuffer } from 'src/api/utils';
 import { TGFSDirectory } from 'src/model/directory';
 import { TGFSMetadata } from 'src/model/metadata';
 
@@ -22,8 +20,8 @@ export class MetaDataApi extends FileDescApi {
 
   protected async getMetadata() {
     const pinnedMessage = (
-      await this.getMessages({
-        filter: new Api.InputMessagesFilterPinned(),
+      await this.tdlib.getPinnedMessages({
+        chatId: this.privateChannelId,
       })
     )[0];
 
@@ -33,14 +31,13 @@ export class MetaDataApi extends FileDescApi {
     const metadata = TGFSMetadata.fromObject(
       JSON.parse(
         String(
-          await this.downloadFile({
-            messageId: pinnedMessage.id,
-            name: 'metadata.json',
-          }),
+          await saveToBuffer(
+            this.downloadFile('metadata.json', pinnedMessage.messageId),
+          ),
         ),
       ),
     );
-    metadata.msgId = pinnedMessage.id;
+    metadata.msgId = pinnedMessage.messageId;
     return metadata;
   }
 

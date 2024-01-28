@@ -8,7 +8,7 @@ import { Executor } from 'src/commands/executor';
 import { parser } from 'src/commands/parser';
 import { TGFSDirectory } from 'src/model/directory';
 
-import { createClient } from '../utils/mock-tg-client';
+import { createMockClient } from '../utils/mock-tg-client';
 
 const parse = () => {
   const argv = parser(yargs(process.argv)).argv;
@@ -22,7 +22,7 @@ describe('commands', () => {
   beforeAll(async () => {
     console.log = jest.fn();
 
-    client = await createClient();
+    client = await createMockClient();
 
     executor = new Executor(client);
   });
