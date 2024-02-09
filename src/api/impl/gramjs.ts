@@ -1,3 +1,4 @@
+import { log } from 'console';
 import * as fs from 'fs';
 
 import { Api, TelegramClient } from 'telegram';
@@ -87,6 +88,9 @@ export class GramJSApi implements ITDLibApi {
     const res: types.GetMessagesResp = [];
 
     for (const message of messages) {
+      if (!message) {
+        continue;
+      }
       const obj: types.MessageResp = {
         messageId: message.id,
       };
@@ -137,8 +141,8 @@ export class GramJSApi implements ITDLibApi {
 
   public async saveBigFilePart(
     req: types.SaveBigFilePartReq,
-  ): Promise<types.SaveBigFilePartResp> {
-    const rsp = await this.bot.invoke(
+  ): Promise<types.SaveFilePartResp> {
+    const rsp = await this.account.invoke(
       new Api.upload.SaveBigFilePart({
         fileId: req.fileId,
         filePart: req.filePart,
@@ -151,49 +155,44 @@ export class GramJSApi implements ITDLibApi {
     };
   }
 
-  public async sendBigFile(
-    req: types.SendBigFileReq,
-  ): Promise<types.SendMessageResp> {
-    const rsp = await this.bot.sendFile(req.chatId, {
+  public async saveFilePart(
+    req: types.SaveFilePartReq,
+  ): Promise<types.SaveFilePartResp> {
+    const rsp = await this.bot.invoke(
+      new Api.upload.SaveFilePart({
+        fileId: req.fileId,
+        filePart: 0,
+        bytes: req.bytes,
+      }),
+    );
+    return {
+      success: rsp,
+    };
+  }
+
+  public async sendBigFile(req: types.SendFileReq) {
+    const rsp = await this.account.sendFile(req.chatId, {
       file: new Api.InputFileBig({
         id: req.file.id,
         parts: req.file.parts,
         name: req.file.name,
       }),
+      caption: req.caption,
     });
     return {
       messageId: rsp.id,
     };
   }
 
-  private static getFileAttributes(req: types.SendFileReq) {
-    return req.name
-      ? [
-          new Api.DocumentAttributeFilename({
-            fileName: req.name,
-          }),
-        ]
-      : [];
-  }
-
-  public async sendFileFromPath(
-    req: types.SendFileFromPathReq,
-  ): Promise<types.SendMessageResp> {
+  public async sendSmallFile(req: types.SendFileReq) {
     const rsp = await this.bot.sendFile(req.chatId, {
-      file: req.filePath,
-      attributes: GramJSApi.getFileAttributes(req),
-    });
-    return {
-      messageId: rsp.id,
-    };
-  }
-
-  public async sendFileFromBuffer(
-    req: types.SendFileFromBufferReq,
-  ): Promise<types.SendMessageResp> {
-    const rsp = await this.bot.sendFile(req.chatId, {
-      file: req.buffer,
-      attributes: GramJSApi.getFileAttributes(req),
+      file: new Api.InputFile({
+        id: req.file.id,
+        parts: 1,
+        name: req.file.name,
+        md5Checksum: '',
+      }),
+      caption: req.caption,
     });
     return {
       messageId: rsp.id,
@@ -223,7 +222,7 @@ export class GramJSApi implements ITDLibApi {
       requestSize: chunkSize,
     })) {
       i += 1;
-      yield chunk;
+      yield Buffer.from(chunk);
     }
   }
 }

@@ -11,7 +11,11 @@ export class FileDescApi extends MessageApi {
     const tgfsFile = new TGFSFile(name);
 
     if (fileContent) {
-      const id = await this.sendFile(fileContent);
+      const id = await this.sendFile(
+        typeof fileContent === 'string'
+          ? { path: fileContent }
+          : { buffer: fileContent },
+      );
       tgfsFile.addVersionFromFileMessageId(id);
     } else {
       tgfsFile.addEmptyVersion();

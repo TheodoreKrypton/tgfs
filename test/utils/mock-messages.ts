@@ -1,5 +1,11 @@
-type InputMessage = { file?: any; message?: string };
-type Message = { id: number; text?: string; document?: any };
+import { BigInteger } from 'big-integer';
+
+type InputMessage = { file?: BigInteger; message?: string };
+type Message = {
+  id: number;
+  text?: string;
+  document?: { id: BigInteger };
+};
 
 export class MockMessages {
   messages: {
@@ -7,28 +13,13 @@ export class MockMessages {
   } = {};
   messageId: number = 1;
   pinnedMessageId: number;
+  fileParts: { [fileId: string]: { [part: number]: Buffer } } = {};
 
-  files: any = {};
-  fileId: number = 1;
-
-  createFile(file: any) {
-    const fileId = ++this.fileId;
-    if (file instanceof Buffer) {
-      this.files[fileId] = {
-        id: fileId,
-        size: file.length,
-        buffer: file,
-      };
-    } else {
-      this.files[fileId] = {
-        id: fileId,
-        ...file,
-      };
+  saveFilePart(fileId: BigInteger, part: number, data: Buffer) {
+    if (!this.fileParts[String(fileId)]) {
+      this.fileParts[String(fileId)] = {};
     }
-    return {
-      id: fileId,
-      size: this.files[fileId].size,
-    };
+    this.fileParts[String(fileId)][part] = data;
   }
 
   sendMessage(msg: InputMessage) {
@@ -39,10 +30,10 @@ export class MockMessages {
     this.messages[messageId] = {
       id: messageId,
       text: message,
+      document: {
+        id: file,
+      },
     };
-    if (file) {
-      this.messages[messageId].document = this.createFile(file);
-    }
     return messageId;
   }
 
@@ -55,8 +46,8 @@ export class MockMessages {
     };
   }
 
-  getFile(fileId: number) {
-    return this.files[fileId];
+  getFile(fileId: BigInteger) {
+    return this.fileParts[String(fileId)];
   }
 
   editMessage(messageId: number, msg: InputMessage) {
@@ -68,7 +59,7 @@ export class MockMessages {
       };
     }
     if (file) {
-      this.messages[messageId].document = this.createFile(file);
+      this.messages[messageId].document = { id: file };
     }
   }
 

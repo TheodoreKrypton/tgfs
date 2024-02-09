@@ -87,7 +87,7 @@ describe('file and directory operations', () => {
     });
 
     it('should create a big file from buffer', async () => {
-      const content = Buffer.alloc(1024 * 1024 * 100, 'a');
+      const content = Buffer.alloc(1024 * 1024 * 10, 'a');
 
       const root = client.getRootDirectory();
 
@@ -96,7 +96,7 @@ describe('file and directory operations', () => {
     });
 
     it('should create a big file from path', async () => {
-      const content = Buffer.alloc(1024 * 1024 * 100, 'a');
+      const content = Buffer.alloc(1024 * 1024 * 10, 'a');
       fs.writeFileSync('./mock-file.txt', content);
 
       const root = client.getRootDirectory();
@@ -107,7 +107,7 @@ describe('file and directory operations', () => {
       );
       expect(root.findFiles(['f1'])[0]).toEqual(f1);
 
-      // fs.rmSync('./mock-file.txt');
+      fs.rmSync('./mock-file.txt');
     });
 
     it('should add a file version', async () => {

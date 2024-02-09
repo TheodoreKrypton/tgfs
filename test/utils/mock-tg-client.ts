@@ -7,11 +7,12 @@ import { EntityLike } from 'telegram/define';
 import { Telegram } from 'telegraf';
 
 import { createClient } from 'src/api';
+import { generateFileId } from 'src/api/utils';
 import { Config } from 'src/config';
 
 import { MockMessages } from './mock-messages';
 
-let mockMessages = null;
+let mockMessages: MockMessages = null;
 
 jest.mock('src/config', () => {
   return {
@@ -76,16 +77,18 @@ jest.mock('telegram', () => {
               .fn()
               .mockImplementation((iterFileParams: IterDownloadFunction) => {
                 const { file: fileLoc } = iterFileParams;
-                const file = mockMessages.getFile(
-                  Number((fileLoc as Api.InputDocumentFileLocation).id),
+                const fileParts = mockMessages.getFile(
+                  (fileLoc as Api.InputDocumentFileLocation).id,
                 );
+                mockMessages;
                 let done = false;
+                let i = 0;
                 return {
                   [Symbol.asyncIterator]() {
                     return {
                       next() {
                         const res = Promise.resolve({
-                          value: file.buffer,
+                          value: fileParts[i++],
                           done,
                         });
                         done = !done;
@@ -102,30 +105,16 @@ jest.mock('telegram', () => {
             sendFile: jest
               .fn()
               .mockImplementation(
-                (entity: EntityLike, sendFileParams: SendFileInterface) => {
-                  let id = 0;
-                  if (sendFileParams instanceof Api.InputFileBig) {
-                    id = mockMessages.sendMessage({
-                      file: {
-                        id: sendFileParams.id,
-                        parts: sendFileParams.parts,
-                        name: sendFileParams.name,
-                      },
-                    });
-                  } else {
-                    id = mockMessages.sendMessage({
-                      file: sendFileParams.file,
-                    });
-                  }
-
+                (entity: EntityLike, { file: { id: fileId } }) => {
+                  const id = mockMessages.sendMessage({
+                    file: fileId,
+                  });
                   return { id };
                 },
               ),
 
-            invoke: jest.fn().mockImplementation((request: any) => {
-              if (request instanceof Api.upload.SaveBigFilePart) {
-                return true;
-              }
+            invoke: jest.fn().mockImplementation((req: any) => {
+              mockMessages.saveFilePart(req.fileId, req.filePart, req.bytes);
             }),
           };
         },
@@ -154,29 +143,6 @@ jest.mock('telegraf', () => {
               mockMessages.editMessage(messageId, { message: text });
             },
           ),
-        sendDocument: jest
-          .fn()
-          .mockImplementation(
-            (
-              chatId: string,
-              document: { source: string | Buffer; filename: string },
-            ) => {
-              const { source } = document;
-
-              let messageId = 0;
-              if (typeof source === 'string') {
-                messageId = mockMessages.sendMessage({
-                  file: Buffer.from(source),
-                });
-              } else {
-                messageId = mockMessages.sendMessage({
-                  file: source,
-                });
-              }
-
-              return { message_id: messageId };
-            },
-          ),
         editMessageMedia: jest.fn().mockImplementation(
           (
             chatId: string,
@@ -189,8 +155,10 @@ jest.mock('telegraf', () => {
               };
             },
           ) => {
+            const fileId = generateFileId();
+            mockMessages.saveFilePart(fileId, 0, media.media.source);
             mockMessages.editMessage(messageId, {
-              file: media.media.source,
+              file: fileId,
             });
           },
         ),

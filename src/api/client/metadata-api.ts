@@ -50,9 +50,14 @@ export class MetaDataApi extends FileDescApi {
   protected async updateMetadata(): Promise<undefined> {
     const buffer = Buffer.from(JSON.stringify(this.metadata.toObject()));
     if (this.metadata.msgId) {
-      await this.editMessageMedia(this.metadata.msgId, buffer);
+      await this.editMessageMedia(
+        this.metadata.msgId,
+        buffer,
+        'metadata.json',
+        '',
+      );
     } else {
-      const messageId = await this.sendFile(buffer);
+      const messageId = await this.sendFile({ buffer, name: 'metadata.json' });
       this.metadata.msgId = messageId;
       await this.pinMessage(messageId);
     }

@@ -28,7 +28,9 @@ export class FileApi extends DirectoryApi {
     const fd = await this.getFileDesc(fr, false);
 
     if (file) {
-      const id = await this.sendFile(file);
+      const id = await this.sendFile(
+        typeof file === 'string' ? { path: file } : { buffer: file },
+      );
 
       if (!versionId) {
         fd.addVersionFromFileMessageId(id);

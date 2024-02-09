@@ -40,40 +40,41 @@ export type EditMessageTextReq = Chat & Message & SendTextReq;
 
 export type PinMessageReq = Chat & Message;
 
-export type SaveBigFilePartReq = {
+export type SaveFilePartReq = {
   fileId: BigInteger;
-  filePart: number;
-  fileTotalParts: number;
   bytes: Buffer;
 };
 
-export type SaveBigFilePartResp = {
+export type SaveBigFilePartReq = SaveFilePartReq & {
+  filePart: number;
+  fileTotalParts: number;
+};
+
+export type SaveFilePartResp = {
   success: boolean;
 };
 
-export type BigFile = {
+export type UploadedFile = {
   id: BigInteger;
   parts: number;
   name: string;
 };
 
-export type SendFileReq = Chat & {
+export type FileAttr = {
   name?: string;
+  caption?: string;
 };
 
-export type SendBigFileReq = SendFileReq & {
-  file: BigFile;
-};
+export type SendFileReq = Chat &
+  FileAttr & {
+    file: UploadedFile;
+  };
 
-export type SendFileFromPathReq = SendFileReq & {
-  filePath: string;
-};
-
-export type SendFileFromBufferReq = SendFileReq & {
-  buffer: Buffer;
-};
-
-export type EditMessageMediaReq = Message & SendFileFromBufferReq;
+export type EditMessageMediaReq = Chat &
+  Message &
+  FileAttr & {
+    buffer: Buffer;
+  };
 
 export type DownloadFileReq = Chat &
   Message & {

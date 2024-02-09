@@ -14,17 +14,13 @@ export interface ITDLibApi {
 
   saveBigFilePart(
     req: types.SaveBigFilePartReq,
-  ): Promise<types.SaveBigFilePartResp>;
+  ): Promise<types.SaveFilePartResp>;
 
-  sendBigFile(req: types.SendBigFileReq): Promise<types.SendMessageResp>;
+  saveFilePart(req: types.SaveFilePartReq): Promise<types.SaveFilePartResp>;
 
-  sendFileFromPath(
-    req: types.SendFileFromPathReq,
-  ): Promise<types.SendMessageResp>;
+  sendBigFile(req: types.SendFileReq): Promise<types.SendMessageResp>;
 
-  sendFileFromBuffer(
-    req: types.SendFileFromBufferReq,
-  ): Promise<types.SendMessageResp>;
+  sendSmallFile(req: types.SendFileReq): Promise<types.SendMessageResp>;
 
   downloadFile(req: types.DownloadFileReq): types.DownloadFileResp;
 }
@@ -38,14 +34,6 @@ export interface IBotApi {
 
   editMessageMedia(
     req: types.EditMessageMediaReq,
-  ): Promise<types.SendMessageResp>;
-
-  sendFileFromPath(
-    req: types.SendFileFromPathReq,
-  ): Promise<types.SendMessageResp>;
-
-  sendFileFromBuffer(
-    req: types.SendFileFromBufferReq,
   ): Promise<types.SendMessageResp>;
 
   pinMessage(req: types.PinMessageReq): Promise<void>;

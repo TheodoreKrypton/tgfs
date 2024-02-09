@@ -12,6 +12,7 @@
     "^src/",
     "^[\\.]"
   ],
+  "importOrderParserPlugins": ["typescript", "decorators"],
   "importOrderSeparation": true,
   "importOrderSortSpecifiers": true
 }
