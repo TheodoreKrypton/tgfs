@@ -115,7 +115,7 @@ A config file will be auto-generated when you run the program for the first time
 
 - telegram
 
-  - account:
+  - account/bot:
     - session_file: The file path to store the session data. If you want to use multiple accounts, you can set different session files for each account.
   - login_timeout: Time to wait before login attempt aborts (in milliseconds).
 

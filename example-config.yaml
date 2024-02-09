@@ -1,10 +1,11 @@
 telegram:
+  api_id: your_api_id (mandatory, refer to README)
+  api_hash: your_api_hash (mandatory, refer to README)
   account:
-    api_id: your_api_id (mandatory, refer to README)
-    api_hash: your_api_hash (mandatory, refer to README)
     session_file: ~/.tgfs/account.session
   bot:
-    token: your_bot_token (mandatory, refer to README)
+    token: your_bot_token (mandatory, apply from @BotFather)
+    session_file: ~/.tgfs/bot.session
   login_timeout: 300000
   private_file_channel: your_channel_id (mandatory, refer to README)
   public_file_channel: 0
