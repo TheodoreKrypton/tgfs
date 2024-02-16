@@ -14,6 +14,15 @@ describe('Queue', () => {
     expect(queue.size()).toBe(2);
   });
 
+  test('enqueueFront adds elements to the front of the queue', () => {
+    queue.enqueue(1);
+    queue.enqueue(2);
+    queue.enqueueFront(3);
+    expect(queue.dequeue()).toBe(3);
+    expect(queue.dequeue()).toBe(1);
+    expect(queue.dequeue()).toBe(2);
+  });
+
   test('dequeue removes and returns elements from the queue', () => {
     queue.enqueue(1);
     queue.enqueue(2);
