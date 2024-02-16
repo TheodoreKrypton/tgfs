@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { Readable } from 'stream';
 
 import { Client } from 'src/api';
 import { FileOrDirectoryDoesNotExistError } from 'src/errors/path';
@@ -16,7 +17,10 @@ export const uploadFromLocal =
       throw new FileOrDirectoryDoesNotExistError(local.toString());
     }
 
-    return await client.uploadFile({ name, under: dir }, local.toString());
+    return await client.uploadFile(
+      { under: dir },
+      { name, path: local.toString() },
+    );
   };
 
 export const uploadFromBytes =
@@ -25,7 +29,15 @@ export const uploadFromBytes =
 
     const dir = await navigateToDir(client)(basePath);
 
-    return await client.uploadFile({ name, under: dir }, bytes);
+    return await client.uploadFile({ under: dir }, { name, buffer: bytes });
   };
 
-// TODO: upload stream
+export const uploadFromStream =
+  (client: Client) =>
+  async (stream: Readable, size: number, remote: fs.PathLike) => {
+    let [basePath, name] = splitPath(remote);
+
+    const dir = await navigateToDir(client)(basePath);
+
+    return await client.uploadFile({ under: dir }, { name, stream, size });
+  };

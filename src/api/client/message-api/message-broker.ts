@@ -1,6 +1,6 @@
 import { Api } from 'telegram';
 
-import { ITDLibApi } from 'src/api/interface';
+import { TDLibApi } from 'src/api/interface';
 import { config } from 'src/config';
 
 export class MessageBroker {
@@ -9,7 +9,7 @@ export class MessageBroker {
   );
 
   constructor(
-    protected readonly tdlib: ITDLibApi,
+    protected readonly tdlib: TDLibApi,
     protected requests: Array<{
       ids: number[];
       resolve: (result: unknown) => void;
@@ -30,7 +30,7 @@ export class MessageBroker {
         const ids = [...new Set(requests.map((item) => item.ids).flat())];
 
         try {
-          const messages = await this.tdlib.getMessages({
+          const messages = await this.tdlib.account.getMessages({
             chatId: this.privateChannelId,
             messageIds: ids,
           });

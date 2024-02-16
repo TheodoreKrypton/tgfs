@@ -2,23 +2,17 @@ import { TGFSFileRef } from 'src/model/directory';
 import { TGFSFile } from 'src/model/file';
 
 import { MessageApi } from './message-api';
+import { GeneralFileMessage } from './message-api/types';
 
 export class FileDescApi extends MessageApi {
-  public async createFileDesc(
-    name: string,
-    fileContent?: string | Buffer,
-  ): Promise<number> {
-    const tgfsFile = new TGFSFile(name);
+  public async createFileDesc(file: GeneralFileMessage): Promise<number> {
+    const tgfsFile = new TGFSFile(file.name);
 
-    if (fileContent) {
-      const id = await this.sendFile(
-        typeof fileContent === 'string'
-          ? { path: fileContent }
-          : { buffer: fileContent },
-      );
-      tgfsFile.addVersionFromFileMessageId(id);
-    } else {
+    if ('empty' in file) {
       tgfsFile.addEmptyVersion();
+    } else {
+      const id = await this.sendFile(file);
+      tgfsFile.addVersionFromFileMessageId(id);
     }
 
     return await this.sendText(JSON.stringify(tgfsFile.toObject()));

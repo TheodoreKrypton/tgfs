@@ -1,6 +1,6 @@
 import * as types from './types';
 
-export interface ITDLibApi {
+export interface ITDLibClient {
   // getMe(): Promise<void>;
   // getPinnedMessage(): Promise<types.Message>;
 
@@ -25,7 +25,7 @@ export interface ITDLibApi {
   downloadFile(req: types.DownloadFileReq): types.DownloadFileResp;
 }
 
-export interface IBotApi {
+export interface IBot {
   sendText(req: types.SendTextReq): Promise<types.SendMessageResp>;
 
   editMessageText(
@@ -38,3 +38,8 @@ export interface IBotApi {
 
   pinMessage(req: types.PinMessageReq): Promise<void>;
 }
+
+export type TDLibApi = {
+  account: ITDLibClient;
+  bot: ITDLibClient;
+};

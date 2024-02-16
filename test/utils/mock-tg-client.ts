@@ -1,7 +1,5 @@
-import { Api } from 'telegram';
-import { TelegramClient } from 'telegram';
+import { Api, TelegramClient } from 'telegram';
 import { IterDownloadFunction } from 'telegram/client/downloads';
-import { SendFileInterface } from 'telegram/client/uploads';
 import { EntityLike } from 'telegram/define';
 
 import { Telegram } from 'telegraf';
@@ -114,7 +112,11 @@ jest.mock('telegram', () => {
               ),
 
             invoke: jest.fn().mockImplementation((req: any) => {
-              mockMessages.saveFilePart(req.fileId, req.filePart, req.bytes);
+              return mockMessages.saveFilePart(
+                req.fileId,
+                req.filePart,
+                req.bytes,
+              );
             }),
           };
         },

@@ -1,6 +1,6 @@
 import { Telegram } from 'telegraf';
 
-import { IBotApi } from 'src/api/interface';
+import { IBot } from 'src/api/interface';
 import * as types from 'src/api/types';
 import { Config } from 'src/config';
 import { Logger } from 'src/utils/logger';
@@ -9,7 +9,7 @@ export const createBot = (config: Config): Telegram => {
   return new Telegram(config.telegram.bot.token);
 };
 
-function retry(retries: number = 3) {
+function retry(retries: number = 10) {
   return function (
     target: any,
     propertyKey: string,
@@ -32,7 +32,7 @@ function retry(retries: number = 3) {
   };
 }
 
-export class TelegrafApi implements IBotApi {
+export class TelegrafApi implements IBot {
   constructor(protected readonly bot: Telegram) {}
 
   @retry()

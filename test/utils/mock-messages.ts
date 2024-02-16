@@ -20,6 +20,7 @@ export class MockMessages {
       this.fileParts[String(fileId)] = {};
     }
     this.fileParts[String(fileId)][part] = data;
+    return { success: true };
   }
 
   sendMessage(msg: InputMessage) {

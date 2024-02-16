@@ -3,17 +3,14 @@ import { TGFSFileVersion } from 'src/model/file';
 import { validateName } from 'src/utils/validate-name';
 
 import { DirectoryApi } from './directory-api';
+import { GeneralFileMessage, isFileMessageEmpty } from './message-api/types';
 
 export class FileApi extends DirectoryApi {
-  private async createFile(
-    name: string,
-    where: TGFSDirectory,
-    fileContent?: string | Buffer,
-  ) {
-    validateName(name);
+  private async createFile(where: TGFSDirectory, fileMsg: GeneralFileMessage) {
+    validateName(fileMsg.name);
 
-    const id = await this.createFileDesc(name, fileContent);
-    const fr = where.createFileRef(name, id);
+    const id = await this.createFileDesc(fileMsg);
+    const fr = where.createFileRef(fileMsg.name, id);
 
     await this.syncMetadata();
 
@@ -22,15 +19,14 @@ export class FileApi extends DirectoryApi {
 
   private async updateFile(
     fr: TGFSFileRef,
-    file?: string | Buffer,
+    fileMsg: GeneralFileMessage,
     versionId?: string,
   ) {
     const fd = await this.getFileDesc(fr, false);
 
-    if (file) {
-      const id = await this.sendFile(
-        typeof file === 'string' ? { path: file } : { buffer: file },
-      );
+    if (!isFileMessageEmpty(fileMsg)) {
+      let id: number = null;
+      id = await this.sendFile(fileMsg);
 
       if (!versionId) {
         fd.addVersionFromFileMessageId(id);
@@ -68,17 +64,16 @@ export class FileApi extends DirectoryApi {
 
   public async uploadFile(
     where: {
-      name: string;
       under: TGFSDirectory;
       versionId?: string;
     },
-    file?: string | Buffer,
+    file?: GeneralFileMessage,
   ) {
-    const fr = where.under.findFiles([where.name])[0];
+    const fr = where.under.findFiles([file.name])[0];
     if (fr) {
       return await this.updateFile(fr, file, where.versionId);
     } else {
-      return await this.createFile(where.name, where.under, file);
+      return await this.createFile(where.under, file);
     }
   }
 

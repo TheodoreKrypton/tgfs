@@ -20,7 +20,7 @@ export class MetaDataApi extends FileDescApi {
 
   protected async getMetadata() {
     const pinnedMessage = (
-      await this.tdlib.getPinnedMessages({
+      await this.tdlib.account.getPinnedMessages({
         chatId: this.privateChannelId,
       })
     )[0];

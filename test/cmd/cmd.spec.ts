@@ -139,8 +139,8 @@ describe('commands', () => {
 
     it('should remove a file', async () => {
       await client.uploadFile(
-        { name: 'f1', under: client.getRootDirectory() },
-        Buffer.from('content'),
+        { under: client.getRootDirectory() },
+        { name: 'f1', buffer: Buffer.from('content') },
       );
 
       jest.replaceProperty(process, 'argv', ['rm', '/f1']);
@@ -172,8 +172,8 @@ describe('commands', () => {
         under: client.getRootDirectory(),
       });
       await client.uploadFile(
-        { name: 'f1', under: d1 },
-        Buffer.from('content'),
+        { under: d1 },
+        { name: 'f1', buffer: Buffer.from('content') },
       );
 
       jest.replaceProperty(process, 'argv', ['rm', '/d1']);

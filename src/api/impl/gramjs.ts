@@ -1,4 +1,3 @@
-import { log } from 'console';
 import * as fs from 'fs';
 
 import { Api, TelegramClient } from 'telegram';
@@ -7,7 +6,7 @@ import { StringSession } from 'telegram/sessions';
 
 import * as input from 'input';
 
-import { ITDLibApi } from 'src/api/interface';
+import { ITDLibClient } from 'src/api/interface';
 import * as types from 'src/api/types';
 import { Config } from 'src/config';
 import { Logger } from 'src/utils/logger';
@@ -76,11 +75,8 @@ export const loginAsBot = login(async (config: Config) => {
   };
 });
 
-export class GramJSApi implements ITDLibApi {
-  constructor(
-    protected readonly account: TelegramClient,
-    protected readonly bot: TelegramClient,
-  ) {}
+export class GramJSApi implements ITDLibClient {
+  constructor(protected readonly client: TelegramClient) {}
 
   private static transformMessages(
     messages: Api.Message[],
@@ -113,7 +109,7 @@ export class GramJSApi implements ITDLibApi {
   public async getMessages(
     req: types.GetMessagesReq,
   ): Promise<types.GetMessagesResp> {
-    const rsp = await this.account.getMessages(req.chatId, {
+    const rsp = await this.client.getMessages(req.chatId, {
       ids: req.messageIds,
     });
     return GramJSApi.transformMessages(rsp);
@@ -122,7 +118,7 @@ export class GramJSApi implements ITDLibApi {
   public async searchMessages(
     req: types.SearchMessagesReq,
   ): Promise<types.GetMessagesResp> {
-    const rsp = await this.account.getMessages(req.chatId, {
+    const rsp = await this.client.getMessages(req.chatId, {
       search: req.search,
     });
 
@@ -132,7 +128,7 @@ export class GramJSApi implements ITDLibApi {
   public async getPinnedMessages(
     req: types.GetPinnedMessagesReq,
   ): Promise<types.GetMessagesResp> {
-    const rsp = await this.account.getMessages(req.chatId, {
+    const rsp = await this.client.getMessages(req.chatId, {
       filter: new Api.InputMessagesFilterPinned(),
     });
 
@@ -142,7 +138,7 @@ export class GramJSApi implements ITDLibApi {
   public async saveBigFilePart(
     req: types.SaveBigFilePartReq,
   ): Promise<types.SaveFilePartResp> {
-    const rsp = await this.account.invoke(
+    const rsp = await this.client.invoke(
       new Api.upload.SaveBigFilePart({
         fileId: req.fileId,
         filePart: req.filePart,
@@ -158,7 +154,7 @@ export class GramJSApi implements ITDLibApi {
   public async saveFilePart(
     req: types.SaveFilePartReq,
   ): Promise<types.SaveFilePartResp> {
-    const rsp = await this.bot.invoke(
+    const rsp = await this.client.invoke(
       new Api.upload.SaveFilePart({
         fileId: req.fileId,
         filePart: 0,
@@ -171,7 +167,7 @@ export class GramJSApi implements ITDLibApi {
   }
 
   public async sendBigFile(req: types.SendFileReq) {
-    const rsp = await this.account.sendFile(req.chatId, {
+    const rsp = await this.client.sendFile(req.chatId, {
       file: new Api.InputFileBig({
         id: req.file.id,
         parts: req.file.parts,
@@ -185,7 +181,7 @@ export class GramJSApi implements ITDLibApi {
   }
 
   public async sendSmallFile(req: types.SendFileReq) {
-    const rsp = await this.bot.sendFile(req.chatId, {
+    const rsp = await this.client.sendFile(req.chatId, {
       file: new Api.InputFile({
         id: req.file.id,
         parts: 1,
@@ -212,7 +208,7 @@ export class GramJSApi implements ITDLibApi {
     const chunkSize = req.chunkSize * 1024;
 
     let i = 0;
-    for await (const chunk of this.account.iterDownload({
+    for await (const chunk of this.client.iterDownload({
       file: new Api.InputDocumentFileLocation({
         id: message.document.id,
         accessHash: message.document.accessHash,

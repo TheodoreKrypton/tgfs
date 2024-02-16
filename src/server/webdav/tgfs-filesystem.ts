@@ -1,4 +1,4 @@
-import { Readable, Writable } from 'stream';
+import { PassThrough, Readable, Writable } from 'stream';
 
 import {
   CreateInfo,
@@ -26,14 +26,9 @@ import {
 } from 'webdav-server/lib/index.v2';
 
 import { Client, createClient } from 'src/api';
-import {
-  createDir,
-  list,
-  removeDir,
-  removeFile,
-  uploadFromBytes,
-} from 'src/api/ops';
+import { createDir, list, removeDir, removeFile } from 'src/api/ops';
 import { createEmptyFile } from 'src/api/ops/create-empty-file';
+import { uploadFromStream } from 'src/api/ops/upload';
 import {
   FileOrDirectoryAlreadyExistsError,
   FileOrDirectoryDoesNotExistError,
@@ -245,25 +240,19 @@ export class TGFSFileSystem extends FileSystem {
     ctx: OpenWriteStreamInfo,
     callback: ReturnCallback<Writable>,
   ): void {
-    const chunks = [];
-    const tgClient = this.tgClient;
-    const writable = new Writable({
-      write(chunk, encoding, next) {
-        chunks.push(chunk);
-        next();
-      },
-      final(cb) {
-        const buffer = Buffer.concat(chunks);
-        if (buffer.length > 0) {
-          call(cb)(
-            uploadFromBytes(tgClient)(Buffer.concat(chunks), path.toString()),
-          );
-        } else {
-          call(cb)(createEmptyFile(tgClient)(path.toString()));
-        }
-      },
-    });
-    callback(null, writable);
+    try {
+      const tgClient = this.tgClient;
+      const { estimatedSize } = ctx;
+
+      const stream = new PassThrough();
+
+      uploadFromStream(tgClient)(stream, estimatedSize, path.toString());
+
+      callback(null, stream);
+    } catch (err) {
+      handleError(callback)(err);
+      Logger.error(err);
+    }
   }
 
   protected _openReadStream(
@@ -275,7 +264,7 @@ export class TGFSFileSystem extends FileSystem {
       try {
         const fileRef = await list(this.tgClient)(path.toString());
         if (fileRef instanceof TGFSFileRef) {
-          const buffer = await this.tgClient.downloadLatestVersion(
+          const buffer = this.tgClient.downloadLatestVersion(
             fileRef,
             fileRef.name,
           );

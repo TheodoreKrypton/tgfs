@@ -1,7 +1,5 @@
 import fs from 'fs';
 
-import { Api } from 'telegram';
-
 import { Client } from 'src/api';
 import { saveToBuffer, saveToFile } from 'src/api/utils';
 import { sleep } from 'src/utils/sleep';
@@ -67,8 +65,8 @@ describe('file and directory operations', () => {
     it('should create a small file from buffer', async () => {
       const root = client.getRootDirectory();
       const f1 = await client.uploadFile(
-        { name: 'f1', under: root },
-        Buffer.from('mock-file-content'),
+        { under: root },
+        { name: 'f1', buffer: Buffer.from('mock-file-content') },
       );
       expect(root.findFiles(['f1'])[0]).toEqual(f1);
     });
@@ -78,8 +76,8 @@ describe('file and directory operations', () => {
 
       const root = client.getRootDirectory();
       const f1 = await client.uploadFile(
-        { name: 'f1', under: root },
-        './mock-file.txt',
+        { under: root },
+        { name: 'f1', path: './mock-file.txt' },
       );
       expect(root.findFiles(['f1'])[0]).toEqual(f1);
 
@@ -91,7 +89,10 @@ describe('file and directory operations', () => {
 
       const root = client.getRootDirectory();
 
-      const f1 = await client.uploadFile({ name: 'f1', under: root }, content);
+      const f1 = await client.uploadFile(
+        { under: root },
+        { name: 'f1', buffer: content },
+      );
       expect(root.findFiles(['f1'])[0]).toEqual(f1);
     });
 
@@ -102,8 +103,8 @@ describe('file and directory operations', () => {
       const root = client.getRootDirectory();
 
       const f1 = await client.uploadFile(
-        { name: 'f1', under: root },
-        './mock-file.txt',
+        { under: root },
+        { name: 'f1', path: './mock-file.txt' },
       );
       expect(root.findFiles(['f1'])[0]).toEqual(f1);
 
@@ -113,15 +114,15 @@ describe('file and directory operations', () => {
     it('should add a file version', async () => {
       const root = client.getRootDirectory();
       await client.uploadFile(
-        { name: 'f1', under: root },
-        Buffer.from('mock-file-content'),
+        { under: root },
+        { name: 'f1', buffer: Buffer.from('mock-file-content') },
       );
 
       await sleep(300);
       const content2 = 'mock-file-content-edited';
       await client.uploadFile(
-        { name: 'f1', under: root },
-        Buffer.from(content2),
+        { under: root },
+        { name: 'f1', buffer: Buffer.from(content2) },
       );
       const fr = root.findFiles(['f1'])[0];
       const fd = await client.getFileDesc(fr);
@@ -136,8 +137,8 @@ describe('file and directory operations', () => {
       const root = client.getRootDirectory();
 
       await client.uploadFile(
-        { name: 'f1', under: root },
-        Buffer.from('mock-file-content'),
+        { under: root },
+        { name: 'f1', buffer: Buffer.from('mock-file-content') },
       );
 
       const content2 = 'mock-file-content-edited';
@@ -145,8 +146,8 @@ describe('file and directory operations', () => {
       const fd = await client.getFileDesc(fr);
 
       await client.uploadFile(
-        { name: 'f1', under: root, versionId: fd.latestVersionId },
-        Buffer.from(content2),
+        { under: root, versionId: fd.latestVersionId },
+        { name: 'f1', buffer: Buffer.from(content2) },
       );
 
       const content = await saveToBuffer(
@@ -176,8 +177,8 @@ describe('file and directory operations', () => {
       const root = client.getRootDirectory();
 
       const f1 = await client.uploadFile(
-        { name: 'f1', under: root },
-        Buffer.from('mock-file-content'),
+        { under: root },
+        { name: 'f1', buffer: Buffer.from('mock-file-content') },
       );
 
       await client.deleteFile(f1);
@@ -188,13 +189,13 @@ describe('file and directory operations', () => {
       const root = client.getRootDirectory();
       const content = 'mock-file-content';
       await client.uploadFile(
-        { name: 'f1', under: root },
-        Buffer.from(content),
+        { under: root },
+        { name: 'f1', buffer: Buffer.from(content) },
       );
       await sleep(300);
       await client.uploadFile(
-        { name: 'f1', under: root },
-        Buffer.from('mock-file-content-edited'),
+        { under: root },
+        { name: 'f1', buffer: Buffer.from('mock-file-content-edited') },
       );
 
       const fr = root.findFiles(['f1'])[0];
@@ -214,8 +215,8 @@ describe('file and directory operations', () => {
       const root = client.getRootDirectory();
       const content = 'mock-file-content';
       await client.uploadFile(
-        { name: 'f1', under: root },
-        Buffer.from(content),
+        { under: root },
+        { name: 'f1', buffer: Buffer.from(content) },
       );
 
       const fr = root.findFiles(['f1'])[0];

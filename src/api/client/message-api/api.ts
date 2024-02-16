@@ -1,25 +1,26 @@
 import { Hash, createHash } from 'crypto';
 import fs from 'fs';
 
-import { IBotApi, ITDLibApi } from 'src/api/interface';
-import { EditMessageMediaReq, SendFileReq } from 'src/api/types';
+import { IBot, TDLibApi } from 'src/api/interface';
 import { config } from 'src/config';
 import { TechnicalError } from 'src/errors/base';
 import { db } from 'src/server/manager/db';
 import { Logger } from 'src/utils/logger';
 
-import { UploaderFromBuffer, UploaderFromPath } from './file-uploader';
+import { getUploader } from './file-uploader';
 import { MessageBroker } from './message-broker';
 import {
+  FileMessageEmpty,
   FileMessageFromBuffer,
   FileMessageFromPath,
   GeneralFileMessage,
+  isFileMessageEmpty,
 } from './types';
 
 export class MessageApi extends MessageBroker {
   constructor(
-    protected readonly tdlib: ITDLibApi,
-    protected readonly bot: IBotApi,
+    protected readonly tdlib: TDLibApi,
+    protected readonly bot: IBot,
   ) {
     super(tdlib);
   }
@@ -71,8 +72,11 @@ export class MessageApi extends MessageBroker {
   }
 
   private async sha256(
-    fileMsg: FileMessageFromPath | FileMessageFromBuffer,
+    fileMsg: FileMessageFromPath | FileMessageFromBuffer | FileMessageEmpty,
   ): Promise<Hash> {
+    if (isFileMessageEmpty(fileMsg)) {
+      throw new TechnicalError('File is empty');
+    }
     if ('path' in fileMsg) {
       return new Promise((resolve) => {
         const rs = fs.createReadStream(fileMsg.path);
@@ -91,44 +95,42 @@ export class MessageApi extends MessageBroker {
   }
 
   private static getFileCaption(fileMsg: GeneralFileMessage): string {
-    const caption = fileMsg.caption ? `${fileMsg.caption}\n` : '';
-    return `${caption}#sha256IS${fileMsg.tags.sha256}`;
+    let caption = fileMsg.caption ? `${fileMsg.caption}\n` : '';
+    if (fileMsg.tags) {
+      if (fileMsg.tags.sha256) {
+        caption += `#sha256IS${fileMsg.tags.sha256}`;
+      }
+    }
+    return caption;
   }
 
   private static report(uploaded: number, totalSize: number) {
     Logger.info(`${(uploaded / totalSize) * 100}% uploaded`);
   }
 
-  private async sendFileFromPath(fileMsg: FileMessageFromPath) {
-    const { path } = fileMsg;
-
-    const uploader = new UploaderFromPath(this.tdlib);
-    await uploader.upload(path, MessageApi.report);
-    return await uploader.send(
-      this.privateChannelId,
-      MessageApi.getFileCaption(fileMsg),
-    );
-  }
-
-  private async sendFileFromBuffer(fileMsg: FileMessageFromBuffer) {
-    const { buffer } = fileMsg;
-
-    const uploader = new UploaderFromBuffer(this.tdlib);
-    await uploader.upload(buffer, MessageApi.report);
-    return await uploader.send(
-      this.privateChannelId,
-      MessageApi.getFileCaption(fileMsg),
-    );
-  }
-
   protected async sendFile(fileMsg: GeneralFileMessage): Promise<number> {
+    const _send = async (fileMsg: GeneralFileMessage): Promise<number> => {
+      const uploader = getUploader(this.tdlib, fileMsg);
+      await uploader.upload(fileMsg, MessageApi.report);
+      return (
+        await uploader.send(
+          this.privateChannelId,
+          MessageApi.getFileCaption(fileMsg),
+        )
+      ).messageId;
+    };
+
+    if ('stream' in fileMsg) {
+      return await _send(fileMsg);
+    }
+
     const fileHash = (await this.sha256(fileMsg))
       .digest('hex')
       .substring(0, 16);
 
     fileMsg.tags = { sha256: fileHash };
 
-    const existingFile = await this.tdlib.searchMessages({
+    const existingFile = await this.tdlib.account.searchMessages({
       chatId: this.privateChannelId,
       search: `#sha256IS${fileHash}`,
     });
@@ -137,11 +139,7 @@ export class MessageApi extends MessageBroker {
       return existingFile[0].messageId;
     }
 
-    return (
-      await ('path' in fileMsg
-        ? this.sendFileFromPath(fileMsg)
-        : this.sendFileFromBuffer(fileMsg))
-    ).messageId;
+    return await _send(fileMsg);
   }
 
   protected async *downloadFile(
@@ -152,7 +150,7 @@ export class MessageApi extends MessageBroker {
 
     let downloaded = 0;
 
-    for await (const buffer of this.tdlib.downloadFile({
+    for await (const buffer of this.tdlib.account.downloadFile({
       chatId: this.privateChannelId,
       messageId: messageId,
       chunkSize: config.tgfs.download.chunk_size_kb,
