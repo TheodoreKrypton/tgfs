@@ -1,13 +1,16 @@
 import fs from 'fs';
 import { Readable } from 'stream';
 
+import { RPCError } from 'telegram/errors';
+
 import bigInt from 'big-integer';
 import path from 'path';
 
 import { ITDLibClient, TDLibApi } from 'src/api/interface';
 import { SendMessageResp, UploadedFile } from 'src/api/types';
 import { Queue, generateFileId, getAppropriatedPartSize } from 'src/api/utils';
-import { TechnicalError } from 'src/errors/base';
+import { AggregatedError, TechnicalError } from 'src/errors/base';
+import { FileTooBig } from 'src/errors/telegram';
 import { Logger } from 'src/utils/logger';
 
 import {
@@ -27,6 +30,8 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
 
   private partCnt: number = 0;
   private uploaded: number = 0;
+
+  private _errors: { [key: number]: Error } = {};
 
   constructor(
     protected readonly client: ITDLibClient,
@@ -60,6 +65,10 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
 
     const chunk = await this.read(chunkLength);
 
+    if (chunk === null) {
+      return 0;
+    }
+
     this.uploaded += chunkLength;
     this.partCnt += 1;
 
@@ -73,14 +82,21 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
           bytes: chunk,
         });
         if (!rsp.success) {
-          console.log(rsp);
           throw new TechnicalError(
             `File chunk ${this.partCnt} of ${this.fileName} failed to upload`,
           );
         }
         return chunkLength;
       } catch (err) {
-        Logger.error(`error encountered ${workerId} ${err} ${retry}`);
+        if (err instanceof RPCError) {
+          if (err.errorMessage === 'FILE_PARTS_INVALID') {
+            throw new FileTooBig(this.fileSize);
+          }
+        }
+
+        Logger.error(
+          `error encountered in uploading worker ${workerId}: ${err} retries left: ${retry}`,
+        );
 
         retry -= 1;
         if (retry === 0) {
@@ -102,11 +118,15 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
 
       if (isBig(this.fileSize)) {
         const createWorker = async (workerId: number): Promise<void> => {
-          while (!this.done()) {
-            await this.uploadNextPart(workerId);
-            if (callback) {
-              callback(this.uploaded, this.fileSize);
+          try {
+            while (!this.done()) {
+              await this.uploadNextPart(workerId);
+              if (callback) {
+                callback(this.uploaded, this.fileSize);
+              }
             }
+          } catch (err) {
+            this._errors[workerId] = err;
           }
         };
 
@@ -132,10 +152,18 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     return this.uploaded >= this.fileSize;
   }
 
+  public get errors(): Array<Error> {
+    return Object.values(this._errors);
+  }
+
   public async send(
     chatId: number,
     caption?: string,
   ): Promise<SendMessageResp> {
+    if (Object.keys(this._errors).length > 0) {
+      throw new AggregatedError(this.errors);
+    }
+
     const req = {
       chatId,
       file: this.getUploadedFile(),

@@ -240,19 +240,30 @@ export class TGFSFileSystem extends FileSystem {
     ctx: OpenWriteStreamInfo,
     callback: ReturnCallback<Writable>,
   ): void {
-    try {
-      const tgClient = this.tgClient;
-      const { estimatedSize } = ctx;
+    (async () => {
+      try {
+        const tgClient = this.tgClient;
+        const { estimatedSize } = ctx;
 
-      const stream = new PassThrough();
+        const stream = new PassThrough();
 
-      uploadFromStream(tgClient)(stream, estimatedSize, path.toString());
+        callback(null, stream);
 
-      callback(null, stream);
-    } catch (err) {
-      handleError(callback)(err);
-      Logger.error(err);
-    }
+        try {
+          await uploadFromStream(tgClient)(
+            stream,
+            estimatedSize,
+            path.toString(),
+          );
+        } catch (err) {
+          stream.destroy();
+          throw err;
+        }
+      } catch (err) {
+        handleError(callback)(err);
+        Logger.error(err);
+      }
+    })();
   }
 
   protected _openReadStream(
@@ -264,11 +275,11 @@ export class TGFSFileSystem extends FileSystem {
       try {
         const fileRef = await list(this.tgClient)(path.toString());
         if (fileRef instanceof TGFSFileRef) {
-          const buffer = this.tgClient.downloadLatestVersion(
+          const chunks = this.tgClient.downloadLatestVersion(
             fileRef,
             fileRef.name,
           );
-          callback(null, Readable.from(buffer));
+          callback(null, Readable.from(chunks));
         } else {
           callback(Errors.InvalidOperation);
         }

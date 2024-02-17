@@ -18,3 +18,9 @@ export class BusinessError extends TechnicalError {
     super(message, cause);
   }
 }
+
+export class AggregatedError extends Error {
+  constructor(public readonly errors: Error[]) {
+    super(errors.map((e) => e.message).join('\n'));
+  }
+}

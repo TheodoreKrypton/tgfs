@@ -1,4 +1,4 @@
-import { BusinessError, TechnicalError } from '../errors/base';
+import { AggregatedError, BusinessError, TechnicalError } from '../errors/base';
 
 export class Logger {
   static tzOffset = new Date().getTimezoneOffset() * 60000;
@@ -18,7 +18,9 @@ export class Logger {
   }
 
   static error(err: string | Error) {
-    if (err instanceof BusinessError) {
+    if (err instanceof AggregatedError) {
+      err.errors.forEach((e) => this.error(e));
+    } else if (err instanceof BusinessError) {
       console.error(
         `[${this.getTime()}] [ERROR] ${err.code} ${err.name} ${err.message}`,
       );
