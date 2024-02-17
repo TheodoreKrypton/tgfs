@@ -12,6 +12,9 @@ import { MockMessages } from './mock-messages';
 
 let mockMessages: MockMessages = null;
 
+console.info = jest.fn();
+console.error = jest.fn();
+
 jest.mock('src/config', () => {
   return {
     ...jest.requireActual('src/config'),

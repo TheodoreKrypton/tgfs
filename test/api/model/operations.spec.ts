@@ -8,21 +8,19 @@ import { createMockClient } from '../../utils/mock-tg-client';
 
 describe('file and directory operations', () => {
   describe('create / remove directories', () => {
-    var client: Client;
+    let client: Client;
 
     beforeEach(async () => {
       client = await createMockClient();
     });
 
     it('should create a directory', async () => {
-      const client = await createMockClient();
       const root = client.getRootDirectory();
       const d1 = await client.createDirectory({ name: 'd1', under: root });
       expect(root.findChildren(['d1'])[0]).toEqual(d1);
     });
 
     it('should throw an error if the directory name is illegal', async () => {
-      const client = await createMockClient();
       const root = client.getRootDirectory();
 
       await expect(
@@ -34,7 +32,6 @@ describe('file and directory operations', () => {
     });
 
     it('should remove a directory', async () => {
-      const client = await createMockClient();
       const root = client.getRootDirectory();
 
       const d1 = await client.createDirectory({ name: 'd1', under: root });
@@ -43,8 +40,6 @@ describe('file and directory operations', () => {
     });
 
     it('should remove all directories', async () => {
-      const client = await createMockClient();
-
       const d1 = await client.createDirectory({
         name: 'd1',
         under: client.getRootDirectory(),
@@ -56,7 +51,7 @@ describe('file and directory operations', () => {
   });
 
   describe('create / remove files', () => {
-    var client: Client;
+    let client: Client;
 
     beforeEach(async () => {
       client = await createMockClient();

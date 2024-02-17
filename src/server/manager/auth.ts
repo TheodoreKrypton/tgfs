@@ -32,7 +32,7 @@ export const generateToken = async (username: string, password: string) => {
 export const verifyToken = (token: string): Promise<JWTPayload> => {
   return new Promise((resolve, reject) => {
     const payload = jwt.decode(
-      config.tgfs.jwt.secret,
+      config.manager.jwt.secret,
       token,
       (error, payload) => {
         if (error) {
