@@ -5,7 +5,7 @@ import { IBot, TDLibApi } from 'src/api/interface';
 import { config } from 'src/config';
 import { TechnicalError } from 'src/errors/base';
 import { MessageNotFound } from 'src/errors/telegram';
-import { db } from 'src/server/manager/db';
+import { manager } from 'src/server/manager';
 import { Logger } from 'src/utils/logger';
 
 import { getUploader } from './file-uploader';
@@ -164,20 +164,28 @@ export class MessageApi extends MessageBroker {
     name: string,
     messageId: number,
   ): AsyncGenerator<Buffer> {
-    const task = db.createTask(name, 0, 'download');
-
     let downloaded = 0;
 
-    for await (const buffer of this.tdlib.account.downloadFile({
+    const { chunks, size } = await this.tdlib.account.downloadFile({
       chatId: this.privateChannelId,
       messageId: messageId,
       chunkSize: config.tgfs.download.chunk_size_kb,
-    })) {
-      yield buffer;
-      downloaded += buffer.length;
-      task.reportProgress(downloaded);
-    }
+    });
 
-    task.finish();
+    const task = manager.createDownloadTask(name, size);
+    task.begin();
+
+    try {
+      for await (const buffer of chunks) {
+        yield buffer;
+        downloaded += buffer.length;
+        task.reportProgress(downloaded);
+      }
+    } catch (err) {
+      task.setErrors([err]);
+      throw err;
+    } finally {
+      task.complete();
+    }
   }
 }

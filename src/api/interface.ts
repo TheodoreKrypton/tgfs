@@ -22,7 +22,7 @@ export interface ITDLibClient {
 
   sendSmallFile(req: types.SendFileReq): Promise<types.SendMessageResp>;
 
-  downloadFile(req: types.DownloadFileReq): types.DownloadFileResp;
+  downloadFile(req: types.DownloadFileReq): Promise<types.DownloadFileResp>;
 }
 
 export interface IBot {

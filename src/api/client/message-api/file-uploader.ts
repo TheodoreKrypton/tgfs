@@ -11,6 +11,7 @@ import { SendMessageResp, UploadedFile } from 'src/api/types';
 import { Queue, generateFileId, getAppropriatedPartSize } from 'src/api/utils';
 import { AggregatedError, TechnicalError } from 'src/errors/base';
 import { FileTooBig } from 'src/errors/telegram';
+import { manager } from 'src/server/manager';
 import { Logger } from 'src/utils/logger';
 
 import {
@@ -125,6 +126,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
       big: 15,
     },
   ): Promise<void> {
+    const task = manager.createUploadTask(this.fileName, this.fileSize);
     this.prepare(file);
     try {
       this.fileName = fileName ?? this.defaultFileName;
@@ -159,6 +161,9 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
       await Promise.all(promises);
     } finally {
       this.close();
+
+      task.errors = this.errors;
+      task.complete();
     }
   }
 

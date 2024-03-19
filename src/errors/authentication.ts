@@ -36,7 +36,7 @@ export class IncorrectPassword extends InvalidCredentials {
 }
 
 export class JWTInvalid extends InvalidCredentials {
-  constructor() {
-    super('JWT token invalid');
+  constructor(public readonly cause: string) {
+    super(`JWT token invalid, ${cause}`);
   }
 }
