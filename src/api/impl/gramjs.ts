@@ -195,9 +195,9 @@ export class GramJSApi implements ITDLibClient {
     };
   }
 
-  public async *downloadFile(
+  public async downloadFile(
     req: types.DownloadFileReq,
-  ): types.DownloadFileResp {
+  ): Promise<types.DownloadFileResp> {
     const message = (
       await this.getMessages({
         chatId: req.chatId,
@@ -208,17 +208,27 @@ export class GramJSApi implements ITDLibClient {
     const chunkSize = req.chunkSize * 1024;
 
     let i = 0;
-    for await (const chunk of this.client.iterDownload({
-      file: new Api.InputDocumentFileLocation({
-        id: message.document.id,
-        accessHash: message.document.accessHash,
-        fileReference: message.document.fileReference,
-        thumbSize: '',
-      }),
-      requestSize: chunkSize,
-    })) {
-      i += 1;
-      yield Buffer.from(chunk);
+
+    const client = this.client;
+
+    async function* chunks() {
+      for await (const chunk of client.iterDownload({
+        file: new Api.InputDocumentFileLocation({
+          id: message.document.id,
+          accessHash: message.document.accessHash,
+          fileReference: message.document.fileReference,
+          thumbSize: '',
+        }),
+        requestSize: chunkSize,
+      })) {
+        i += 1;
+        yield Buffer.from(chunk);
+      }
     }
+
+    return {
+      chunks: chunks(),
+      size: Number(message.document.size),
+    };
   }
 }

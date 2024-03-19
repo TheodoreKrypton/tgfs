@@ -69,7 +69,7 @@ describe('config', () => {
       jwt: {
         secret: 'mock-secret',
         algorithm: 'HS256',
-        expiration: 3600 * 24 * 7,
+        life: 3600 * 24 * 7,
       },
     });
   });

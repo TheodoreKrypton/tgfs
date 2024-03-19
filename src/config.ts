@@ -45,7 +45,7 @@ export type Config = {
     jwt: {
       secret: string;
       algorithm: string;
-      expiration: number;
+      life: number;
     };
   };
 };
@@ -108,7 +108,7 @@ export const loadConfig = (configPath: string): Config => {
       jwt: {
         secret: cfg['manager']['jwt']['secret'],
         algorithm: cfg['manager']['jwt']['algorithm'] ?? 'HS256',
-        expiration: cfg['manager']['jwt']['expiration'],
+        life: cfg['manager']['jwt']['life'],
       },
     },
   };
@@ -212,7 +212,7 @@ export const createConfig = async (): Promise<string> => {
       jwt: {
         secret: generateRandomSecret(),
         algorithm: 'HS256',
-        expiration: 3600 * 24 * 7,
+        life: 3600 * 24 * 7,
       },
     },
   };

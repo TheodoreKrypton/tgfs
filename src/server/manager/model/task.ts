@@ -5,9 +5,10 @@ export class Task {
   fileName: string;
   totalSize: number;
   completedSize: number;
-  status: 'queuing' | 'in-progress' | 'completed';
+  status: 'queuing' | 'in-progress' | 'completed' | 'failed';
   type: 'download' | 'upload';
   beginTime: number;
+  errors: Error[] = [];
 
   constructor(
     fileName: string,
@@ -26,8 +27,12 @@ export class Task {
     this.status = 'in-progress';
   }
 
-  finish() {
+  complete() {
     this.status = 'completed';
+  }
+
+  setErrors(errors: Error[]) {
+    this.errors = errors;
   }
 
   reportProgress(size: number) {

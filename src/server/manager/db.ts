@@ -9,7 +9,11 @@ class Database {
     this.uploadTasks = new Map();
   }
 
-  createTask(fileName: string, totalSize: number, type: 'download' | 'upload') {
+  private createTask(
+    fileName: string,
+    totalSize: number,
+    type: 'download' | 'upload',
+  ): Task {
     const task = new Task(fileName, totalSize, type);
     if (type === 'download') {
       this.downloadTasks[task.id] = task;
@@ -20,6 +24,14 @@ class Database {
     return task;
   }
 
+  createUploadTask(fileName: string, totalSize: number): Task {
+    return this.createTask(fileName, totalSize, 'upload');
+  }
+
+  createDownloadTask(fileName: string, totalSize: number): Task {
+    return this.createTask(fileName, totalSize, 'download');
+  }
+
   getTasks() {
     return {
       download: this.downloadTasks,
@@ -28,4 +40,4 @@ class Database {
   }
 }
 
-export const db = new Database();
+export const manager = new Database();
