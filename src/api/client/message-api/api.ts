@@ -5,7 +5,6 @@ import { IBot, TDLibApi } from 'src/api/interface';
 import { config } from 'src/config';
 import { TechnicalError } from 'src/errors/base';
 import { db } from 'src/server/manager/db';
-import { Logger } from 'src/utils/logger';
 
 import { getUploader } from './file-uploader';
 import { MessageBroker } from './message-broker';
@@ -105,7 +104,7 @@ export class MessageApi extends MessageBroker {
   }
 
   private static report(uploaded: number, totalSize: number) {
-    Logger.info(`${(uploaded / totalSize) * 100}% uploaded`);
+    // Logger.info(`${(uploaded / totalSize) * 100}% uploaded`);
   }
 
   protected async sendFile(fileMsg: GeneralFileMessage): Promise<number> {

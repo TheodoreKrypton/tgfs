@@ -157,7 +157,7 @@ export class GramJSApi implements ITDLibClient {
     const rsp = await this.client.invoke(
       new Api.upload.SaveFilePart({
         fileId: req.fileId,
-        filePart: 0,
+        filePart: req.filePart,
         bytes: req.bytes,
       }),
     );

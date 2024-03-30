@@ -75,12 +75,18 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     let retry = 3;
     while (retry) {
       try {
-        const rsp = await this.client.saveBigFilePart({
-          fileId: this.fileId,
-          filePart: this.partCnt - 1, // 0-indexed
-          fileTotalParts: this.parts,
-          bytes: chunk,
-        });
+        const rsp = isBig(this.fileSize)
+          ? await this.client.saveBigFilePart({
+              fileId: this.fileId,
+              filePart: this.partCnt - 1, // 0-indexed
+              fileTotalParts: this.parts,
+              bytes: chunk,
+            })
+          : await this.client.saveFilePart({
+              fileId: this.fileId,
+              filePart: this.partCnt - 1, // 0-indexed
+              bytes: chunk,
+            });
         if (!rsp.success) {
           throw new TechnicalError(
             `File chunk ${this.partCnt} of ${this.fileName} failed to upload`,
@@ -116,33 +122,30 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     try {
       this.fileName = fileName ?? this.defaultFileName;
 
-      if (isBig(this.fileSize)) {
-        const createWorker = async (workerId: number): Promise<void> => {
-          try {
-            while (!this.done()) {
-              await this.uploadNextPart(workerId);
-              if (callback) {
-                callback(this.uploaded, this.fileSize);
-              }
+      const createWorker = async (workerId: number): Promise<void> => {
+        try {
+          while (!this.done()) {
+            await this.uploadNextPart(workerId);
+            if (callback) {
+              Logger.info(
+                `[worker ${workerId}] ${
+                  this.uploaded / this.fileSize
+                }% uploaded`,
+              );
+              callback(this.uploaded, this.fileSize);
             }
-          } catch (err) {
-            this._errors[workerId] = err;
           }
-        };
-
-        const promises: Array<Promise<void>> = [];
-        for (let i = 0; i < workers; i++) {
-          promises.push(createWorker(i));
+        } catch (err) {
+          this._errors[workerId] = err;
         }
+      };
 
-        await Promise.all(promises);
-      } else {
-        const bytes = await this.read(this.fileSize);
-        await this.client.saveFilePart({
-          fileId: this.fileId,
-          bytes,
-        });
+      const promises: Array<Promise<void>> = [];
+      for (let i = 0; i < workers; i++) {
+        promises.push(createWorker(i));
       }
+
+      await Promise.all(promises);
     } finally {
       this.close();
     }

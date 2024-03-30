@@ -43,10 +43,10 @@ export type PinMessageReq = Chat & Message;
 export type SaveFilePartReq = {
   fileId: BigInteger;
   bytes: Buffer;
+  filePart: number;
 };
 
 export type SaveBigFilePartReq = SaveFilePartReq & {
-  filePart: number;
   fileTotalParts: number;
 };
 
