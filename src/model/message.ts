@@ -1,4 +1,4 @@
-export class TGFSFileVersionObject {
+export class TGFSFileVersionSerialized {
   type: 'FV';
   id: string;
   updatedAt: number;
@@ -8,18 +8,18 @@ export class TGFSFileVersionObject {
 export class TGFSFileObject {
   type: 'F';
   name: string;
-  versions: TGFSFileVersionObject[];
+  versions: TGFSFileVersionSerialized[];
 }
 
-export class TGFSFileRefObject {
+export class TGFSFileRefSerialized {
   type: 'FR';
   messageId: number;
   name: string;
 }
 
-export class TGFSDirectoryObject {
+export class TGFSDirectorySerialized {
   type: 'D';
   name: string;
-  children: TGFSDirectoryObject[];
-  files: TGFSFileRefObject[];
+  children: TGFSDirectorySerialized[];
+  files: TGFSFileRefSerialized[];
 }

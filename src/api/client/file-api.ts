@@ -3,7 +3,7 @@ import { TGFSFileVersion } from 'src/model/file';
 import { validateName } from 'src/utils/validate-name';
 
 import { DirectoryApi } from './directory-api';
-import { GeneralFileMessage, isFileMessageEmpty } from './message-api/types';
+import { GeneralFileMessage } from './message-api/types';
 
 export class FileApi extends DirectoryApi {
   private async createFile(where: TGFSDirectory, fileMsg: GeneralFileMessage) {
@@ -17,37 +17,26 @@ export class FileApi extends DirectoryApi {
     return fr;
   }
 
+  private async updateFileRefMessageIdIfNecessary(
+    fr: TGFSFileRef,
+    messageId: number,
+  ) {
+    if (fr.getMessageId() !== messageId) {
+      // original file description message is gone
+      fr.setMessageId(messageId);
+      await this.syncMetadata();
+    }
+  }
+
   private async updateFile(
     fr: TGFSFileRef,
     fileMsg: GeneralFileMessage,
     versionId?: string,
   ) {
-    const fd = await this.getFileDesc(fr, false);
-
-    if (!isFileMessageEmpty(fileMsg)) {
-      let id: number = null;
-      id = await this.sendFile(fileMsg);
-
-      if (!versionId) {
-        fd.addVersionFromFileMessageId(id);
-      } else {
-        const fv = fd.getVersion(versionId);
-        fv.messageId = id;
-
-        fd.updateVersion(fv);
-      }
-    } else {
-      if (!versionId) {
-        fd.addEmptyVersion();
-      } else {
-        const fv = fd.getVersion(versionId);
-        fv.setInvalid();
-        fd.updateVersion(fv);
-      }
-    }
-
-    await this.updateFileDesc(fr, fd);
-
+    const messageId = versionId
+      ? await this.updateFileVersion(fr, fileMsg, versionId)
+      : await this.addFileVersion(fr, fileMsg);
+    await this.updateFileRefMessageIdIfNecessary(fr, messageId);
     return fr;
   }
 
@@ -56,9 +45,8 @@ export class FileApi extends DirectoryApi {
       fr.delete();
       await this.syncMetadata();
     } else {
-      const fd = await this.getFileDesc(fr, false);
-      fd.deleteVersion(version);
-      await this.updateFileDesc(fr, fd);
+      const messageId = await this.deleteFileVersion(fr, version);
+      await this.updateFileRefMessageIdIfNecessary(fr, messageId);
     }
   }
 

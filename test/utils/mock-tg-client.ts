@@ -112,11 +112,16 @@ jest.mock('telegram', () => {
               ),
 
             invoke: jest.fn().mockImplementation((req: any) => {
-              return mockMessages.saveFilePart(
-                req.fileId,
-                req.filePart,
-                req.bytes,
-              );
+              if (
+                req.className === 'upload.SaveFilePart' ||
+                req.className === 'upload.SaveBigFilePart'
+              ) {
+                return mockMessages.saveFilePart(
+                  req.fileId,
+                  req.filePart,
+                  req.bytes,
+                );
+              }
             }),
           };
         },

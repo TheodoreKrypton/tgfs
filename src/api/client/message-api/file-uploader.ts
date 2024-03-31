@@ -28,6 +28,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
   private fileName: string;
   private fileId: bigInt.BigInteger;
 
+  private isBig: boolean;
   private partCnt: number = 0;
   private uploaded: number = 0;
 
@@ -38,6 +39,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     protected readonly fileSize: number,
   ) {
     this.fileId = generateFileId();
+    this.isBig = isBig(fileSize);
   }
 
   protected abstract get defaultFileName(): string;
@@ -75,7 +77,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     let retry = 3;
     while (retry) {
       try {
-        const rsp = isBig(this.fileSize)
+        const rsp = this.isBig
           ? await this.client.saveBigFilePart({
               fileId: this.fileId,
               filePart: this.partCnt - 1, // 0-indexed
@@ -116,32 +118,42 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     file: T,
     callback?: (uploaded: number, totalSize: number) => void,
     fileName?: string,
-    workers: number = 15,
+    workers: {
+      small?: number;
+      big?: number;
+    } = {
+      small: 3,
+      big: 15,
+    },
   ): Promise<void> {
     this.prepare(file);
     try {
       this.fileName = fileName ?? this.defaultFileName;
 
-      const createWorker = async (workerId: number): Promise<void> => {
+      const createWorker = async (workerId: number): Promise<boolean> => {
         try {
           while (!this.done()) {
             await this.uploadNextPart(workerId);
             if (callback) {
               Logger.info(
                 `[worker ${workerId}] ${
-                  this.uploaded / this.fileSize
+                  (this.uploaded * 100) / this.fileSize
                 }% uploaded`,
               );
               callback(this.uploaded, this.fileSize);
             }
           }
+          return true;
         } catch (err) {
           this._errors[workerId] = err;
+          return false;
         }
       };
 
-      const promises: Array<Promise<void>> = [];
-      for (let i = 0; i < workers; i++) {
+      const promises: Array<Promise<boolean>> = [];
+
+      const numWorkers = this.isBig ? workers.big : workers.small;
+      for (let i = 0; i < numWorkers; i++) {
         promises.push(createWorker(i));
       }
 
@@ -173,7 +185,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
       name: this.fileName,
       caption,
     };
-    if (isBig(this.fileSize)) {
+    if (this.isBig) {
       return await this.client.sendBigFile(req);
     } else {
       return await this.client.sendSmallFile(req);
@@ -309,6 +321,7 @@ export function getUploader(
   fileMsg: GeneralFileMessage,
 ): FileUploader<GeneralFileMessage> {
   const selectApi = (fileSize: number) => {
+    // bot cannot upload files larger than 50MB
     return fileSize > 50 * 1024 * 1024 ? tdlib.account : tdlib.bot;
   };
 

@@ -7,6 +7,10 @@ import { sleep } from 'src/utils/sleep';
 import { createMockClient } from '../../utils/mock-tg-client';
 
 describe('file and directory operations', () => {
+  beforeAll(() => {
+    console.info = jest.fn();
+  });
+
   describe('create / remove directories', () => {
     var client: Client;
 

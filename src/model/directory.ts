@@ -1,6 +1,6 @@
 import { FileOrDirectoryAlreadyExistsError } from 'src/errors/path';
 
-import { TGFSDirectoryObject, TGFSFileRefObject } from './message';
+import { TGFSDirectorySerialized, TGFSFileRefSerialized } from './message';
 
 export class TGFSFileRef {
   constructor(
@@ -9,7 +9,7 @@ export class TGFSFileRef {
     private location: TGFSDirectory,
   ) {}
 
-  public toObject(): TGFSFileRefObject {
+  public toObject(): TGFSFileRefSerialized {
     return { type: 'FR', messageId: this.messageId, name: this.name };
   }
 
@@ -24,6 +24,10 @@ export class TGFSFileRef {
   public getMessageId() {
     return this.messageId;
   }
+
+  public setMessageId(messageId: number) {
+    this.messageId = messageId;
+  }
 }
 
 export class TGFSDirectory {
@@ -34,7 +38,7 @@ export class TGFSDirectory {
     private files: TGFSFileRef[] = [],
   ) {}
 
-  public toObject(): TGFSDirectoryObject {
+  public toObject(): TGFSDirectorySerialized {
     const children = [];
     this.children.forEach((child) => {
       children.push(child.toObject());
@@ -48,16 +52,20 @@ export class TGFSDirectory {
   }
 
   public static fromObject(
-    obj: TGFSDirectoryObject,
+    obj: TGFSDirectorySerialized,
     parent?: TGFSDirectory,
   ): TGFSDirectory {
     const children = [];
     const dir = new TGFSDirectory(obj.name, parent, children);
 
     dir.files = obj.files
-      ? obj.files.map((file) => {
-          return new TGFSFileRef(file.messageId, file.name, dir);
-        })
+      ? obj.files
+          .filter((file) => {
+            return file.name && file.messageId;
+          })
+          .map((file) => {
+            return new TGFSFileRef(file.messageId, file.name, dir);
+          })
       : [];
 
     obj.children.forEach((child) => {

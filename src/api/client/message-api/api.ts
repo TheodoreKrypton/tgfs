@@ -4,7 +4,9 @@ import fs from 'fs';
 import { IBot, TDLibApi } from 'src/api/interface';
 import { config } from 'src/config';
 import { TechnicalError } from 'src/errors/base';
+import { MessageNotFound } from 'src/errors/telegram';
 import { db } from 'src/server/manager/db';
+import { Logger } from 'src/utils/logger';
 
 import { getUploader } from './file-uploader';
 import { MessageBroker } from './message-broker';
@@ -37,13 +39,21 @@ export class MessageApi extends MessageBroker {
     messageId: number,
     message: string,
   ): Promise<number> {
-    return (
-      await this.bot.editMessageText({
-        chatId: this.privateChannelId,
-        messageId,
-        text: message,
-      })
-    ).messageId;
+    try {
+      return (
+        await this.bot.editMessageText({
+          chatId: this.privateChannelId,
+          messageId,
+          text: message,
+        })
+      ).messageId;
+    } catch (err) {
+      if (err.message === 'message to edit not found') {
+        throw new MessageNotFound(messageId);
+      } else {
+        throw err;
+      }
+    }
   }
 
   protected async editMessageMedia(
@@ -110,22 +120,27 @@ export class MessageApi extends MessageBroker {
   protected async sendFile(fileMsg: GeneralFileMessage): Promise<number> {
     const _send = async (fileMsg: GeneralFileMessage): Promise<number> => {
       const uploader = getUploader(this.tdlib, fileMsg);
-      await uploader.upload(fileMsg, MessageApi.report);
-      return (
+      await uploader.upload(fileMsg, MessageApi.report, fileMsg.name);
+      const messageId = (
         await uploader.send(
           this.privateChannelId,
           MessageApi.getFileCaption(fileMsg),
         )
       ).messageId;
+      Logger.debug('File sent', JSON.stringify(fileMsg));
+      return messageId;
     };
 
     if ('stream' in fileMsg) {
+      Logger.debug(
+        `Sending file ${JSON.stringify({ ...fileMsg, stream: 'hidden' })}`,
+      );
       return await _send(fileMsg);
     }
 
-    const fileHash = (await this.sha256(fileMsg))
-      .digest('hex')
-      .substring(0, 16);
+    Logger.debug(`Sending file ${JSON.stringify(fileMsg)}`);
+
+    const fileHash = (await this.sha256(fileMsg)).digest('hex');
 
     fileMsg.tags = { sha256: fileHash };
 
@@ -135,6 +150,10 @@ export class MessageApi extends MessageBroker {
     });
 
     if (existingFile.length > 0) {
+      Logger.debug(
+        `Found file with the same sha256 ${fileHash}, skip uploading`,
+        JSON.stringify(existingFile[0]),
+      );
       return existingFile[0].messageId;
     }
 

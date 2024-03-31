@@ -21,6 +21,7 @@ describe('commands', () => {
 
   beforeAll(async () => {
     console.log = jest.fn();
+    console.info = jest.fn();
 
     client = await createMockClient();
 

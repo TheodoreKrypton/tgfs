@@ -184,7 +184,7 @@ export class GramJSApi implements ITDLibClient {
     const rsp = await this.client.sendFile(req.chatId, {
       file: new Api.InputFile({
         id: req.file.id,
-        parts: 1,
+        parts: req.file.parts,
         name: req.file.name,
         md5Checksum: '',
       }),

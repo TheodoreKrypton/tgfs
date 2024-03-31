@@ -1,8 +1,6 @@
-import { Api } from 'telegram';
-
 import { v4 as uuid } from 'uuid';
 
-import { TGFSFileObject, TGFSFileVersionObject } from './message';
+import { TGFSFileObject, TGFSFileVersionSerialized } from './message';
 
 export class TGFSFileVersion {
   static EMPTY_FILE = -1;
@@ -12,7 +10,7 @@ export class TGFSFileVersion {
   messageId: number;
   size: number;
 
-  toObject(): TGFSFileVersionObject {
+  toObject(): TGFSFileVersionSerialized {
     return {
       type: 'FV',
       id: this.id,
@@ -38,7 +36,7 @@ export class TGFSFileVersion {
   }
 
   static fromObject(
-    tgfsFileVersionObject: TGFSFileVersionObject,
+    tgfsFileVersionObject: TGFSFileVersionSerialized,
   ): TGFSFileVersion {
     const tgfsFileVersion = new TGFSFileVersion();
     tgfsFileVersion.id = tgfsFileVersionObject['id'];
@@ -84,6 +82,13 @@ export class TGFSFile {
       }
     }
 
+    return tgfsFile;
+  }
+
+  static empty(name: string): TGFSFile {
+    const tgfsFile = new TGFSFile(name);
+    tgfsFile.createdAt = new Date();
+    tgfsFile.addEmptyVersion();
     return tgfsFile;
   }
 

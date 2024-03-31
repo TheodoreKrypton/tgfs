@@ -7,4 +7,5 @@ export type ErrorCodes =
   | 'RELATIVE_PATH'
   | 'UNKNOWN_COMMAND'
   | 'DIR_IS_NOT_EMPTY'
-  | 'FILE_TOO_BIG';
+  | 'FILE_TOO_BIG'
+  | 'MESSAGE_NOT_FOUND';
