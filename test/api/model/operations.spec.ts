@@ -12,12 +12,6 @@ describe('file and directory operations', () => {
   });
 
   describe('create / remove directories', () => {
-    var client: Client;
-
-    beforeEach(async () => {
-      client = await createMockClient();
-    });
-
     it('should create a directory', async () => {
       const client = await createMockClient();
       const root = client.getRootDirectory();
@@ -31,10 +25,10 @@ describe('file and directory operations', () => {
 
       await expect(
         client.createDirectory({ name: '-d1', under: root }),
-      ).rejects.toThrowError();
+      ).rejects.toThrow();
       await expect(
         client.createDirectory({ name: 'd/1', under: root }),
-      ).rejects.toThrowError();
+      ).rejects.toThrow();
     });
 
     it('should remove a directory', async () => {
@@ -60,7 +54,7 @@ describe('file and directory operations', () => {
   });
 
   describe('create / remove files', () => {
-    var client: Client;
+    let client: Client;
 
     beforeEach(async () => {
       client = await createMockClient();
@@ -76,16 +70,17 @@ describe('file and directory operations', () => {
     });
 
     it('should create a small file from path', async () => {
-      fs.writeFileSync('./mock-file.txt', 'mock-file-content');
+      const fileName = `${Math.random()}.txt`;
+      fs.writeFileSync(fileName, 'mock-file-content');
 
       const root = client.getRootDirectory();
       const f1 = await client.uploadFile(
         { under: root },
-        { name: 'f1', path: './mock-file.txt' },
+        { name: 'f1', path: fileName },
       );
       expect(root.findFiles(['f1'])[0]).toEqual(f1);
 
-      fs.rmSync('./mock-file.txt');
+      fs.rmSync(fileName);
     });
 
     it('should create a big file from buffer', async () => {
@@ -101,18 +96,19 @@ describe('file and directory operations', () => {
     });
 
     it('should create a big file from path', async () => {
+      const fileName = `${Math.random()}.txt`;
       const content = Buffer.alloc(1024 * 1024 * 10, 'a');
-      fs.writeFileSync('./mock-file.txt', content);
+      fs.writeFileSync(fileName, content);
 
       const root = client.getRootDirectory();
 
       const f1 = await client.uploadFile(
         { under: root },
-        { name: 'f1', path: './mock-file.txt' },
+        { name: 'f1', path: fileName },
       );
       expect(root.findFiles(['f1'])[0]).toEqual(f1);
 
-      fs.rmSync('./mock-file.txt');
+      fs.rmSync(fileName);
     });
 
     it('should add a file version', async () => {
@@ -122,7 +118,7 @@ describe('file and directory operations', () => {
         { name: 'f1', buffer: Buffer.from('mock-file-content') },
       );
 
-      await sleep(300);
+      await sleep(300); // wait for the timestamp to change to ensure the order of versions
       const content2 = 'mock-file-content-edited';
       await client.uploadFile(
         { under: root },
@@ -224,7 +220,7 @@ describe('file and directory operations', () => {
       );
 
       const fr = root.findFiles(['f1'])[0];
-      const localFileName = 'test-download-file-content';
+      const localFileName = `${Math.random()}.txt`;
 
       await saveToFile(client.downloadLatestVersion(fr, 'f1'), localFileName);
 

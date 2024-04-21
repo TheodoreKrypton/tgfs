@@ -64,15 +64,14 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
       this.uploaded + this.chunkSize > this.fileSize
         ? this.fileSize - this.uploaded
         : this.chunkSize;
+    this.uploaded += chunkLength;
+    this.partCnt += 1;
 
-    const chunk = await this.read(chunkLength);
-
-    if (chunk === null) {
+    if (chunkLength === 0) {
       return 0;
     }
 
-    this.uploaded += chunkLength;
-    this.partCnt += 1;
+    const chunk = await this.read(chunkLength);
 
     let retry = 3;
     while (retry) {
@@ -133,8 +132,8 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
       const createWorker = async (workerId: number): Promise<boolean> => {
         try {
           while (!this.done()) {
-            await this.uploadNextPart(workerId);
-            if (callback) {
+            const partSize = await this.uploadNextPart(workerId);
+            if (partSize && callback) {
               Logger.info(
                 `[worker ${workerId}] ${
                   (this.uploaded * 100) / this.fileSize

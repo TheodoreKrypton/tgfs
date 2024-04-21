@@ -22,7 +22,7 @@ export class Logger {
       err.errors.forEach((e) => this.error(e));
     } else if (err instanceof BusinessError) {
       console.error(
-        `[${this.getTime()}] [ERROR] ${err.code} ${err.name} ${err.message}`,
+        `[${this.getTime()}] [ERROR] ${err.code} ${err.name} ${err.message} \n${err.stack}`,
       );
     } else if (err instanceof TechnicalError) {
       console.error(

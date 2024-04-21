@@ -12,14 +12,16 @@ export type GetMessagesReq = Chat & {
   messageIds: number[];
 };
 
+export type Document = {
+  size: BigInteger;
+  id: BigInteger;
+  accessHash: BigInteger;
+  fileReference: Buffer;
+};
+
 export type MessageResp = Message & {
   text?: string;
-  document?: {
-    size: BigInteger;
-    id: BigInteger;
-    accessHash: BigInteger;
-    fileReference: Buffer;
-  };
+  document?: Document;
 };
 
 export type GetMessagesResp = MessageResp[];

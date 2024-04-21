@@ -57,7 +57,7 @@ describe('commands', () => {
 
     it('should throw an error if path does not exist', () => {
       jest.replaceProperty(process, 'argv', ['ls', '/not-exist']);
-      expect(executor.execute(parse())).rejects.toThrowError();
+      expect(executor.execute(parse())).rejects.toThrow();
     });
   });
 
@@ -100,12 +100,12 @@ describe('commands', () => {
       await executor.execute(parse());
 
       jest.replaceProperty(process, 'argv', ['mkdir', '/d1']);
-      await expect(executor.execute(parse())).rejects.toThrowError();
+      await expect(executor.execute(parse())).rejects.toThrow();
     });
 
     it('should throw an error if the path does not start with /', async () => {
       jest.replaceProperty(process, 'argv', ['mkdir', 'd1']);
-      await expect(executor.execute(parse())).rejects.toThrowError();
+      await expect(executor.execute(parse())).rejects.toThrow();
     });
   });
 
@@ -114,8 +114,8 @@ describe('commands', () => {
       await removeDir(client)('/', true);
     });
 
-    it('should upload a file', async () => {
-      const fileName = 'mock-file.txt';
+    it('should upload a file from local', async () => {
+      const fileName = `${Math.random()}.txt`;
 
       fs.writeFileSync(fileName, 'mock-file-content');
       jest.replaceProperty(process, 'argv', ['cp', fileName, '/f1']);
@@ -124,12 +124,12 @@ describe('commands', () => {
       const f1 = client.getRootDirectory().findFiles(['f1'])[0];
       expect(f1.name).toEqual('f1');
 
-      fs.unlinkSync('./mock-file.txt');
+      fs.rmSync(fileName);
     });
 
     it('should throw an error if file does not exist', () => {
       jest.replaceProperty(process, 'argv', ['cp', 'not-exist', '/f1']);
-      expect(executor.execute(parse())).rejects.toThrowError();
+      expect(executor.execute(parse())).rejects.toThrow();
     });
   });
 

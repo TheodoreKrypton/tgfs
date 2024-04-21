@@ -9,8 +9,8 @@ export class FileApi extends DirectoryApi {
   private async createFile(where: TGFSDirectory, fileMsg: GeneralFileMessage) {
     validateName(fileMsg.name);
 
-    const id = await this.createFileDesc(fileMsg);
-    const fr = where.createFileRef(fileMsg.name, id);
+    const messageId = await this.createFileDesc(fileMsg);
+    const fr = where.createFileRef(fileMsg.name, messageId);
 
     await this.syncMetadata();
 

@@ -50,6 +50,7 @@ export class MetaDataApi extends FileDescApi {
   protected async updateMetadata(): Promise<undefined> {
     const buffer = Buffer.from(JSON.stringify(this.metadata.toObject()));
     if (this.metadata.msgId) {
+      // update current metadata
       await this.editMessageMedia(
         this.metadata.msgId,
         buffer,
@@ -57,6 +58,7 @@ export class MetaDataApi extends FileDescApi {
         '',
       );
     } else {
+      // doesn't exist, create new metadata and pin
       const messageId = await this.sendFile({ buffer, name: 'metadata.json' });
       this.metadata.msgId = messageId;
       await this.pinMessage(messageId);

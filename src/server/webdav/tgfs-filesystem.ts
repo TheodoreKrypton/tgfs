@@ -29,11 +29,7 @@ import { Client, createClient } from 'src/api';
 import { createDir, list, removeDir, removeFile } from 'src/api/ops';
 import { createEmptyFile } from 'src/api/ops/create-empty-file';
 import { uploadFromStream } from 'src/api/ops/upload';
-import {
-  FileOrDirectoryAlreadyExistsError,
-  FileOrDirectoryDoesNotExistError,
-  InvalidNameError,
-} from 'src/errors';
+import { BusinessError } from 'src/errors/base';
 import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
 import { Logger } from 'src/utils/logger';
 
@@ -57,12 +53,13 @@ export class TGFSSerializer implements FileSystemSerializer {
   }
 }
 
-const handleError = (callback: (e) => any) => (err) => {
-  if (err instanceof FileOrDirectoryAlreadyExistsError) {
+const handleError = (callback: (e: Error) => any) => (err: Error) => {
+  const castedError = err as BusinessError;
+  if (castedError.code == 'FILE_OR_DIR_ALREADY_EXISTS') {
     callback(Errors.ResourceAlreadyExists);
-  } else if (err instanceof FileOrDirectoryDoesNotExistError) {
+  } else if (castedError.code == 'FILE_OR_DIR_DOES_NOT_EXIST') {
     callback(Errors.ResourceNotFound);
-  } else if (err instanceof InvalidNameError) {
+  } else if (castedError.code == 'INVALID_NAME') {
     callback(Errors.IllegalArguments);
   } else {
     callback(Errors.InvalidOperation);
@@ -273,16 +270,15 @@ export class TGFSFileSystem extends FileSystem {
   ): void {
     (async () => {
       try {
-        const fileRef = await list(this.tgClient)(path.toString());
-        if (fileRef instanceof TGFSFileRef) {
-          const chunks = this.tgClient.downloadLatestVersion(
-            fileRef,
-            fileRef.name,
-          );
-          callback(null, Readable.from(chunks));
-        } else {
-          callback(Errors.InvalidOperation);
-        }
+        const fileRef = (await list(this.tgClient)(
+          path.toString(),
+        )) as TGFSFileRef;
+        const chunks = this.tgClient.downloadLatestVersion(
+          fileRef,
+          fileRef.name,
+        );
+        
+        callback(null, Readable.from(chunks));
       } catch (err) {
         handleError(callback)(err);
         Logger.error(err);
