@@ -75,7 +75,7 @@ export type SendFileReq = Chat &
 export type EditMessageMediaReq = Chat &
   Message &
   FileAttr & {
-    buffer: Buffer;
+    file: UploadedFile;
   };
 
 export type DownloadFileReq = Chat &

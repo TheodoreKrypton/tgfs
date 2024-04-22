@@ -32,9 +32,7 @@ export const createMockClient = async () => {
   });
   jest.mock('src/api/impl/telegraf', () => {
     return {
-      TelegrafApi: jest
-        .fn()
-        .mockImplementation(() => new MockTelegrafApi(mockMessages)),
+      TelegrafApi: jest.fn().mockImplementation(() => new MockTelegrafApi()),
       createBot: jest.fn().mockImplementation(() => null),
     };
   });

@@ -20,6 +20,24 @@ export class MockGramJSApi implements ITDLibClient {
     });
   }
 
+  public async sendText(
+    req: types.SendTextReq,
+  ): Promise<types.SendMessageResp> {
+    const messageId = this.messages.sendMessage({ message: req.text });
+    return { messageId };
+  }
+
+  public async editMessageText(
+    req: types.EditMessageTextReq,
+  ): Promise<types.SendMessageResp> {
+    const message = this.messages.getMessage(req.messageId);
+    this.messages.editMessage(req.messageId, {
+      message: req.text,
+      file: message.document?.id,
+    });
+    return { messageId: req.messageId };
+  }
+
   public async searchMessages(
     req: types.SearchMessagesReq,
   ): Promise<types.GetMessagesResp> {
@@ -47,6 +65,10 @@ export class MockGramJSApi implements ITDLibClient {
     ];
   }
 
+  public async pinMessage(req: types.PinMessageReq): Promise<void> {
+    this.messages.pinnedMessageId = req.messageId;
+  }
+
   public async saveBigFilePart(
     req: types.SaveBigFilePartReq,
   ): Promise<types.SaveFilePartResp> {
@@ -71,6 +93,17 @@ export class MockGramJSApi implements ITDLibClient {
   ): Promise<types.SendMessageResp> {
     const messageId = this.messages.sendMessage({ file: req.file.id });
     return { messageId };
+  }
+
+  public async editMessageMedia(
+    req: types.EditMessageMediaReq,
+  ): Promise<types.Message> {
+    const message = this.messages.getMessage(req.messageId);
+    this.messages.editMessage(req.messageId, {
+      message: req.caption ?? message.text,
+      file: req.file.id,
+    });
+    return { messageId: req.messageId };
   }
 
   public downloadFile(req: types.DownloadFileReq): types.DownloadFileResp {

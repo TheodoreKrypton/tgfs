@@ -6,11 +6,19 @@ export interface ITDLibClient {
 
   getMessages(req: types.GetMessagesReq): Promise<types.GetMessagesResp>;
 
+  sendText(req: types.SendTextReq): Promise<types.SendMessageResp>;
+
+  editMessageText(
+    req: types.EditMessageTextReq,
+  ): Promise<types.SendMessageResp>;
+
   searchMessages(req: types.SearchMessagesReq): Promise<types.GetMessagesResp>;
 
   getPinnedMessages(
     req: types.GetPinnedMessagesReq,
   ): Promise<types.GetMessagesResp>;
+
+  pinMessage(req: types.PinMessageReq): Promise<void>;
 
   saveBigFilePart(
     req: types.SaveBigFilePartReq,
@@ -22,22 +30,12 @@ export interface ITDLibClient {
 
   sendSmallFile(req: types.SendFileReq): Promise<types.SendMessageResp>;
 
+  editMessageMedia(req: types.EditMessageMediaReq): Promise<types.Message>;
+
   downloadFile(req: types.DownloadFileReq): types.DownloadFileResp;
 }
 
-export interface IBot {
-  sendText(req: types.SendTextReq): Promise<types.SendMessageResp>;
-
-  editMessageText(
-    req: types.EditMessageTextReq,
-  ): Promise<types.SendMessageResp>;
-
-  editMessageMedia(
-    req: types.EditMessageMediaReq,
-  ): Promise<types.SendMessageResp>;
-
-  pinMessage(req: types.PinMessageReq): Promise<void>;
-}
+export interface IBot {}
 
 export type TDLibApi = {
   account: ITDLibClient;

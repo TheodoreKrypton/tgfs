@@ -28,7 +28,7 @@ export class MessageApi extends MessageBroker {
 
   protected async sendText(message: string): Promise<number> {
     return (
-      await this.bot.sendText({
+      await this.tdlib.bot.sendText({
         chatId: this.privateChannelId,
         text: message,
       })
@@ -41,7 +41,7 @@ export class MessageApi extends MessageBroker {
   ): Promise<number> {
     try {
       return (
-        await this.bot.editMessageText({
+        await this.tdlib.bot.editMessageText({
           chatId: this.privateChannelId,
           messageId,
           text: message,
@@ -62,19 +62,22 @@ export class MessageApi extends MessageBroker {
     name: string,
     caption: string,
   ): Promise<number> {
-    return (
-      await this.bot.editMessageMedia({
-        chatId: this.privateChannelId,
-        messageId,
-        buffer,
-        name,
-        caption,
-      })
-    ).messageId;
+    const fileMsg: FileMessageFromBuffer = {
+      buffer,
+      name,
+      caption,
+    };
+    const uploader = await this._uploadFile(fileMsg);
+    const rsp = await this.tdlib.bot.editMessageMedia({
+      chatId: this.privateChannelId,
+      messageId,
+      file: uploader.getUploadedFile(),
+    });
+    return rsp.messageId;
   }
 
   protected async pinMessage(messageId: number) {
-    return await this.bot.pinMessage({
+    return await this.tdlib.bot.pinMessage({
       chatId: this.privateChannelId,
       messageId,
     });
@@ -117,25 +120,31 @@ export class MessageApi extends MessageBroker {
     // Logger.info(`${(uploaded / totalSize) * 100}% uploaded`);
   }
 
-  protected async sendFile(fileMsg: GeneralFileMessage): Promise<number> {
-    const _send = async (fileMsg: GeneralFileMessage): Promise<number> => {
-      const uploader = getUploader(this.tdlib, fileMsg);
-      await uploader.upload(fileMsg, MessageApi.report, fileMsg.name);
-      const messageId = (
-        await uploader.send(
-          this.privateChannelId,
-          MessageApi.getFileCaption(fileMsg),
-        )
-      ).messageId;
-      Logger.debug('File sent', JSON.stringify(fileMsg));
-      return messageId;
-    };
+  private async _uploadFile(fileMsg: GeneralFileMessage) {
+    const uploader = getUploader(this.tdlib, fileMsg);
+    await uploader.upload(fileMsg, MessageApi.report, fileMsg.name);
+    return uploader;
+  }
 
+  private async _sendFile(fileMsg: GeneralFileMessage): Promise<number> {
+    const uploader = await this._uploadFile(fileMsg);
+    const messageId = (
+      await uploader.send(
+        this.privateChannelId,
+        MessageApi.getFileCaption(fileMsg),
+      )
+    ).messageId;
+    Logger.debug('File sent', JSON.stringify(fileMsg));
+    return messageId;
+  }
+
+  protected async sendFile(fileMsg: GeneralFileMessage): Promise<number> {
     if ('stream' in fileMsg) {
+      // Unable to calculate sha256 for file as a stream. So just send it.
       Logger.debug(
         `Sending file ${JSON.stringify({ ...fileMsg, stream: 'hidden' })}`,
       );
-      return await _send(fileMsg);
+      return await this._sendFile(fileMsg);
     }
 
     Logger.debug(`Sending file ${JSON.stringify(fileMsg)}`);
@@ -157,7 +166,7 @@ export class MessageApi extends MessageBroker {
       return existingFile[0].messageId;
     }
 
-    return await _send(fileMsg);
+    return await this._sendFile(fileMsg);
   }
 
   protected async *downloadFile(

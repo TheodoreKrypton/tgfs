@@ -125,7 +125,13 @@ describe('TGFSFileSystem', () => {
     it('should download a file', async () => {
       const server = await getServer();
       await uploadFile(server, '/f1', 'mock-file-content').expect(201);
-      await server.get('/f1').expect(200);
+
+      await server
+        .get('/f1')
+        .expect(200)
+        .parse((res: supertest.Response, callback) => {
+          callback(null, null);
+        });
 
       // TODO: I don't know how to receive the data
     });

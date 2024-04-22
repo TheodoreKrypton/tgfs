@@ -65,7 +65,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
         ? this.fileSize - this.uploaded
         : this.chunkSize;
     this.uploaded += chunkLength;
-    this.partCnt += 1;
+    const filePart = this.partCnt++; // 0-indexed
 
     if (chunkLength === 0) {
       return 0;
@@ -79,18 +79,18 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
         const rsp = this.isBig
           ? await this.client.saveBigFilePart({
               fileId: this.fileId,
-              filePart: this.partCnt - 1, // 0-indexed
+              filePart,
               fileTotalParts: this.parts,
               bytes: chunk,
             })
           : await this.client.saveFilePart({
               fileId: this.fileId,
-              filePart: this.partCnt - 1, // 0-indexed
+              filePart,
               bytes: chunk,
             });
         if (!rsp.success) {
           throw new TechnicalError(
-            `File chunk ${this.partCnt} of ${this.fileName} failed to upload`,
+            `File chunk ${filePart} of ${this.fileName} failed to upload`,
           );
         }
         return chunkLength;

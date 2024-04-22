@@ -115,6 +115,44 @@ export class GramJSApi implements ITDLibClient {
     return GramJSApi.transformMessages(rsp);
   }
 
+  public async sendText(req: types.SendTextReq): Promise<types.Message> {
+    const rsp = await this.client.sendMessage(req.chatId, {
+      message: req.text,
+    });
+    return {
+      messageId: rsp.id,
+    };
+  }
+
+  public async editMessageText(
+    req: types.EditMessageTextReq,
+  ): Promise<types.Message> {
+    const rsp = await this.client.editMessage(req.chatId, {
+      message: req.messageId,
+      text: req.text,
+    });
+    return {
+      messageId: rsp.id,
+    };
+  }
+
+  public async editMessageMedia(
+    req: types.EditMessageMediaReq,
+  ): Promise<types.Message> {
+    const rsp = await this.client.editMessage(req.chatId, {
+      message: req.messageId,
+      file: new Api.InputFile({
+        id: req.file.id,
+        parts: req.file.parts,
+        name: req.file.name,
+        md5Checksum: '',
+      }),
+    });
+    return {
+      messageId: rsp.id,
+    };
+  }
+
   public async searchMessages(
     req: types.SearchMessagesReq,
   ): Promise<types.GetMessagesResp> {
@@ -133,6 +171,10 @@ export class GramJSApi implements ITDLibClient {
     });
 
     return GramJSApi.transformMessages(rsp);
+  }
+
+  public async pinMessage(req: types.PinMessageReq): Promise<void> {
+    await this.client.pinMessage(req.chatId, req.messageId);
   }
 
   public async saveBigFilePart(
