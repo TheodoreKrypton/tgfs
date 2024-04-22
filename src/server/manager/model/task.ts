@@ -3,8 +3,8 @@ import { v4 as uuid } from 'uuid';
 export class Task {
   id: string;
   fileName: string;
-  totalSize: number;
-  completedSize: number;
+  totalSize: bigInt.BigInteger;
+  completedSize: bigInt.BigInteger;
   status: 'queuing' | 'in-progress' | 'completed' | 'failed';
   type: 'download' | 'upload';
   beginTime: number;
@@ -12,7 +12,7 @@ export class Task {
 
   constructor(
     fileName: string,
-    totalSize: number,
+    totalSize: bigInt.BigInteger,
     type: 'download' | 'upload',
   ) {
     this.id = uuid();
@@ -35,7 +35,7 @@ export class Task {
     this.errors = errors;
   }
 
-  reportProgress(size: number) {
+  reportProgress(size: bigInt.BigInteger) {
     this.completedSize = size;
   }
 }

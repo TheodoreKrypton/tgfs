@@ -11,7 +11,7 @@ class Database {
 
   private createTask(
     fileName: string,
-    totalSize: number,
+    totalSize: bigInt.BigInteger,
     type: 'download' | 'upload',
   ): Task {
     const task = new Task(fileName, totalSize, type);
@@ -24,11 +24,11 @@ class Database {
     return task;
   }
 
-  createUploadTask(fileName: string, totalSize: number): Task {
+  createUploadTask(fileName: string, totalSize: bigInt.BigInteger): Task {
     return this.createTask(fileName, totalSize, 'upload');
   }
 
-  createDownloadTask(fileName: string, totalSize: number): Task {
+  createDownloadTask(fileName: string, totalSize: bigInt.BigInteger): Task {
     return this.createTask(fileName, totalSize, 'download');
   }
 

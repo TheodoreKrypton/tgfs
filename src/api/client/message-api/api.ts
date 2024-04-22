@@ -1,6 +1,8 @@
 import { Hash, createHash } from 'crypto';
 import fs from 'fs';
 
+import bigInt from 'big-integer';
+
 import { IBot, TDLibApi } from 'src/api/interface';
 import { config } from 'src/config';
 import { TechnicalError } from 'src/errors/base';
@@ -113,7 +115,10 @@ export class MessageApi extends MessageBroker {
     return caption;
   }
 
-  private static report(uploaded: number, totalSize: number) {
+  private static report(
+    uploaded: bigInt.BigInteger,
+    totalSize: bigInt.BigInteger,
+  ) {
     // Logger.info(`${(uploaded / totalSize) * 100}% uploaded`);
   }
 
@@ -164,7 +169,7 @@ export class MessageApi extends MessageBroker {
     name: string,
     messageId: number,
   ): AsyncGenerator<Buffer> {
-    let downloaded = 0;
+    let downloaded: bigInt.BigInteger = bigInt.zero;
 
     const { chunks, size } = await this.tdlib.account.downloadFile({
       chatId: this.privateChannelId,
@@ -178,7 +183,7 @@ export class MessageApi extends MessageBroker {
     try {
       for await (const buffer of chunks) {
         yield buffer;
-        downloaded += buffer.length;
+        downloaded = downloaded.add(buffer.length);
         task.reportProgress(downloaded);
       }
     } catch (err) {

@@ -73,15 +73,21 @@ export class MockGramJSApi implements ITDLibClient {
     return { messageId };
   }
 
-  public downloadFile(req: types.DownloadFileReq): types.DownloadFileResp {
+  public async downloadFile(
+    req: types.DownloadFileReq,
+  ): Promise<types.DownloadFileResp> {
     const message = this.messages.getMessage(req.messageId);
     const fileId = message.document.id;
     const parts = this.messages.getFile(fileId);
-    return (async function* () {
+    const chunks = (async function* () {
       const len = Object.keys(parts).length;
       for (let i = 0; i < len; i++) {
         yield parts[i];
       }
     })();
+    return {
+      chunks,
+      size: message.document.size,
+    };
   }
 }

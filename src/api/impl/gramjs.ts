@@ -228,7 +228,7 @@ export class GramJSApi implements ITDLibClient {
 
     return {
       chunks: chunks(),
-      size: Number(message.document.size),
+      size: message.document.size,
     };
   }
 }

@@ -85,5 +85,5 @@ export type DownloadFileReq = Chat &
 
 export type DownloadFileResp = {
   chunks: AsyncGenerator<Buffer>;
-  size: number;
+  size: bigInt.BigInteger;
 };
