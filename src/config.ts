@@ -42,6 +42,11 @@ export type Config = {
       token: string;
       chat_id: number;
     };
+    jwt: {
+      secret: string;
+      algorithm: string;
+      life: number;
+    };
   };
 };
 
@@ -100,6 +105,11 @@ export const loadConfig = (configPath: string): Config => {
         token: cfg['manager']['bot']['token'],
         chat_id: cfg['manager']['bot']['chat_id'],
       },
+      jwt: {
+        secret: cfg['manager']['jwt']['secret'],
+        algorithm: cfg['manager']['jwt']['algorithm'] ?? 'HS256',
+        life: cfg['manager']['jwt']['life'],
+      },
     },
   };
   return config;
@@ -126,6 +136,16 @@ export const createConfig = async (): Promise<string> => {
     'Where do you want to save this config file',
     { default: path.join(process.cwd(), 'config.yaml') },
   );
+
+  const generateRandomSecret = () => {
+    const chars =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let secret = '';
+    for (let i = 0; i < 64; i++) {
+      secret += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return secret;
+  };
 
   const res: Config = {
     telegram: {
@@ -188,6 +208,11 @@ export const createConfig = async (): Promise<string> => {
       bot: {
         token: '',
         chat_id: 0,
+      },
+      jwt: {
+        secret: generateRandomSecret(),
+        algorithm: 'HS256',
+        life: 3600 * 24 * 7,
       },
     },
   };

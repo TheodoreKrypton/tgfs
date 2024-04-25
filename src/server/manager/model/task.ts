@@ -3,15 +3,16 @@ import { v4 as uuid } from 'uuid';
 export class Task {
   id: string;
   fileName: string;
-  totalSize: number;
-  completedSize: number;
-  status: 'queuing' | 'in-progress' | 'completed';
+  totalSize: bigInt.BigInteger;
+  completedSize: bigInt.BigInteger;
+  status: 'queuing' | 'in-progress' | 'completed' | 'failed';
   type: 'download' | 'upload';
   beginTime: number;
+  errors: Error[] = [];
 
   constructor(
     fileName: string,
-    totalSize: number,
+    totalSize: bigInt.BigInteger,
     type: 'download' | 'upload',
   ) {
     this.id = uuid();
@@ -26,11 +27,15 @@ export class Task {
     this.status = 'in-progress';
   }
 
-  finish() {
+  complete() {
     this.status = 'completed';
   }
 
-  reportProgress(size: number) {
+  setErrors(errors: Error[]) {
+    this.errors = errors;
+  }
+
+  reportProgress(size: bigInt.BigInteger) {
     this.completedSize = size;
   }
 }

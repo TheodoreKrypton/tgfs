@@ -32,7 +32,7 @@ export interface ITDLibClient {
 
   editMessageMedia(req: types.EditMessageMediaReq): Promise<types.Message>;
 
-  downloadFile(req: types.DownloadFileReq): types.DownloadFileResp;
+  downloadFile(req: types.DownloadFileReq): Promise<types.DownloadFileResp>;
 }
 
 export interface IBot {}

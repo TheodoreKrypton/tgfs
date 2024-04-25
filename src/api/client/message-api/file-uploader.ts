@@ -11,6 +11,7 @@ import { SendMessageResp, UploadedFile } from 'src/api/types';
 import { Queue, generateFileId, getAppropriatedPartSize } from 'src/api/utils';
 import { AggregatedError, TechnicalError } from 'src/errors/base';
 import { FileTooBig } from 'src/errors/telegram';
+import { manager } from 'src/server/manager';
 import { Logger } from 'src/utils/logger';
 
 import {
@@ -20,8 +21,8 @@ import {
   GeneralFileMessage,
 } from './types';
 
-const isBig = (fileSize: number): boolean => {
-  return fileSize >= 10 * 1024 * 1024;
+const isBig = (fileSize: bigInt.BigInteger): boolean => {
+  return fileSize.greaterOrEquals(10 * 1024 * 1024);
 };
 
 export abstract class FileUploader<T extends GeneralFileMessage> {
@@ -30,13 +31,13 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
 
   private isBig: boolean;
   private partCnt: number = 0;
-  private uploaded: number = 0;
+  private uploaded: bigInt.BigInteger = bigInt.zero;
 
   private _errors: { [key: number]: Error } = {};
 
   constructor(
     protected readonly client: ITDLibClient,
-    protected readonly fileSize: number,
+    protected readonly fileSize: bigInt.BigInteger,
   ) {
     this.fileId = generateFileId();
     this.isBig = isBig(fileSize);
@@ -47,31 +48,34 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
   protected close(): void {}
   protected abstract read(length: number): Promise<Buffer>;
 
-  private get chunkSize(): number {
-    return getAppropriatedPartSize(bigInt(this.fileSize)) * 1024;
+  private get chunkSize(): bigInt.BigInteger {
+    return bigInt(getAppropriatedPartSize(this.fileSize) * 1024);
   }
 
   private get parts(): number {
-    return Math.ceil(this.fileSize / this.chunkSize);
+    const { quotient, remainder } = this.fileSize.divmod(this.chunkSize);
+    return remainder.equals(0)
+      ? quotient.toJSNumber()
+      : quotient.toJSNumber() + 1;
   }
 
-  private async uploadNextPart(workerId: number): Promise<number> {
+  private async uploadNextPart(workerId: number): Promise<bigInt.BigInteger> {
     if (this.done()) {
-      return 0;
+      return bigInt.zero;
     }
 
     const chunkLength =
-      this.uploaded + this.chunkSize > this.fileSize
-        ? this.fileSize - this.uploaded
+      this.uploaded.add(this.chunkSize) > this.fileSize
+        ? this.fileSize.minus(this.uploaded)
         : this.chunkSize;
-    this.uploaded += chunkLength;
+    this.uploaded = this.uploaded.add(chunkLength);
     const filePart = this.partCnt++; // 0-indexed
 
-    if (chunkLength === 0) {
-      return 0;
+    if (chunkLength.eq(0)) {
+      return bigInt.zero;
     }
 
-    const chunk = await this.read(chunkLength);
+    const chunk = await this.read(chunkLength.toJSNumber());
 
     let retry = 3;
     while (retry) {
@@ -115,7 +119,10 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
 
   public async upload(
     file: T,
-    callback?: (uploaded: number, totalSize: number) => void,
+    callback?: (
+      uploaded: bigInt.BigInteger,
+      totalSize: bigInt.BigInteger,
+    ) => void,
     fileName?: string,
     workers: {
       small?: number;
@@ -125,6 +132,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
       big: 15,
     },
   ): Promise<void> {
+    const task = manager.createUploadTask(this.fileName, this.fileSize);
     this.prepare(file);
     try {
       this.fileName = fileName ?? this.defaultFileName;
@@ -135,9 +143,10 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
             const partSize = await this.uploadNextPart(workerId);
             if (partSize && callback) {
               Logger.info(
-                `[worker ${workerId}] ${
-                  (this.uploaded * 100) / this.fileSize
-                }% uploaded`,
+                `[worker ${workerId}] ${this.uploaded
+                  .multiply(100)
+                  .divide(this.fileSize)
+                  .toJSNumber()}% uploaded`,
               );
               callback(this.uploaded, this.fileSize);
             }
@@ -159,6 +168,9 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
       await Promise.all(promises);
     } finally {
       this.close();
+
+      task.errors = this.errors;
+      task.complete();
     }
   }
 
@@ -319,19 +331,19 @@ export function getUploader(
   tdlib: TDLibApi,
   fileMsg: GeneralFileMessage,
 ): FileUploader<GeneralFileMessage> {
-  const selectApi = (fileSize: number) => {
+  const selectApi = (fileSize: bigInt.BigInteger) => {
     // bot cannot upload files larger than 50MB
-    return fileSize > 50 * 1024 * 1024 ? tdlib.account : tdlib.bot;
+    return fileSize.greater(50 * 1024 * 1024) ? tdlib.account : tdlib.bot;
   };
 
   if ('path' in fileMsg) {
-    const fileSize = fs.statSync(fileMsg.path).size;
+    const fileSize = bigInt(fs.statSync(fileMsg.path).size);
     return new UploaderFromPath(selectApi(fileSize), fileSize);
   } else if ('buffer' in fileMsg) {
-    const fileSize = fileMsg.buffer.length;
+    const fileSize = bigInt(fileMsg.buffer.length);
     return new UploaderFromBuffer(selectApi(fileSize), fileSize);
   } else if ('stream' in fileMsg) {
-    const fileSize = fileMsg.size;
+    const fileSize = bigInt(fileMsg.size);
     return new UploaderFromStream(selectApi(fileSize), fileSize);
   }
 }

@@ -39,32 +39,38 @@ describe('config', () => {
     await createConfig();
     const config = loadConfig(configPath);
 
-    const expected = {
-      telegram: {
-        api_id: 114514,
-        api_hash: 'mock-api-hash',
-        account: { session_file: 'here.session' },
-        bot: { token: 'mock-bot-token', session_file: 'there.session' },
-        private_file_channel: '-1001919810',
-        public_file_channel: '',
-      },
-      tgfs: {
-        users: {
-          user: {
-            password: 'password',
-          },
+    expect(config.telegram).toEqual({
+      api_id: 114514,
+      api_hash: 'mock-api-hash',
+      account: { session_file: 'here.session' },
+      bot: { token: 'mock-bot-token', session_file: 'there.session' },
+      private_file_channel: '-1001919810',
+      public_file_channel: '',
+    });
+    expect(config.tgfs).toEqual({
+      users: {
+        user: {
+          password: 'password',
         },
-        download: { chunk_size_kb: 1024 },
       },
-      webdav: { host: '0.0.0.0', port: 1900, path: '/' },
-      manager: {
-        host: '0.0.0.0',
-        port: 1901,
-        path: '/',
-        bot: { token: '', chat_id: 0 },
-      },
-    };
+      download: { chunk_size_kb: 1024 },
+    });
+    expect(config.webdav).toEqual({ host: '0.0.0.0', port: 1900, path: '/' });
 
-    expect(config).toEqual(expected);
+    expect(config.manager.jwt.secret.length).toBe(64);
+
+    config.manager.jwt.secret = 'mock-secret';
+
+    expect(config.manager).toEqual({
+      host: '0.0.0.0',
+      port: 1901,
+      path: '/',
+      bot: { token: '', chat_id: 0 },
+      jwt: {
+        secret: 'mock-secret',
+        algorithm: 'HS256',
+        life: 3600 * 24 * 7,
+      },
+    });
   });
 });

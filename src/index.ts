@@ -92,16 +92,18 @@ const { argv }: any = yargs(hideBin(process.argv))
     }
   }
 
-  startServer(
-    'Manager',
-    (req, res, next) => {
-      managerServer(req, res);
-      next();
-    },
-    config.manager.host,
-    config.manager.port,
-    config.manager.path,
-  );
+  managerServer.listen(config.manager.port, config.manager.host);
+
+  // startServer(
+  //   'Manager',
+  //   (req, res, next) => {
+  //     managerServer(req, res);
+  //     next();
+  //   },
+  //   config.manager.host,
+  //   config.manager.port,
+  //   config.manager.path,
+  // );
 
   startBot();
 })();
