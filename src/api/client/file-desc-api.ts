@@ -11,6 +11,9 @@ export class FileDescApi extends MessageApi {
     fd: TGFSFile,
     messageId?: number,
   ): Promise<number> {
+    Logger.debug(
+      `sendFileDesc ${JSON.stringify(fd.toObject())}, messageId=${messageId}`,
+    );
     if (!messageId) {
       return await this.sendText(JSON.stringify(fd.toObject()));
     }

@@ -27,3 +27,4 @@ export const saveToFile = async (
   const content = await saveToBuffer(generator);
   writeFileSync(path, content);
 };
+

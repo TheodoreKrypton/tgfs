@@ -11,6 +11,6 @@ export const removeFile = (client: Client) => async (path: string) => {
   if (fileRef) {
     await client.deleteFile(fileRef);
   } else {
-    throw new FileOrDirectoryDoesNotExistError(path);
+    throw new FileOrDirectoryDoesNotExistError(path, `remove file ${path}`);
   }
 };

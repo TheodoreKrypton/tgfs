@@ -14,7 +14,8 @@ export const uploadFromLocal =
     const dir = await navigateToDir(client)(basePath);
 
     if (!fs.existsSync(local.toString())) {
-      throw new FileOrDirectoryDoesNotExistError(local.toString());
+      const path = local.toString();
+      throw new FileOrDirectoryDoesNotExistError(path, `upload from ${path}`);
     }
 
     return await client.uploadFile(

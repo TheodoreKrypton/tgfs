@@ -10,6 +10,7 @@ import { ITDLibClient } from 'src/api/interface';
 import * as types from 'src/api/types';
 import { Config } from 'src/config';
 import { Logger } from 'src/utils/logger';
+import { retry } from 'src/utils/retry';
 import { sleep } from 'src/utils/sleep';
 
 type AuthDetails = {
@@ -106,6 +107,7 @@ export class GramJSApi implements ITDLibClient {
     return res;
   }
 
+  @retry()
   public async getMessages(
     req: types.GetMessagesReq,
   ): Promise<types.GetMessagesResp> {
@@ -115,6 +117,7 @@ export class GramJSApi implements ITDLibClient {
     return GramJSApi.transformMessages(rsp);
   }
 
+  @retry()
   public async sendText(req: types.SendTextReq): Promise<types.Message> {
     const rsp = await this.client.sendMessage(req.chatId, {
       message: req.text,
@@ -124,6 +127,7 @@ export class GramJSApi implements ITDLibClient {
     };
   }
 
+  @retry()
   public async editMessageText(
     req: types.EditMessageTextReq,
   ): Promise<types.Message> {
@@ -136,6 +140,7 @@ export class GramJSApi implements ITDLibClient {
     };
   }
 
+  @retry()
   public async editMessageMedia(
     req: types.EditMessageMediaReq,
   ): Promise<types.Message> {
@@ -153,6 +158,7 @@ export class GramJSApi implements ITDLibClient {
     };
   }
 
+  @retry()
   public async searchMessages(
     req: types.SearchMessagesReq,
   ): Promise<types.GetMessagesResp> {
@@ -163,6 +169,7 @@ export class GramJSApi implements ITDLibClient {
     return GramJSApi.transformMessages(rsp);
   }
 
+  @retry()
   public async getPinnedMessages(
     req: types.GetPinnedMessagesReq,
   ): Promise<types.GetMessagesResp> {
@@ -173,10 +180,12 @@ export class GramJSApi implements ITDLibClient {
     return GramJSApi.transformMessages(rsp);
   }
 
+  @retry()
   public async pinMessage(req: types.PinMessageReq): Promise<void> {
     await this.client.pinMessage(req.chatId, req.messageId);
   }
 
+  @retry()
   public async saveBigFilePart(
     req: types.SaveBigFilePartReq,
   ): Promise<types.SaveFilePartResp> {
@@ -193,6 +202,7 @@ export class GramJSApi implements ITDLibClient {
     };
   }
 
+  @retry()
   public async saveFilePart(
     req: types.SaveFilePartReq,
   ): Promise<types.SaveFilePartResp> {
@@ -208,6 +218,7 @@ export class GramJSApi implements ITDLibClient {
     };
   }
 
+  @retry()
   public async sendBigFile(req: types.SendFileReq) {
     const rsp = await this.client.sendFile(req.chatId, {
       file: new Api.InputFileBig({
@@ -222,6 +233,7 @@ export class GramJSApi implements ITDLibClient {
     };
   }
 
+  @retry()
   public async sendSmallFile(req: types.SendFileReq) {
     const rsp = await this.client.sendFile(req.chatId, {
       file: new Api.InputFile({
@@ -237,6 +249,7 @@ export class GramJSApi implements ITDLibClient {
     };
   }
 
+  @retry()
   public async downloadFile(
     req: types.DownloadFileReq,
   ): Promise<types.DownloadFileResp> {

@@ -13,7 +13,7 @@ export const removeDir =
       if (child) {
         await client.deleteEmptyDirectory(child);
       } else {
-        throw new FileOrDirectoryDoesNotExistError(path);
+        throw new FileOrDirectoryDoesNotExistError(path, `remove dir ${path}`);
       }
     } else {
       const nextDir = name ? dir.findChildren([name])[0] : dir;

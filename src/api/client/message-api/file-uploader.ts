@@ -92,6 +92,9 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
               filePart,
               bytes: chunk,
             });
+        Logger.debug(
+          `[worker ${workerId}] uploaded chunk ${filePart} success=${rsp.success}`,
+        );
         if (!rsp.success) {
           throw new TechnicalError(
             `File chunk ${filePart} of ${this.fileName} failed to upload`,

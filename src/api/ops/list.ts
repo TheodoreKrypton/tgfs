@@ -27,7 +27,8 @@ export const list =
       if (nextFile) {
         return nextFile;
       } else {
-        throw new FileOrDirectoryDoesNotExistError(path.toString());
+        const pathStr = path.toString();
+        throw new FileOrDirectoryDoesNotExistError(pathStr, `list ${pathStr}`);
       }
     }
   };
