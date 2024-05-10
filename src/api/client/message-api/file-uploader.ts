@@ -38,6 +38,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
   constructor(
     protected readonly client: ITDLibClient,
     protected readonly fileSize: bigInt.BigInteger,
+    private readonly onComplete: () => Promise<void>,
   ) {
     this.fileId = generateFileId();
     this.isBig = isBig(fileSize);
@@ -140,6 +141,8 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     try {
       this.fileName = fileName ?? this.defaultFileName;
 
+      let onCompleteEmitted = false;
+
       const createWorker = async (workerId: number): Promise<boolean> => {
         try {
           while (!this.done()) {
@@ -149,10 +152,14 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
                 `[worker ${workerId}] ${this.uploaded
                   .multiply(100)
                   .divide(this.fileSize)
-                  .toJSNumber()}% uploaded`,
+                  .toJSNumber()}% uploaded ${this.fileId}`,
               );
               callback(this.uploaded, this.fileSize);
             }
+          }
+          if (!onCompleteEmitted) {
+            onCompleteEmitted = true;
+            await this.onComplete();
           }
           return true;
         } catch (err) {
@@ -333,6 +340,7 @@ export class UploaderFromStream extends FileUploader<FileMessageFromStream> {
 export function getUploader(
   tdlib: TDLibApi,
   fileMsg: GeneralFileMessage,
+  onComplete: () => Promise<void> = async () => {},
 ): FileUploader<GeneralFileMessage> {
   const selectApi = (fileSize: bigInt.BigInteger) => {
     // bot cannot upload files larger than 50MB
@@ -341,12 +349,12 @@ export function getUploader(
 
   if ('path' in fileMsg) {
     const fileSize = bigInt(fs.statSync(fileMsg.path).size);
-    return new UploaderFromPath(selectApi(fileSize), fileSize);
+    return new UploaderFromPath(selectApi(fileSize), fileSize, onComplete);
   } else if ('buffer' in fileMsg) {
     const fileSize = bigInt(fileMsg.buffer.length);
-    return new UploaderFromBuffer(selectApi(fileSize), fileSize);
+    return new UploaderFromBuffer(selectApi(fileSize), fileSize, onComplete);
   } else if ('stream' in fileMsg) {
     const fileSize = bigInt(fileMsg.size);
-    return new UploaderFromStream(selectApi(fileSize), fileSize);
+    return new UploaderFromStream(selectApi(fileSize), fileSize, onComplete);
   }
 }

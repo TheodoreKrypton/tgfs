@@ -3578,7 +3578,7 @@ telegraf@^4.15.0:
     safe-compare "^1.1.4"
     sandwich-stream "^2.0.2"
 
-telegram@^2.18.38:
+telegram@^2.20.15:
   version "2.20.15"
   resolved "https://registry.yarnpkg.com/telegram/-/telegram-2.20.15.tgz#75193b330fd7159ccc459d5b439353ba8d23ada3"
   integrity sha512-yc5ScUlg5X47z9BhGTJEaHqSYe8cGsyjUHw1+vGD2vj9ntrbp2C/YpOvP0cepTJk/k5xJ39ZJeFY0xQzkk/LMg==

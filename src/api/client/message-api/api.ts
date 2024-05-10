@@ -7,6 +7,7 @@ import { IBot, TDLibApi } from 'src/api/interface';
 import { config } from 'src/config';
 import { TechnicalError } from 'src/errors/base';
 import { MessageNotFound } from 'src/errors/telegram';
+import { TGFSFileVersion } from 'src/model/file';
 import { manager } from 'src/server/manager';
 import { Logger } from 'src/utils/logger';
 
@@ -69,13 +70,15 @@ export class MessageApi extends MessageBroker {
       name,
       caption,
     };
-    const uploader = await this._uploadFile(fileMsg);
-    const rsp = await this.tdlib.bot.editMessageMedia({
-      chatId: this.privateChannelId,
-      messageId,
-      file: uploader.getUploadedFile(),
+    const uploader = getUploader(this.tdlib, fileMsg, async () => {
+      await this.tdlib.bot.editMessageMedia({
+        chatId: this.privateChannelId,
+        messageId,
+        file: uploader.getUploadedFile(),
+      });
     });
-    return rsp.messageId;
+    await uploader.upload(fileMsg, MessageApi.report, fileMsg.name);
+    return messageId;
   }
 
   protected async pinMessage(messageId: number) {
@@ -125,20 +128,18 @@ export class MessageApi extends MessageBroker {
     // Logger.info(`${(uploaded / totalSize) * 100}% uploaded`);
   }
 
-  private async _uploadFile(fileMsg: GeneralFileMessage) {
-    const uploader = getUploader(this.tdlib, fileMsg);
-    await uploader.upload(fileMsg, MessageApi.report, fileMsg.name);
-    return uploader;
-  }
-
   private async _sendFile(fileMsg: GeneralFileMessage): Promise<number> {
-    const uploader = await this._uploadFile(fileMsg);
-    const messageId = (
-      await uploader.send(
-        this.privateChannelId,
-        MessageApi.getFileCaption(fileMsg),
-      )
-    ).messageId;
+    let messageId = TGFSFileVersion.EMPTY_FILE;
+    const uploader = getUploader(this.tdlib, fileMsg, async () => {
+      messageId = (
+        await uploader.send(
+          this.privateChannelId,
+          MessageApi.getFileCaption(fileMsg),
+        )
+      ).messageId;
+    });
+    await uploader.upload(fileMsg, MessageApi.report, fileMsg.name);
+
     Logger.debug('File sent', JSON.stringify(fileMsg));
     return messageId;
   }

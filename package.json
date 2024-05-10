@@ -21,7 +21,7 @@
     "js-yaml": "^4.1.0",
     "jsonwebtoken": "^9.0.2",
     "telegraf": "^4.15.0",
-    "telegram": "^2.18.38",
+    "telegram": "^2.20.15",
     "uuid": "^9.0.0",
     "webdav-server": "^2.6.2",
     "yargs": "^17.7.2"
