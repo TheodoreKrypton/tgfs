@@ -277,7 +277,7 @@ export class TGFSFileSystem extends FileSystem {
           fileRef,
           fileRef.name,
         );
-        
+
         callback(null, Readable.from(chunks));
       } catch (err) {
         handleError(callback)(err);

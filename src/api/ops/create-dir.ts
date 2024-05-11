@@ -1,11 +1,13 @@
 import { Client } from 'src/api';
 import { RelativePathError } from 'src/errors/path';
+import { Logger } from 'src/utils/logger';
 
 import { navigateToDir } from './navigate-to-dir';
 import { splitPath } from './utils';
 
 export const createDir =
   (client: Client) => async (path: string, parents: boolean) => {
+    Logger.info(`Creating directory ${path}`);
     if (!parents) {
       const [basePath, name] = splitPath(path);
       const dir = await navigateToDir(client)(basePath);

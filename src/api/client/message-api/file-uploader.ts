@@ -9,7 +9,7 @@ import path from 'path';
 import { ITDLibClient, TDLibApi } from 'src/api/interface';
 import { SendMessageResp, UploadedFile } from 'src/api/types';
 import { Queue, generateFileId, getAppropriatedPartSize } from 'src/api/utils';
-import { AggregatedError, TechnicalError } from 'src/errors/base';
+import { AggregatedError } from 'src/errors/base';
 import { FileTooBig } from 'src/errors/telegram';
 import { manager } from 'src/server/manager';
 import { Logger } from 'src/utils/logger';
@@ -35,13 +35,25 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
 
   private _errors: { [key: number]: Error } = {};
 
+  private _uploadingChunks: Array<{ chunk: Buffer; filePart: number }>;
+
   constructor(
     protected readonly client: ITDLibClient,
     protected readonly fileSize: bigInt.BigInteger,
     private readonly onComplete: () => Promise<void>,
+    private readonly workers: {
+      small?: number;
+      big?: number;
+    } = {
+      small: 3,
+      big: 15,
+    },
   ) {
     this.fileId = generateFileId();
     this.isBig = isBig(fileSize);
+    this._uploadingChunks = new Array(
+      this.isBig ? this.workers.big : this.workers.small,
+    );
   }
 
   protected abstract get defaultFileName(): string;
@@ -58,6 +70,56 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     return remainder.equals(0)
       ? quotient.toJSNumber()
       : quotient.toJSNumber() + 1;
+  }
+
+  private async saveChunk(
+    workerId: number,
+    chunk: Buffer,
+    filePart: number,
+  ): Promise<void> {
+    while (true) {
+      try {
+        const rsp = this.isBig
+          ? await this.client.saveBigFilePart({
+              fileId: this.fileId,
+              filePart,
+              fileTotalParts: this.parts,
+              bytes: chunk,
+            })
+          : await this.client.saveFilePart({
+              fileId: this.fileId,
+              filePart,
+              bytes: chunk,
+            });
+        if (rsp.success) {
+          this._uploadingChunks[workerId] = null;
+          return;
+        }
+      } catch (err) {
+        if (err instanceof RPCError) {
+          if (err.errorMessage === 'FILE_PARTS_INVALID') {
+            throw new FileTooBig(this.fileSize);
+          }
+        }
+        console.error(err);
+      }
+    }
+  }
+
+  private async saveUncompletedChunks() {
+    while (true) {
+      const unfinishedChunks = this._uploadingChunks.filter((x) => x !== null);
+
+      if (unfinishedChunks.length === 0) {
+        break;
+      }
+
+      for (const { chunk, filePart } of unfinishedChunks) {
+        if (chunk) {
+          await this.saveChunk(0, chunk, filePart);
+        }
+      }
+    }
   }
 
   private async uploadNextPart(workerId: number): Promise<bigInt.BigInteger> {
@@ -77,38 +139,11 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     }
 
     const chunk = await this.read(chunkLength.toJSNumber());
+    this._uploadingChunks[workerId] = { chunk, filePart };
 
-    while (true) {
-      try {
-        const rsp = this.isBig
-          ? await this.client.saveBigFilePart({
-              fileId: this.fileId,
-              filePart,
-              fileTotalParts: this.parts,
-              bytes: chunk,
-            })
-          : await this.client.saveFilePart({
-              fileId: this.fileId,
-              filePart,
-              bytes: chunk,
-            });
-        Logger.debug(
-          `[worker ${workerId}] uploaded chunk ${filePart} success=${rsp.success}`,
-        );
-        if (!rsp.success) {
-          throw new TechnicalError(
-            `File chunk ${filePart} of ${this.fileName} failed to upload`,
-          );
-        }
-        return chunkLength;
-      } catch (err) {
-        if (err instanceof RPCError) {
-          if (err.errorMessage === 'FILE_PARTS_INVALID') {
-            throw new FileTooBig(this.fileSize);
-          }
-        }
-      }
-    }
+    await this.saveChunk(workerId, chunk, filePart);
+
+    return chunkLength;
   }
 
   public async upload(
@@ -118,13 +153,6 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
       totalSize: bigInt.BigInteger,
     ) => void,
     fileName?: string,
-    workers: {
-      small?: number;
-      big?: number;
-    } = {
-      small: 3,
-      big: 15,
-    },
   ): Promise<void> {
     const task = manager.createUploadTask(this.fileName, this.fileSize);
     this.prepare(file);
@@ -149,6 +177,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
           }
           if (!onCompleteEmitted) {
             onCompleteEmitted = true;
+            await this.saveUncompletedChunks();
             await this.onComplete();
           }
           return true;
@@ -160,7 +189,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
 
       const promises: Array<Promise<boolean>> = [];
 
-      const numWorkers = this.isBig ? workers.big : workers.small;
+      const numWorkers = this.isBig ? this.workers.big : this.workers.small;
       for (let i = 0; i < numWorkers; i++) {
         promises.push(createWorker(i));
       }
