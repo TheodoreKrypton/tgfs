@@ -16,6 +16,7 @@ export function retry(
           const result = await originalMethod.apply(this, args);
           return result;
         } catch (error) {
+          console.error(error);
           if (i === retries) throw error;
           const waitTime = Math.pow(2, i) * backoff;
           Logger.error(

@@ -78,8 +78,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
 
     const chunk = await this.read(chunkLength.toJSNumber());
 
-    let retry = 3;
-    while (retry) {
+    while (true) {
       try {
         const rsp = this.isBig
           ? await this.client.saveBigFilePart({
@@ -107,15 +106,6 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
           if (err.errorMessage === 'FILE_PARTS_INVALID') {
             throw new FileTooBig(this.fileSize);
           }
-        }
-
-        Logger.error(
-          `error encountered in uploading worker ${workerId}: ${err} retries left: ${retry}`,
-        );
-
-        retry -= 1;
-        if (retry === 0) {
-          throw err;
         }
       }
     }
