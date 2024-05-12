@@ -55,13 +55,13 @@ export class FileApi extends DirectoryApi {
       under: TGFSDirectory;
       versionId?: string;
     },
-    file?: GeneralFileMessage,
+    fileMsg?: GeneralFileMessage,
   ) {
-    const fr = where.under.findFiles([file.name])[0];
+    const fr = where.under.findFiles([fileMsg.name])[0];
     if (fr) {
-      return await this.updateFile(fr, file, where.versionId);
+      return await this.updateFile(fr, fileMsg, where.versionId);
     } else {
-      return await this.createFile(where.under, file);
+      return await this.createFile(where.under, fileMsg);
     }
   }
 

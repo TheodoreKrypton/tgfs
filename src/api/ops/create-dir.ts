@@ -10,7 +10,7 @@ export const createDir =
     Logger.info(`Creating directory ${path}`);
     if (!parents) {
       const [basePath, name] = splitPath(path);
-      const dir = await navigateToDir(client)(basePath);
+      const dir = navigateToDir(client)(basePath);
       return await client.createDirectory({ name: name, under: dir });
     } else {
       if (!path.startsWith('/')) {

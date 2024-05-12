@@ -7,7 +7,7 @@ import { splitPath } from './utils';
 export const removeDir =
   (client: Client) => async (path: string, recursive: boolean) => {
     const [basePath, name] = splitPath(path);
-    const dir = await navigateToDir(client)(basePath);
+    const dir = navigateToDir(client)(basePath);
     if (!recursive) {
       const child = dir.findChildren([name])[0];
       if (child) {

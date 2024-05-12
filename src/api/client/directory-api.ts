@@ -15,7 +15,7 @@ export class DirectoryApi extends MetaDataApi {
   public async createDirectory(where: { name: string; under: TGFSDirectory }) {
     validateName(where.name);
 
-    const newDirectory = where.under.createChild(where.name);
+    const newDirectory = where.under.createDir(where.name);
     await this.syncMetadata();
 
     return newDirectory;

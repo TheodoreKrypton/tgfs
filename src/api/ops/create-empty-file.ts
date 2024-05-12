@@ -7,7 +7,7 @@ import { splitPath } from './utils';
 export const createEmptyFile = (client: Client) => async (path: PathLike) => {
   let [basePath, name] = splitPath(path);
 
-  const dir = await navigateToDir(client)(basePath);
+  const dir = navigateToDir(client)(basePath);
 
   if (!existsSync(path)) {
     return await client.uploadFile({ under: dir }, { name, empty: true });

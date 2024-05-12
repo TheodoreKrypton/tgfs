@@ -6,7 +6,7 @@ import { splitPath } from './utils';
 
 export const removeFile = (client: Client) => async (path: string) => {
   const [basePath, name] = splitPath(path);
-  const dir = await navigateToDir(client)(basePath);
+  const dir = navigateToDir(client)(basePath);
   const fileRef = dir.findFiles([name])[0];
   if (fileRef) {
     await client.deleteFile(fileRef);

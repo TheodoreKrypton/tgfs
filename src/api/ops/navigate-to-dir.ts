@@ -1,7 +1,7 @@
 import { Client } from 'src/api';
 import { FileOrDirectoryDoesNotExistError } from 'src/errors/path';
 
-export const navigateToDir = (client: Client) => async (path: string) => {
+export const navigateToDir = (client: Client) => (path: string) => {
   const pathParts = path
     .toString()
     .split('/')

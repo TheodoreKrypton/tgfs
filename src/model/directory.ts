@@ -74,7 +74,7 @@ export class TGFSDirectory {
     return dir;
   }
 
-  public createChild(name: string) {
+  public createDir(name: string) {
     if (this.findChildren([name]).length) {
       throw new FileOrDirectoryAlreadyExistsError(name);
     }

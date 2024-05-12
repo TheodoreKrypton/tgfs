@@ -13,6 +13,7 @@ import {
   LocalLockManager,
   LocalPropertyManager,
   LockManagerInfo,
+  MoveInfo,
   OpenReadStreamInfo,
   OpenWriteStreamInfo,
   Path,
@@ -26,7 +27,7 @@ import {
 } from 'webdav-server/lib/index.v2';
 
 import { Client, createClient } from 'src/api';
-import { createDir, list, removeDir, removeFile } from 'src/api/ops';
+import { createDir, list, moveFile, removeDir, removeFile } from 'src/api/ops';
 import { createEmptyFile } from 'src/api/ops/create-empty-file';
 import { uploadFromStream } from 'src/api/ops/upload';
 import { BusinessError } from 'src/errors/base';
@@ -93,6 +94,23 @@ export class TGFSFileSystem extends FileSystem {
     } else {
       call(callback)(createEmptyFile(this.tgClient)(path.toString()));
     }
+  }
+
+  protected _move(
+    pathFrom: Path,
+    pathTo: Path,
+    ctx: MoveInfo,
+    callback: ReturnCallback<boolean>,
+  ): void {
+    (async () => {
+      try {
+        await moveFile(this.tgClient)(pathFrom.toString(), pathTo.toString());
+        callback(null, true);
+      } catch (err) {
+        handleError(callback)(err);
+        Logger.error(err);
+      }
+    })();
   }
 
   protected _delete(

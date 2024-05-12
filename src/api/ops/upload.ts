@@ -11,7 +11,7 @@ export const uploadFromLocal =
   (client: Client) => async (local: fs.PathLike, remote: fs.PathLike) => {
     let [basePath, name] = splitPath(remote);
 
-    const dir = await navigateToDir(client)(basePath);
+    const dir = navigateToDir(client)(basePath);
 
     if (!fs.existsSync(local.toString())) {
       const path = local.toString();
@@ -28,7 +28,7 @@ export const uploadFromBytes =
   (client: Client) => async (bytes: Buffer, remote: fs.PathLike) => {
     let [basePath, name] = splitPath(remote);
 
-    const dir = await navigateToDir(client)(basePath);
+    const dir = navigateToDir(client)(basePath);
 
     return await client.uploadFile({ under: dir }, { name, buffer: bytes });
   };
@@ -38,7 +38,7 @@ export const uploadFromStream =
   async (stream: Readable, size: number, remote: fs.PathLike) => {
     let [basePath, name] = splitPath(remote);
 
-    const dir = await navigateToDir(client)(basePath);
+    const dir = navigateToDir(client)(basePath);
 
     return await client.uploadFile({ under: dir }, { name, stream, size });
   };

@@ -13,7 +13,7 @@ export const list =
     path: PathLike,
   ): Promise<TGFSFileRef | Array<TGFSFileRef | TGFSDirectory>> => {
     const [basePath, name] = splitPath(path);
-    const dir = await navigateToDir(client)(basePath);
+    const dir = navigateToDir(client)(basePath);
 
     let nextDir = dir;
 
