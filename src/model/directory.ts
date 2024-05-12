@@ -74,11 +74,13 @@ export class TGFSDirectory {
     return dir;
   }
 
-  public createDir(name: string) {
+  public createDir(name: string, dir?: TGFSDirectory) {
     if (this.findChildren([name]).length) {
       throw new FileOrDirectoryAlreadyExistsError(name);
     }
-    const child = new TGFSDirectory(name, this);
+    const child = dir
+      ? new TGFSDirectory(name, this, dir.children, dir.files)
+      : new TGFSDirectory(name, this);
     this.children.push(child);
     return child;
   }

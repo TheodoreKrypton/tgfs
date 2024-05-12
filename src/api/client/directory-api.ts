@@ -12,10 +12,13 @@ export class DirectoryApi extends MetaDataApi {
     return this.getRootDirectory();
   }
 
-  public async createDirectory(where: { name: string; under: TGFSDirectory }) {
+  public async createDirectory(
+    where: { name: string; under: TGFSDirectory },
+    dir?: TGFSDirectory,
+  ) {
     validateName(where.name);
 
-    const newDirectory = where.under.createDir(where.name);
+    const newDirectory = where.under.createDir(where.name, dir);
     await this.syncMetadata();
 
     return newDirectory;

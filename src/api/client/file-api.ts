@@ -6,6 +6,16 @@ import { DirectoryApi } from './directory-api';
 import { GeneralFileMessage } from './message-api/types';
 
 export class FileApi extends DirectoryApi {
+  public async copyFile(
+    where: TGFSDirectory,
+    fr: TGFSFileRef,
+    name?: string,
+  ): Promise<TGFSFileRef> {
+    const copiedFR = where.createFileRef(name ?? fr.name, fr.getMessageId());
+    await this.syncMetadata();
+    return copiedFR;
+  }
+
   private async createFile(where: TGFSDirectory, fileMsg: GeneralFileMessage) {
     validateName(fileMsg.name);
 
