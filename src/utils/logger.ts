@@ -40,4 +40,8 @@ export class Logger {
       `[${this.getTime()}] [ERROR] ${this.prefix()} ${this.errorMsg(err)}`,
     );
   }
+
+  static stdout(...args: any[]) {
+    console.log(...args);
+  }
 }

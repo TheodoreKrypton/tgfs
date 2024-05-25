@@ -8,11 +8,12 @@ import path from 'path';
 
 import { ITDLibClient, TDLibApi } from 'src/api/interface';
 import { SendMessageResp, UploadedFile } from 'src/api/types';
-import { Queue, generateFileId, getAppropriatedPartSize } from 'src/api/utils';
+import { generateFileId, getAppropriatedPartSize } from 'src/api/utils';
 import { AggregatedError } from 'src/errors/base';
 import { FileTooBig } from 'src/errors/telegram';
 import { manager } from 'src/server/manager';
 import { Logger } from 'src/utils/logger';
+import { Queue } from 'src/utils/queue';
 
 import {
   FileMessageFromBuffer,
@@ -153,7 +154,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
       totalSize: bigInt.BigInteger,
     ) => void,
     fileName?: string,
-  ): Promise<void> {
+  ): Promise<bigInt.BigInteger> {
     const task = manager.createUploadTask(this.fileName, this.fileSize);
     this.prepare(file);
     try {
@@ -200,6 +201,8 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
 
       task.errors = this.errors;
       task.complete();
+
+      return this.fileSize;
     }
   }
 

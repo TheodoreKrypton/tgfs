@@ -9,14 +9,14 @@ export const removeDir =
     const [basePath, name] = splitPath(path);
     const dir = navigateToDir(client)(basePath);
     if (!recursive) {
-      const child = dir.findChildren([name])[0];
+      const child = dir.findDirs([name])[0];
       if (child) {
         await client.deleteEmptyDirectory(child);
       } else {
         throw new FileOrDirectoryDoesNotExistError(path, `remove dir ${path}`);
       }
     } else {
-      const nextDir = name ? dir.findChildren([name])[0] : dir;
+      const nextDir = name ? dir.findDirs([name])[0] : dir;
       await client.dangerouslyDeleteDirectory(nextDir);
     }
   };

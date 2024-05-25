@@ -4,6 +4,7 @@ import supertest from 'supertest';
 import { v2 as webdav } from 'webdav-server';
 
 import { TGFSFileSystem } from 'src/server/webdav/tgfs-filesystem';
+import { Logger } from 'src/utils/logger';
 
 import { createMockClient } from '../utils/mock-tg-client';
 
@@ -19,7 +20,7 @@ describe('TGFSFileSystem', () => {
   };
 
   beforeAll(async () => {
-    console.info = jest.fn();
+    Logger.info = jest.fn();
   });
 
   describe('list directory', () => {

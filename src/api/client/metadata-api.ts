@@ -6,6 +6,7 @@ import { FileDescApi } from './file-desc-api';
 
 export class MetaDataApi extends FileDescApi {
   private metadata: TGFSMetadata;
+  private updateMetaDataTimeout: NodeJS.Timeout = null;
 
   protected async initMetadata() {
     this.metadata = await this.getMetadata();
@@ -43,7 +44,6 @@ export class MetaDataApi extends FileDescApi {
 
   protected async syncMetadata() {
     this.metadata.syncWith(await this.getMetadata());
-
     await this.updateMetadata();
   }
 
@@ -57,9 +57,25 @@ export class MetaDataApi extends FileDescApi {
         'metadata.json',
         '',
       );
+      // return new Promise((resolve, reject) => {
+      //   if (this.updateMetaDataTimeout) {
+      //     clearTimeout(this.updateMetaDataTimeout);
+      //   }
+      //   this.updateMetaDataTimeout = setTimeout(async () => {
+      //     try {
+
+      //       resolve(undefined);
+      //     } catch (err) {
+      //       reject(err);
+      //     }
+      //   }, 1000);
+      // });
     } else {
       // doesn't exist, create new metadata and pin
-      const messageId = await this.sendFile({ buffer, name: 'metadata.json' });
+      const { messageId } = await this.sendFile({
+        buffer,
+        name: 'metadata.json',
+      });
       this.metadata.msgId = messageId;
       await this.pinMessage(messageId);
     }

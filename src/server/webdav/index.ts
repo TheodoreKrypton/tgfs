@@ -41,7 +41,7 @@ export const webdavServer = (
     next();
   });
   server.afterRequest((ctx, next) => {
-    Logger.info(ctx.request.method, ctx.response.statusCode);
+    Logger.info(ctx.request.method, ctx.response.statusCode, ctx.responseBody);
     next();
   });
   server.setFileSystemSync('/', new TGFSFileSystem(client));

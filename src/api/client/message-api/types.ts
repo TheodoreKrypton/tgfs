@@ -1,5 +1,7 @@
 import { Readable } from 'stream';
 
+import { Message } from 'src/api/types';
+
 export type FileTags = {
   sha256: string;
 };

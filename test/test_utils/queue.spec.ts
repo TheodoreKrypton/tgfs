@@ -1,4 +1,4 @@
-import { Queue } from 'src/api/utils';
+import { Queue } from 'src/utils/queue';
 
 describe('Queue', () => {
   let queue: Queue<number>;

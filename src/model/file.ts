@@ -1,9 +1,12 @@
 import { v4 as uuid } from 'uuid';
 
+import { SentFileMessage } from 'src/api/types';
+
 import { TGFSFileObject, TGFSFileVersionSerialized } from './message';
 
 export class TGFSFileVersion {
   static EMPTY_FILE = -1;
+  static INVALID_FILE_SIZE = -1;
 
   id: string;
   updatedAt: Date;
@@ -16,6 +19,7 @@ export class TGFSFileVersion {
       id: this.id,
       updatedAt: this.updatedAt.getTime(),
       messageId: this.messageId,
+      size: this.size,
     };
   }
 
@@ -27,11 +31,12 @@ export class TGFSFileVersion {
     return tgfsFileVersion;
   }
 
-  static fromFileMessageId(fileMessageId: number): TGFSFileVersion {
+  static fromSentFileMessage(msg: SentFileMessage): TGFSFileVersion {
     const tgfsFileVersion = new TGFSFileVersion();
     tgfsFileVersion.id = uuid();
     tgfsFileVersion.updatedAt = new Date();
-    tgfsFileVersion.messageId = fileMessageId;
+    tgfsFileVersion.messageId = msg.messageId;
+    tgfsFileVersion.size = msg.size.toJSNumber();
     return tgfsFileVersion;
   }
 
@@ -42,12 +47,14 @@ export class TGFSFileVersion {
     tgfsFileVersion.id = tgfsFileVersionObject['id'];
     tgfsFileVersion.updatedAt = new Date(tgfsFileVersionObject['updatedAt']);
     tgfsFileVersion.messageId = tgfsFileVersionObject['messageId'];
+    tgfsFileVersion.size =
+      tgfsFileVersionObject['size'] ?? TGFSFileVersion.INVALID_FILE_SIZE;
     return tgfsFileVersion;
   }
 
   setInvalid() {
     this.messageId = TGFSFileVersion.EMPTY_FILE;
-    this.size = 0;
+    this.size = TGFSFileVersion.INVALID_FILE_SIZE;
   }
 }
 
@@ -110,8 +117,8 @@ export class TGFSFile {
     this.latestVersionId = version.id;
   }
 
-  addVersionFromFileMessageId(fileMessageId: number) {
-    const version = TGFSFileVersion.fromFileMessageId(fileMessageId);
+  addVersionFromSentFileMessage(msg: SentFileMessage) {
+    const version = TGFSFileVersion.fromSentFileMessage(msg);
     this.addVersion(version);
     this.latestVersionId = version.id;
   }

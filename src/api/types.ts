@@ -4,6 +4,10 @@ export type Message = {
   messageId: number;
 };
 
+export type SentFileMessage = Message & {
+  size: bigInt.BigInteger;
+};
+
 export type Chat = {
   chatId: number;
 };

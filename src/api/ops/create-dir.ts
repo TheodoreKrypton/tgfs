@@ -20,7 +20,7 @@ export const createDir =
       const paths = path.split('/').filter((p) => p);
       let currentDir = client.getRootDirectory();
       for (const p of paths) {
-        const children = currentDir.findChildren([p]);
+        const children = currentDir.findDirs([p]);
         if (children.length > 0) {
           currentDir = children[0];
           continue;

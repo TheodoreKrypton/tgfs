@@ -2,13 +2,14 @@ import fs from 'fs';
 
 import { Client } from 'src/api';
 import { saveToBuffer, saveToFile } from 'src/api/utils';
+import { Logger } from 'src/utils/logger';
 import { sleep } from 'src/utils/sleep';
 
 import { createMockClient } from '../../utils/mock-tg-client';
 
 describe('file and directory operations', () => {
   beforeAll(() => {
-    console.info = jest.fn();
+    Logger.info = jest.fn();
   });
 
   describe('create / remove directories', () => {
@@ -21,7 +22,7 @@ describe('file and directory operations', () => {
     it('should create a directory', async () => {
       const root = client.getRootDirectory();
       const d1 = await client.createDirectory({ name: 'd1', under: root });
-      expect(root.findChildren(['d1'])[0]).toEqual(d1);
+      expect(root.findDirs(['d1'])[0]).toEqual(d1);
     });
 
     it('should throw an error if the directory name is illegal', async () => {
@@ -40,7 +41,7 @@ describe('file and directory operations', () => {
 
       const d1 = await client.createDirectory({ name: 'd1', under: root });
       await client.dangerouslyDeleteDirectory(d1);
-      expect(root.findChildren(['d1'])[0]).toBeUndefined();
+      expect(root.findDirs(['d1'])[0]).toBeUndefined();
     });
 
     it('should remove all directories', async () => {
@@ -50,7 +51,7 @@ describe('file and directory operations', () => {
       });
       await client.createDirectory({ name: 'd2', under: d1 });
       await client.dangerouslyDeleteDirectory(client.getRootDirectory());
-      expect(client.getRootDirectory().findChildren(['d1'])[0]).toBeUndefined();
+      expect(client.getRootDirectory().findDirs(['d1'])[0]).toBeUndefined();
     });
   });
 

@@ -1,5 +1,6 @@
 import { DirectoryIsNotEmptyError } from 'src/errors/path';
-import { TGFSDirectory } from 'src/model/directory';
+import { FileOrDirectoryDoesNotExistError } from 'src/errors/path';
+import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
 import { validateName } from 'src/utils/validate-name';
 
 import { MetaDataApi } from './metadata-api';
@@ -24,11 +25,22 @@ export class DirectoryApi extends MetaDataApi {
     return newDirectory;
   }
 
+  public ls(
+    dir: TGFSDirectory,
+    fileName?: string,
+  ): TGFSFileRef | Array<TGFSDirectory | TGFSFileRef> {
+    if (fileName) {
+      const file = dir.findFile(fileName);
+      if (file) {
+        return file;
+      }
+      throw new FileOrDirectoryDoesNotExistError(fileName, 'list');
+    }
+    return [...dir.findDirs(), ...dir.findFiles()];
+  }
+
   public async deleteEmptyDirectory(directory: TGFSDirectory) {
-    if (
-      directory.findChildren().length > 0 ||
-      directory.findFiles().length > 0
-    ) {
+    if (directory.findDirs().length > 0 || directory.findFiles().length > 0) {
       throw new DirectoryIsNotEmptyError();
     }
     await this.dangerouslyDeleteDirectory(directory);

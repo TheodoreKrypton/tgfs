@@ -17,9 +17,13 @@ import {
   OpenReadStreamInfo,
   OpenWriteStreamInfo,
   Path,
+  PropertyAttributes,
+  PropertyBag,
   PropertyManagerInfo,
   ReadDirInfo,
+  ResourcePropertyValue,
   ResourceType,
+  Return2Callback,
   ReturnCallback,
   SimpleCallback,
   SizeInfo,
@@ -78,6 +82,8 @@ const call =
       Logger.error(e);
     });
   };
+
+class TGFSPropertyManager extends LocalPropertyManager {}
 
 export class TGFSFileSystem extends FileSystem {
   constructor(public readonly tgClient: Client) {
@@ -227,7 +233,7 @@ export class TGFSFileSystem extends FileSystem {
     ctx: PropertyManagerInfo,
     callback: ReturnCallback<IPropertyManager>,
   ): void {
-    callback(null, new LocalPropertyManager());
+    callback(null, new TGFSPropertyManager());
   }
 
   protected _type(

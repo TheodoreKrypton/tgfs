@@ -1,6 +1,6 @@
 import { MessageNotFound } from 'src/errors/telegram';
 import { TGFSFileRef } from 'src/model/directory';
-import { TGFSFile } from 'src/model/file';
+import { TGFSFile, TGFSFileVersion } from 'src/model/file';
 import { Logger } from 'src/utils/logger';
 
 import { MessageApi } from './message-api';
@@ -34,22 +34,19 @@ export class FileDescApi extends MessageApi {
   }
 
   public async createFileDesc(fileMsg: GeneralFileMessage): Promise<number> {
-    const tgfsFile = new TGFSFile(fileMsg.name);
+    const fd = new TGFSFile(fileMsg.name);
 
     if ('empty' in fileMsg) {
-      tgfsFile.addEmptyVersion();
+      fd.addEmptyVersion();
     } else {
-      const id = await this.sendFile(fileMsg);
-      tgfsFile.addVersionFromFileMessageId(id);
+      const sentFileMsg = await this.sendFile(fileMsg);
+      fd.addVersionFromSentFileMessage(sentFileMsg);
     }
 
-    return await this.sendFileDesc(tgfsFile);
+    return await this.sendFileDesc(fd);
   }
 
-  public async getFileDesc(
-    fileRef: TGFSFileRef,
-    withVersionInfo: boolean = true,
-  ): Promise<TGFSFile> {
+  public async getFileDesc(fileRef: TGFSFileRef): Promise<TGFSFile> {
     const message = (await this.getMessages([fileRef.getMessageId()]))[0];
 
     if (!message) {
@@ -63,25 +60,31 @@ export class FileDescApi extends MessageApi {
 
     const fileDesc = TGFSFile.fromObject(JSON.parse(message.text));
 
-    if (withVersionInfo) {
-      const versions = Object.values(fileDesc.versions);
+    const versions = Object.values(fileDesc.versions);
 
-      const nonEmptyVersions = versions.filter(
-        (version) => version.messageId > 0,
-      ); // may contain empty versions
+    const nonEmptyVersions = versions.filter(
+      (version) => version.messageId != TGFSFileVersion.EMPTY_FILE,
+    ); // may contain empty versions
 
-      const fileMessages = await this.getMessages(
-        nonEmptyVersions.map((version) => version.messageId),
-      );
+    const versionsWithoutSizeInfo = nonEmptyVersions.filter(
+      (version) => version.size == TGFSFileVersion.INVALID_FILE_SIZE,
+    );
 
-      nonEmptyVersions.forEach((version, i) => {
-        const fileMessage = fileMessages[i];
-        if (fileMessage) {
-          version.size = Number(fileMessage.document.size);
-        } else {
-          version.setInvalid();
-        }
-      });
+    const fileMessages = await this.getMessages(
+      versionsWithoutSizeInfo.map((version) => version.messageId),
+    );
+
+    versionsWithoutSizeInfo.forEach((version, i) => {
+      const fileMessage = fileMessages[i];
+      if (fileMessage) {
+        version.size = Number(fileMessage.document.size);
+      } else {
+        version.setInvalid();
+      }
+    });
+
+    if (versionsWithoutSizeInfo.length > 0) {
+      await this.updateFileDesc(fileRef.getMessageId(), fileDesc);
     }
 
     return fileDesc;
@@ -91,15 +94,25 @@ export class FileDescApi extends MessageApi {
     fr: TGFSFileRef,
     fileMsg: GeneralFileMessage,
   ): Promise<number> {
-    const fd = await this.getFileDesc(fr, false);
+    const fd = await this.getFileDesc(fr);
 
     if (isFileMessageEmpty(fileMsg)) {
       fd.addEmptyVersion();
     } else {
-      const messageId = await this.sendFile(fileMsg);
-      fd.addVersionFromFileMessageId(messageId);
+      const sentFileMsg = await this.sendFile(fileMsg);
+      fd.addVersionFromSentFileMessage(sentFileMsg);
     }
     return await this.sendFileDesc(fd, fr.getMessageId());
+  }
+
+  public async updateFileDesc(
+    messageId: number,
+    fileDesc: TGFSFile,
+  ): Promise<number> {
+    return await this.editMessageText(
+      messageId,
+      JSON.stringify(fileDesc.toObject()),
+    );
   }
 
   public async updateFileVersion(
@@ -113,9 +126,10 @@ export class FileDescApi extends MessageApi {
       fv.setInvalid();
       fd.updateVersion(fv);
     } else {
-      const messageId = await this.sendFile(fileMsg);
+      const sentFileMsg = await this.sendFile(fileMsg);
       const fv = fd.getVersion(versionId);
-      fv.messageId = messageId;
+      fv.messageId = sentFileMsg.messageId;
+      fv.size = sentFileMsg.size.toJSNumber();
       fd.updateVersion(fv);
     }
     return await this.sendFileDesc(fd, fr.getMessageId());
@@ -125,7 +139,7 @@ export class FileDescApi extends MessageApi {
     fr: TGFSFileRef,
     versionId: string,
   ): Promise<number> {
-    const fd = await this.getFileDesc(fr, false);
+    const fd = await this.getFileDesc(fr);
     fd.deleteVersion(versionId);
     return await this.sendFileDesc(fd, fr.getMessageId());
   }

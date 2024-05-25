@@ -1,5 +1,6 @@
 import { Client } from 'src/api';
 import { UnknownCommandError } from 'src/errors/cmd';
+import { Logger } from 'src/utils/logger';
 
 import { cp } from './cp';
 import { ls } from './ls';
@@ -33,6 +34,6 @@ export class Executor {
         throw new UnknownCommandError(argv._[0]);
     }
 
-    console.log(rsp);
+    Logger.stdout(rsp);
   }
 }

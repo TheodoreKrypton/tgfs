@@ -4,8 +4,6 @@ import { generateRandomBytes, readBigIntFromBuffer } from 'telegram/Helpers';
 
 export { getAppropriatedPartSize } from 'telegram/Utils';
 
-export { Queue } from './queue';
-
 export const generateFileId = () => {
   return readBigIntFromBuffer(generateRandomBytes(8), true, true);
 };
@@ -27,4 +25,3 @@ export const saveToFile = async (
   const content = await saveToBuffer(generator);
   writeFileSync(path, content);
 };
-

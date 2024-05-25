@@ -2,7 +2,7 @@ import { Logger } from 'src/utils/logger';
 
 export function retry(
   retries: number = 10,
-  backoff: number = 500,
+  backoff: number = 50,
 ): MethodDecorator {
   return function (
     _target: Object,

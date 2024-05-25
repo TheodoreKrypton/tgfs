@@ -7,6 +7,7 @@ import { createDir, list, uploadFromBytes } from 'src/api/ops';
 import { Executor } from 'src/commands/executor';
 import { parser } from 'src/commands/parser';
 import { TGFSDirectory } from 'src/model/directory';
+import { Logger } from 'src/utils/logger';
 
 import { createMockClient } from '../utils/mock-tg-client';
 
@@ -21,8 +22,8 @@ const getExecutor = (client: Client) => {
 
 describe('commands', () => {
   beforeAll(() => {
-    console.log = jest.fn();
-    console.info = jest.fn();
+    Logger.info = jest.fn();
+    Logger.stdout = jest.fn();
   });
 
   describe('ls', () => {
@@ -35,7 +36,7 @@ describe('commands', () => {
 
       jest.replaceProperty(process, 'argv', ['ls', '/']);
       await executor.execute(parse());
-      expect(console.log).toHaveBeenCalledWith('d1  f1');
+      expect(Logger.stdout).toHaveBeenCalledWith('d1  f1');
     });
 
     it('should display file info', async () => {
@@ -49,7 +50,7 @@ describe('commands', () => {
       const fr = client.getRootDirectory().findFiles(['f1'])[0];
       const fd = await client.getFileDesc(fr);
 
-      expect(console.log).toHaveBeenCalledWith(
+      expect(Logger.stdout).toHaveBeenCalledWith(
         expect.stringContaining(fd.latestVersionId),
       );
     });
@@ -176,7 +177,7 @@ describe('commands', () => {
       jest.replaceProperty(process, 'argv', ['rm', '/d1']);
       await executor.execute(parse());
 
-      expect(client.getRootDirectory().findChildren(['d1']).length).toEqual(0);
+      expect(client.getRootDirectory().findDirs(['d1']).length).toEqual(0);
     });
 
     it('should throw an error if path does not exist', async () => {
@@ -184,7 +185,7 @@ describe('commands', () => {
       const executor = getExecutor(client);
 
       jest.replaceProperty(process, 'argv', ['rm', '/not-exist']);
-      expect(executor.execute(parse())).rejects.toThrowError();
+      expect(executor.execute(parse())).rejects.toThrow();
     });
 
     it('should throw an error if trying to remove a directory that is not empty', async () => {
@@ -214,7 +215,7 @@ describe('commands', () => {
       jest.replaceProperty(process, 'argv', ['rm', '/d1', '-r']);
       await executor.execute(parse());
 
-      expect(client.getRootDirectory().findChildren(['d1']).length).toEqual(0);
+      expect(client.getRootDirectory().findDirs(['d1']).length).toEqual(0);
     });
   });
 

@@ -3,6 +3,7 @@ export class TGFSFileVersionSerialized {
   id: string;
   updatedAt: number;
   messageId: number;
+  size: number;
 }
 
 export class TGFSFileObject {

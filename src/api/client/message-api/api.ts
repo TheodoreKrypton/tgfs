@@ -1,14 +1,18 @@
 import { Hash, createHash } from 'crypto';
 import fs from 'fs';
 
+import { RPCError } from 'telegram/errors';
+
 import bigInt from 'big-integer';
 
 import { IBot, TDLibApi } from 'src/api/interface';
+import { SentFileMessage } from 'src/api/types';
 import { config } from 'src/config';
 import { TechnicalError } from 'src/errors/base';
 import { MessageNotFound } from 'src/errors/telegram';
 import { TGFSFileVersion } from 'src/model/file';
 import { manager } from 'src/server/manager';
+import { flowControl } from 'src/utils/flow-control';
 import { Logger } from 'src/utils/logger';
 
 import { getUploader } from './file-uploader';
@@ -29,6 +33,7 @@ export class MessageApi extends MessageBroker {
     super(tdlib);
   }
 
+  @flowControl()
   protected async sendText(message: string): Promise<number> {
     return (
       await this.tdlib.bot.sendText({
@@ -38,6 +43,7 @@ export class MessageApi extends MessageBroker {
     ).messageId;
   }
 
+  @flowControl()
   protected async editMessageText(
     messageId: number,
     message: string,
@@ -51,14 +57,19 @@ export class MessageApi extends MessageBroker {
         })
       ).messageId;
     } catch (err) {
-      if (err.message === 'message to edit not found') {
-        throw new MessageNotFound(messageId);
-      } else {
-        throw err;
+      if (err instanceof RPCError) {
+        if (err.message === 'message to edit not found') {
+          throw new MessageNotFound(messageId);
+        }
+        if (err.errorMessage === 'MESSAGE_NOT_MODIFIED') {
+          return messageId;
+        }
       }
+      throw err;
     }
   }
 
+  @flowControl()
   protected async editMessageMedia(
     messageId: number,
     buffer: Buffer,
@@ -128,7 +139,9 @@ export class MessageApi extends MessageBroker {
     // Logger.info(`${(uploaded / totalSize) * 100}% uploaded`);
   }
 
-  private async _sendFile(fileMsg: GeneralFileMessage): Promise<number> {
+  private async _sendFile(
+    fileMsg: GeneralFileMessage,
+  ): Promise<SentFileMessage> {
     let messageId = TGFSFileVersion.EMPTY_FILE;
     const uploader = getUploader(this.tdlib, fileMsg, async () => {
       messageId = (
@@ -138,13 +151,23 @@ export class MessageApi extends MessageBroker {
         )
       ).messageId;
     });
-    await uploader.upload(fileMsg, MessageApi.report, fileMsg.name);
+    const size = await uploader.upload(
+      fileMsg,
+      MessageApi.report,
+      fileMsg.name,
+    );
 
     Logger.debug('File sent', JSON.stringify(fileMsg));
-    return messageId;
+
+    return {
+      messageId,
+      size,
+    };
   }
 
-  protected async sendFile(fileMsg: GeneralFileMessage): Promise<number> {
+  protected async sendFile(
+    fileMsg: GeneralFileMessage,
+  ): Promise<SentFileMessage> {
     if ('stream' in fileMsg) {
       // Unable to calculate sha256 for file as a stream. So just send it.
       Logger.debug(
@@ -159,17 +182,21 @@ export class MessageApi extends MessageBroker {
 
     fileMsg.tags = { sha256: fileHash };
 
-    const existingFile = await this.tdlib.account.searchMessages({
+    const existingFileMsg = await this.tdlib.account.searchMessages({
       chatId: this.privateChannelId,
       search: `#sha256IS${fileHash}`,
     });
 
-    if (existingFile.length > 0) {
+    if (existingFileMsg.length > 0) {
+      const msg = existingFileMsg[0];
       Logger.debug(
         `Found file with the same sha256 ${fileHash}, skip uploading`,
-        JSON.stringify(existingFile[0]),
+        JSON.stringify(msg),
       );
-      return existingFile[0].messageId;
+      return {
+        messageId: msg.messageId,
+        size: msg.document.size,
+      };
     }
 
     return await this._sendFile(fileMsg);

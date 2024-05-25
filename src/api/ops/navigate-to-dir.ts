@@ -10,7 +10,7 @@ export const navigateToDir = (client: Client) => (path: string) => {
   let currentDirectory = client.getRootDirectory();
 
   for (const pathPart of pathParts) {
-    const directory = currentDirectory.findChildren([pathPart])[0];
+    const directory = currentDirectory.findDirs([pathPart])[0];
     if (!directory) {
       throw new FileOrDirectoryDoesNotExistError(path, `navigate to ${path}`);
     }

@@ -7,7 +7,7 @@ export class TGFSFileRef {
     private messageId: number,
     public name: string,
     private location: TGFSDirectory,
-  ) {}
+  ) { }
 
   public toObject(): TGFSFileRefSerialized {
     return { type: 'FR', messageId: this.messageId, name: this.name };
@@ -36,7 +36,7 @@ export class TGFSDirectory {
     private parent: TGFSDirectory,
     private children: TGFSDirectory[] = [],
     private files: TGFSFileRef[] = [],
-  ) {}
+  ) { }
 
   public toObject(): TGFSDirectorySerialized {
     const children = [];
@@ -60,12 +60,12 @@ export class TGFSDirectory {
 
     dir.files = obj.files
       ? obj.files
-          .filter((file) => {
-            return file.name && file.messageId;
-          })
-          .map((file) => {
-            return new TGFSFileRef(file.messageId, file.name, dir);
-          })
+        .filter((file) => {
+          return file.name && file.messageId;
+        })
+        .map((file) => {
+          return new TGFSFileRef(file.messageId, file.name, dir);
+        })
       : [];
 
     obj.children.forEach((child) => {
@@ -75,7 +75,7 @@ export class TGFSDirectory {
   }
 
   public createDir(name: string, dir?: TGFSDirectory) {
-    if (this.findChildren([name]).length) {
+    if (this.findDirs([name]).length) {
       throw new FileOrDirectoryAlreadyExistsError(name);
     }
     const child = dir
@@ -85,7 +85,7 @@ export class TGFSDirectory {
     return child;
   }
 
-  public findChildren(names?: string[]) {
+  public findDirs(names?: string[]): Array<TGFSDirectory> {
     if (!names) {
       return this.children;
     } else {
@@ -94,7 +94,11 @@ export class TGFSDirectory {
     }
   }
 
-  public findFiles(names?: string[]) {
+  public findDir(name: string): TGFSDirectory {
+    return this.findDirs([name])[0];
+  }
+
+  public findFiles(names?: string[]): Array<TGFSFileRef> {
     if (!names) {
       return this.files;
     } else {
@@ -103,11 +107,15 @@ export class TGFSDirectory {
     }
   }
 
-  public createFileRef(name: string, fileMessageId: number) {
-    const fr = new TGFSFileRef(fileMessageId, name, this);
-    if (this.findFiles([fr.name])[0]) {
-      throw new FileOrDirectoryAlreadyExistsError(fr.name);
+  public findFile(name: string): TGFSFileRef {
+    return this.findFiles([name])[0];
+  }
+
+  public createFileRef(name: string, fileMessageId: number): TGFSFileRef {
+    if (this.findFile(name)) {
+      throw new FileOrDirectoryAlreadyExistsError(name);
     }
+    const fr = new TGFSFileRef(fileMessageId, name, this);
     this.files.push(fr);
     return fr;
   }
