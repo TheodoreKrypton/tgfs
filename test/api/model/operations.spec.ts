@@ -183,7 +183,8 @@ describe('file and directory operations', () => {
         { name: 'f1', buffer: Buffer.from('mock-file-content') },
       );
 
-      await client.deleteFile(f1);
+      const fr = root.findFiles(['f1'])[0];
+      await client.deleteFile(fr);
       expect(root.findFiles(['f1'])[0]).toBeUndefined();
     });
 
@@ -201,12 +202,12 @@ describe('file and directory operations', () => {
       );
 
       const fr = root.findFiles(['f1'])[0];
-      let f = await client.getFileDesc(fr);
+      let fd = await client.getFileDesc(fr);
 
-      await client.deleteFile(fr, f.latestVersionId);
+      await client.deleteFile(fr, fd.latestVersionId);
 
-      f = await client.getFileDesc(fr);
-      expect(Object.keys(f.versions)).toHaveLength(1);
+      fd = await client.getFileDesc(fr);
+      expect(Object.keys(fd.versions)).toHaveLength(1);
       const content2 = await saveToBuffer(
         client.downloadLatestVersion(fr, 'f1'),
       );

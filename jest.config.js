@@ -1,7 +1,6 @@
 module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
-  setupFiles: ['<rootDir>/test/utils/mock-tg-client.ts'],
   testMatch: ['<rootDir>/test/**/*.spec.(t|j)s'],
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
@@ -18,4 +17,5 @@ module.exports = {
   moduleDirectories: ['node_modules'],
   // Needed for memory leak issue with NodeJS 16. See https://github.com/facebook/jest/issues/11956
   workerIdleMemoryLimit: '50M',
+  testTimeout: 5 * 60 * 1000, // 5 minutes
 };

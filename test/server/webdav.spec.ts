@@ -19,7 +19,7 @@ describe('TGFSFileSystem', () => {
     return supertest(app.use(webdav.extensions.express('/', webDAVServer)));
   };
 
-  beforeAll(async () => {
+  beforeAll(() => {
     Logger.info = jest.fn();
   });
 

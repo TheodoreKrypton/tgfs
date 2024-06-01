@@ -1,8 +1,14 @@
 import bigInt from 'big-integer';
 
+import { Logger } from 'src/utils/logger';
+
 import { MockMessages } from './mock-messages';
 
 describe('test mock messages', () => {
+  beforeAll(() => {
+    Logger.info = jest.fn();
+  });
+
   it('should send and get message', () => {
     const mockMessages = new MockMessages();
     const messageId = mockMessages.sendMessage({ message: 'hello' });

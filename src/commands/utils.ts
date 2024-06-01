@@ -1,8 +1,7 @@
 import { Client } from 'src/api';
-import { TGFSFileRef } from 'src/model/directory';
+import { TGFSFile } from 'src/model/file';
 
-export const fileInfo = async (client: Client, fileRef: TGFSFileRef) => {
-  const fileDesc = await client.getFileDesc(fileRef);
+export const fileInfo = async (client: Client, fileDesc: TGFSFile) => {
   const head = `${fileDesc.name}, ${
     Object.keys(fileDesc.versions).length
   } versions`;

@@ -6,34 +6,47 @@ import { Logger } from 'src/utils/logger';
 import { MessageApi } from './message-api';
 import { GeneralFileMessage, isFileMessageEmpty } from './message-api/types';
 
+type FileDescAPIResponse = {
+  messageId?: number;
+  fd?: TGFSFile;
+};
+
 export class FileDescApi extends MessageApi {
   private async sendFileDesc(
     fd: TGFSFile,
     messageId?: number,
-  ): Promise<number> {
-    Logger.debug(
-      `sendFileDesc ${JSON.stringify(fd.toObject())}, messageId=${messageId}`,
-    );
+  ): Promise<FileDescAPIResponse> {
     if (!messageId) {
-      return await this.sendText(JSON.stringify(fd.toObject()));
+      return {
+        messageId: await this.sendText(JSON.stringify(fd.toObject())),
+        fd,
+      };
     }
     // edit an existing message
     try {
-      return await this.editMessageText(
-        messageId,
-        JSON.stringify(fd.toObject()),
-      );
+      return {
+        messageId: await this.editMessageText(
+          messageId,
+          JSON.stringify(fd.toObject()),
+        ),
+        fd,
+      };
     } catch (err) {
       if (err instanceof MessageNotFound) {
         // the message to edit is gone
-        return await this.sendText(JSON.stringify(fd.toObject()));
+        return {
+          messageId: await this.sendText(JSON.stringify(fd.toObject())),
+          fd,
+        };
       } else {
         throw err;
       }
     }
   }
 
-  public async createFileDesc(fileMsg: GeneralFileMessage): Promise<number> {
+  public async createFileDesc(
+    fileMsg: GeneralFileMessage,
+  ): Promise<FileDescAPIResponse> {
     const fd = new TGFSFile(fileMsg.name);
 
     if ('empty' in fileMsg) {
@@ -84,7 +97,11 @@ export class FileDescApi extends MessageApi {
     });
 
     if (versionsWithoutSizeInfo.length > 0) {
-      await this.updateFileDesc(fileRef.getMessageId(), fileDesc);
+      const { fd } = await this.updateFileDesc(
+        fileRef.getMessageId(),
+        fileDesc,
+      );
+      return fd;
     }
 
     return fileDesc;
@@ -93,7 +110,7 @@ export class FileDescApi extends MessageApi {
   public async addFileVersion(
     fr: TGFSFileRef,
     fileMsg: GeneralFileMessage,
-  ): Promise<number> {
+  ): Promise<FileDescAPIResponse> {
     const fd = await this.getFileDesc(fr);
 
     if (isFileMessageEmpty(fileMsg)) {
@@ -102,24 +119,28 @@ export class FileDescApi extends MessageApi {
       const sentFileMsg = await this.sendFile(fileMsg);
       fd.addVersionFromSentFileMessage(sentFileMsg);
     }
-    return await this.sendFileDesc(fd, fr.getMessageId());
+    await this.sendFileDesc(fd, fr.getMessageId());
+    return { messageId: fr.getMessageId(), fd };
   }
 
   public async updateFileDesc(
     messageId: number,
     fileDesc: TGFSFile,
-  ): Promise<number> {
-    return await this.editMessageText(
-      messageId,
-      JSON.stringify(fileDesc.toObject()),
-    );
+  ): Promise<FileDescAPIResponse> {
+    return {
+      messageId: await this.editMessageText(
+        messageId,
+        JSON.stringify(fileDesc.toObject()),
+      ),
+      fd: fileDesc,
+    };
   }
 
   public async updateFileVersion(
     fr: TGFSFileRef,
     fileMsg: GeneralFileMessage,
     versionId: string,
-  ): Promise<number> {
+  ): Promise<FileDescAPIResponse> {
     const fd = await this.getFileDesc(fr);
     if (isFileMessageEmpty(fileMsg)) {
       const fv = fd.getVersion(versionId);
@@ -132,15 +153,17 @@ export class FileDescApi extends MessageApi {
       fv.size = sentFileMsg.size.toJSNumber();
       fd.updateVersion(fv);
     }
-    return await this.sendFileDesc(fd, fr.getMessageId());
+    await this.sendFileDesc(fd, fr.getMessageId());
+    return { messageId: fr.getMessageId(), fd };
   }
 
   public async deleteFileVersion(
     fr: TGFSFileRef,
     versionId: string,
-  ): Promise<number> {
+  ): Promise<FileDescAPIResponse> {
     const fd = await this.getFileDesc(fr);
     fd.deleteVersion(versionId);
-    return await this.sendFileDesc(fd, fr.getMessageId());
+    await this.sendFileDesc(fd, fr.getMessageId());
+    return { messageId: fr.getMessageId(), fd };
   }
 }

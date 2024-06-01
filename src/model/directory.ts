@@ -7,7 +7,7 @@ export class TGFSFileRef {
     private messageId: number,
     public name: string,
     private location: TGFSDirectory,
-  ) { }
+  ) {}
 
   public toObject(): TGFSFileRefSerialized {
     return { type: 'FR', messageId: this.messageId, name: this.name };
@@ -36,7 +36,7 @@ export class TGFSDirectory {
     private parent: TGFSDirectory,
     private children: TGFSDirectory[] = [],
     private files: TGFSFileRef[] = [],
-  ) { }
+  ) {}
 
   public toObject(): TGFSDirectorySerialized {
     const children = [];
@@ -60,12 +60,12 @@ export class TGFSDirectory {
 
     dir.files = obj.files
       ? obj.files
-        .filter((file) => {
-          return file.name && file.messageId;
-        })
-        .map((file) => {
-          return new TGFSFileRef(file.messageId, file.name, dir);
-        })
+          .filter((file) => {
+            return file.name && file.messageId;
+          })
+          .map((file) => {
+            return new TGFSFileRef(file.messageId, file.name, dir);
+          })
       : [];
 
     obj.children.forEach((child) => {

@@ -2,45 +2,37 @@ import { PassThrough, Readable, Writable } from 'stream';
 
 import {
   CreateInfo,
-  CreationDateInfo,
   DeleteInfo,
   Errors,
   FileSystem,
   FileSystemSerializer,
-  ILockManager,
-  IPropertyManager,
-  LastModifiedDateInfo,
   LocalLockManager,
   LocalPropertyManager,
-  LockManagerInfo,
   MoveInfo,
   OpenReadStreamInfo,
   OpenWriteStreamInfo,
   Path,
-  PropertyAttributes,
-  PropertyBag,
-  PropertyManagerInfo,
   ReadDirInfo,
-  ResourcePropertyValue,
+  RequestContext,
   ResourceType,
-  Return2Callback,
   ReturnCallback,
   SimpleCallback,
-  SizeInfo,
-  TypeInfo,
+  VirtualFileSystem,
+  VirtualFileSystemResource,
 } from 'webdav-server/lib/index.v2';
 
-import { Client, createClient } from 'src/api';
+import { Client } from 'src/api';
 import { createDir, list, moveFile, removeDir, removeFile } from 'src/api/ops';
 import { createEmptyFile } from 'src/api/ops/create-empty-file';
 import { uploadFromStream } from 'src/api/ops/upload';
 import { BusinessError } from 'src/errors/base';
 import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
+import { TGFSFile } from 'src/model/file';
 import { Logger } from 'src/utils/logger';
 
-const lockManager = new LocalLockManager();
-
 export class TGFSSerializer implements FileSystemSerializer {
+  constructor(private readonly client: Client) {}
+
   uid(): string {
     return 'TGFSSerializer-1.0.0';
   }
@@ -50,11 +42,54 @@ export class TGFSSerializer implements FileSystemSerializer {
   }
 
   unserialize(serializedData: any, callback: ReturnCallback<FileSystem>): void {
-    (async () => {
-      const client = await createClient();
-      const fileSystem = new TGFSFileSystem(client);
-      callback(null, fileSystem);
-    })();
+    const fileSystem = new TGFSFileSystem(this.client);
+    callback(null, fileSystem);
+  }
+}
+
+class TGFSFileResource extends VirtualFileSystemResource {
+  constructor({
+    size = 0,
+    lastModifiedDate = 0,
+    creationDate = 0,
+  }: Partial<VirtualFileSystemResource>) {
+    const props = new LocalPropertyManager();
+
+    super({
+      props,
+      locks: new LocalLockManager(),
+      content: [],
+      size,
+      lastModifiedDate,
+      creationDate,
+      type: ResourceType.File,
+    });
+  }
+
+  static fromFileDesc(fd: TGFSFile) {
+    const latestVersion = fd.getLatest();
+
+    return new TGFSFileResource({
+      size: latestVersion.size,
+      lastModifiedDate: latestVersion.updatedAt.getTime(),
+      creationDate: fd.createdAt.getTime(),
+    });
+  }
+}
+
+class TGFSDirResource extends VirtualFileSystemResource {
+  constructor() {
+    const props = new LocalPropertyManager();
+
+    super({
+      props,
+      locks: new LocalLockManager(),
+      content: [],
+      size: 0,
+      lastModifiedDate: 0,
+      creationDate: 0,
+      type: ResourceType.Directory,
+    });
   }
 }
 
@@ -83,11 +118,68 @@ const call =
     });
   };
 
-class TGFSPropertyManager extends LocalPropertyManager {}
+export class TGFSFileSystem extends VirtualFileSystem {
+  resources: { [path: string]: VirtualFileSystemResource } = {};
 
-export class TGFSFileSystem extends FileSystem {
   constructor(public readonly tgClient: Client) {
-    super(new TGFSSerializer());
+    super(new TGFSSerializer(tgClient));
+
+    this.resources['/'] = new TGFSDirResource();
+  }
+
+  protected _fastExistCheck(
+    ctx: RequestContext,
+    path: Path,
+    callback: (exists: boolean) => void,
+  ): void {
+    if (this.resources[path.toString()]) {
+      callback(true);
+    } else {
+      this.list(path.toString())
+        .then(() => {
+          callback(true);
+        })
+        .catch(() => {
+          callback(false);
+        });
+    }
+  }
+
+  private async list(
+    path: string,
+  ): Promise<TGFSFileRef | (TGFSFileRef | TGFSDirectory)[]> {
+    const res = await list(this.tgClient)(path.toString());
+    if (res instanceof TGFSFileRef) {
+      const fd = await this.tgClient.getFileDesc(res);
+      this.resources[path.toString()] = TGFSFileResource.fromFileDesc(fd);
+    } else {
+      this.resources[path.toString()] = new TGFSDirResource();
+
+      const basePath = path.toString() === '/' ? '/' : `${path.toString()}/`;
+
+      res
+        .filter((res) => res instanceof TGFSDirectory)
+        .forEach((dir) => {
+          this.resources[`${basePath}${dir.name}`] = new TGFSDirResource();
+        });
+
+      const promises = res
+        .filter((res) => res instanceof TGFSFileRef)
+        .map((fr) => {
+          return (async () => {
+            const fd = await this.tgClient.getFileDesc(fr as TGFSFileRef);
+            if (path.toString() === '/') {
+              this.resources[`/${fr.name}`] = TGFSFileResource.fromFileDesc(fd);
+            } else {
+              this.resources[`${basePath}${fr.name}`] =
+                TGFSFileResource.fromFileDesc(fd);
+            }
+          })();
+        });
+
+      await Promise.all(promises);
+    }
+    return res;
   }
 
   protected _create(
@@ -96,6 +188,7 @@ export class TGFSFileSystem extends FileSystem {
     callback: SimpleCallback,
   ): void {
     if (ctx.type.isDirectory) {
+      this.resources[path.toString()] = new TGFSDirResource();
       call(callback)(createDir(this.tgClient)(path.toString(), false));
     } else {
       call(callback)(createEmptyFile(this.tgClient)(path.toString()));
@@ -124,39 +217,23 @@ export class TGFSFileSystem extends FileSystem {
     ctx: DeleteInfo,
     callback: SimpleCallback,
   ): void {
-    this.type(ctx.context, path, (e, type) => {
-      if (e) return callback(Errors.ResourceNotFound);
-      if (type.isDirectory) {
-        call(callback)(removeDir(this.tgClient)(path.toString(), true));
-      } else {
-        call(callback)(removeFile(this.tgClient)(path.toString()));
+    const sPath = path.toString(true);
+    for (const path in this.resources) {
+      if (path.startsWith(sPath)) {
+        this.resources[path] = undefined;
       }
-    });
-  }
+    }
 
-  protected _size(
-    path: Path,
-    ctx: SizeInfo,
-    callback: ReturnCallback<number>,
-  ): void {
-    (async () => {
-      try {
-        const res = await list(this.tgClient)(path.toString());
-        if (!Array.isArray(res)) {
-          const fileDesc = await this.tgClient.getFileDesc(res);
-          if (fileDesc.isEmptyFile()) {
-            callback(null, 0);
-          } else {
-            callback(null, fileDesc.getLatest().size);
-          }
-        } else {
-          callback(null, 0);
-        }
-      } catch (err) {
-        handleError(callback)(err);
-        Logger.error(err);
-      }
-    })();
+    const resource = this.resources[path.toString()];
+    this.resources[path.toString()] = undefined;
+
+    if (!resource) {
+      return callback(Errors.ResourceNotFound);
+    } else if (resource instanceof TGFSDirResource) {
+      call(callback)(removeDir(this.tgClient)(path.toString(), true));
+    } else {
+      call(callback)(removeFile(this.tgClient)(path.toString()));
+    }
   }
 
   protected _readDir(
@@ -166,89 +243,15 @@ export class TGFSFileSystem extends FileSystem {
   ): void {
     (async () => {
       try {
-        const res = await list(this.tgClient)(path.toString());
+        const res = (await this.list(path.toString())) as (
+          | TGFSFileRef
+          | TGFSDirectory
+        )[];
+
         callback(
           null,
-          (res as Array<TGFSFileRef | TGFSDirectory>).map((item) => item.name),
+          res.map((item) => item.name),
         );
-      } catch (err) {
-        handleError(callback)(err);
-        Logger.error(err);
-      }
-    })();
-  }
-
-  protected getStatDateProperty(
-    path: Path,
-    ctx: any,
-    propertyName: string,
-    callback: ReturnCallback<number>,
-  ): void {
-    (async () => {
-      try {
-        const res = await list(this.tgClient)(path.toString());
-        if (!Array.isArray(res)) {
-          const fileDesc = await this.tgClient.getFileDesc(res);
-          if (propertyName === 'mtime') {
-            callback(null, fileDesc.getLatest().updatedAt.getTime());
-          } else {
-            callback(null, fileDesc.createdAt.getTime());
-          }
-        } else {
-          callback(null, 0);
-        }
-      } catch (err) {
-        handleError(callback)(err);
-        Logger.error(err);
-      }
-    })();
-  }
-
-  protected _creationDate(
-    path: Path,
-    ctx: CreationDateInfo,
-    callback: ReturnCallback<number>,
-  ): void {
-    this.getStatDateProperty(path, ctx, 'birthtime', callback);
-  }
-
-  protected _lastModifiedDate(
-    path: Path,
-    ctx: LastModifiedDateInfo,
-    callback: ReturnCallback<number>,
-  ): void {
-    this.getStatDateProperty(path, ctx, 'mtime', callback);
-  }
-
-  protected _lockManager(
-    path: Path,
-    ctx: LockManagerInfo,
-    callback: ReturnCallback<ILockManager>,
-  ): void {
-    callback(null, lockManager);
-  }
-
-  protected _propertyManager(
-    path: Path,
-    ctx: PropertyManagerInfo,
-    callback: ReturnCallback<IPropertyManager>,
-  ): void {
-    callback(null, new TGFSPropertyManager());
-  }
-
-  protected _type(
-    path: Path,
-    ctx: TypeInfo,
-    callback: ReturnCallback<ResourceType>,
-  ): void {
-    (async () => {
-      try {
-        const res = await list(this.tgClient)(path.toString());
-        if (Array.isArray(res)) {
-          callback(null, ResourceType.Directory);
-        } else {
-          callback(null, ResourceType.File);
-        }
       } catch (err) {
         handleError(callback)(err);
         Logger.error(err);
@@ -271,11 +274,17 @@ export class TGFSFileSystem extends FileSystem {
         callback(null, stream);
 
         try {
-          await uploadFromStream(tgClient)(
+          // this.resources[path.toString()] = new TGFSFileResource({
+          //   size: estimatedSize,
+          // });
+
+          const fd = await uploadFromStream(tgClient)(
             stream,
             estimatedSize,
             path.toString(),
           );
+
+          this.resources[path.toString()] = TGFSFileResource.fromFileDesc(fd);
         } catch (err) {
           stream.destroy();
           throw err;

@@ -16,6 +16,7 @@ export const ls = (client: Client) => async (argv: { path: PathLike }) => {
       })
       .join('  ');
   } else {
-    return fileInfo(client, res);
+    const fd = await client.getFileDesc(res);
+    return fileInfo(client, fd);
   }
 };
