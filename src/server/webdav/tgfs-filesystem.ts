@@ -273,6 +273,11 @@ export class TGFSFileSystem extends VirtualFileSystem {
 
         callback(null, stream);
 
+        if ( estimatedSize <= 0 ) {
+          Logger.info('skip upload because file is 0 bytes');
+          return;
+        }
+
         try {
           // this.resources[path.toString()] = new TGFSFileResource({
           //   size: estimatedSize,
