@@ -227,6 +227,7 @@ export class GramJSApi implements ITDLibClient {
         name: req.file.name,
       }),
       caption: req.caption,
+      forceDocument: true,
     });
     return {
       messageId: rsp.id,
@@ -243,6 +244,7 @@ export class GramJSApi implements ITDLibClient {
         md5Checksum: '',
       }),
       caption: req.caption,
+      forceDocument: true,
     });
     return {
       messageId: rsp.id,
