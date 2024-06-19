@@ -9,7 +9,7 @@ import { parser } from 'src/commands/parser';
 import { TGFSDirectory } from 'src/model/directory';
 import { Logger } from 'src/utils/logger';
 
-import { createMockClient } from '../utils/mock-tg-client';
+import { createMockClient } from '../mock/mock-tg-client';
 
 const parse = () => {
   const argv = parser(yargs(process.argv)).argv;

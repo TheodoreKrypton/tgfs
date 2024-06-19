@@ -1,11 +1,11 @@
-import { MockGramJSApi } from './mock-gramjs-api';
-import { MockMessages } from './mock-messages';
-import { MockTelegrafApi } from './mock-telegraf-api';
+import { FakeGramJSApi } from 'src/api/impl/fake/gramjs';
+import { Messages } from 'src/api/impl/fake/messages';
+import { FakeTelegraf } from 'src/api/impl/fake/telegraf';
 
 export const createMockClient = async () => {
   jest.resetModules();
 
-  const mockMessages = new MockMessages();
+  const mockMessages = new Messages();
 
   jest.mock('src/config', () => {
     return {
@@ -25,14 +25,14 @@ export const createMockClient = async () => {
     return {
       GramJSApi: jest
         .fn()
-        .mockImplementation(() => new MockGramJSApi(mockMessages)),
+        .mockImplementation(() => new FakeGramJSApi(mockMessages)),
       loginAsAccount: jest.fn(),
       loginAsBot: jest.fn(),
     };
   });
   jest.mock('src/api/impl/telegraf', () => {
     return {
-      TelegrafApi: jest.fn().mockImplementation(() => new MockTelegrafApi()),
+      TelegrafApi: jest.fn().mockImplementation(() => new FakeTelegraf()),
       createBot: jest.fn().mockImplementation(() => null),
     };
   });

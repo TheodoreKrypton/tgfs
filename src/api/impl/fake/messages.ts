@@ -9,7 +9,7 @@ type Message = {
   document?: types.Document;
 };
 
-export class MockMessages {
+export class Messages {
   constructor(
     public readonly messages: { [key: number]: Message } = {},
     public messageId: number = 1,

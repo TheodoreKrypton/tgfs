@@ -1,10 +1,10 @@
 import { ITDLibClient } from 'src/api/interface';
 import * as types from 'src/api/types';
 
-import { MockMessages } from './mock-messages';
+import { Messages } from './messages';
 
-export class MockGramJSApi implements ITDLibClient {
-  constructor(private messages: MockMessages) {}
+export class FakeGramJSApi implements ITDLibClient {
+  constructor(private messages: Messages) {}
 
   public async getMessages(
     req: types.GetMessagesReq,

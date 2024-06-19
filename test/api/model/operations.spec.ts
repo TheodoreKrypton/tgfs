@@ -5,7 +5,7 @@ import { saveToBuffer, saveToFile } from 'src/api/utils';
 import { Logger } from 'src/utils/logger';
 import { sleep } from 'src/utils/sleep';
 
-import { createMockClient } from '../../utils/mock-tg-client';
+import { createMockClient } from '../../mock/mock-tg-client';
 
 describe('file and directory operations', () => {
   beforeAll(() => {
