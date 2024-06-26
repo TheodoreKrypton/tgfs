@@ -1,4 +1,4 @@
-import { PassThrough, Readable, Writable } from 'stream';
+import { Readable, Writable } from 'stream';
 
 import {
   CreateInfo,
@@ -29,6 +29,8 @@ import { BusinessError } from 'src/errors/base';
 import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
 import { TGFSFile } from 'src/model/file';
 import { Logger } from 'src/utils/logger';
+
+import { UploadStream } from './upload-stream';
 
 export class TGFSSerializer implements FileSystemSerializer {
   constructor(private readonly client: Client) {}
@@ -269,7 +271,7 @@ export class TGFSFileSystem extends VirtualFileSystem {
         const tgClient = this.tgClient;
         const { estimatedSize } = ctx;
 
-        const stream = new PassThrough();
+        const stream = new UploadStream();
 
         callback(null, stream);
 
@@ -290,6 +292,8 @@ export class TGFSFileSystem extends VirtualFileSystem {
           );
 
           this.resources[path.toString()] = TGFSFileResource.fromFileDesc(fd);
+
+          stream.finish();
         } catch (err) {
           stream.destroy();
           throw err;
