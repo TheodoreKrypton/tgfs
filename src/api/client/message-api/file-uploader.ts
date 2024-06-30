@@ -14,6 +14,7 @@ import { FileTooBig } from 'src/errors/telegram';
 import { manager } from 'src/server/manager';
 import { Logger } from 'src/utils/logger';
 import { Queue } from 'src/utils/queue';
+import { sleep } from 'src/utils/sleep';
 
 import {
   FileMessageFromBuffer,
@@ -32,7 +33,8 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
 
   private isBig: boolean;
   private partCnt: number = 0;
-  private uploaded: bigInt.BigInteger = bigInt.zero;
+  private readSize: bigInt.BigInteger = bigInt.zero;
+  private uploadedSize: bigInt.BigInteger = bigInt.zero;
 
   private _errors: { [key: number]: Error } = {};
 
@@ -73,11 +75,13 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
       : quotient.toJSNumber() + 1;
   }
 
-  private async saveChunk(
+  private async uploadChunk(
     workerId: number,
     chunk: Buffer,
     filePart: number,
   ): Promise<void> {
+    this._uploadingChunks[workerId] = { chunk, filePart };
+
     while (true) {
       try {
         const rsp = this.isBig
@@ -94,6 +98,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
             });
         if (rsp.success) {
           this._uploadingChunks[workerId] = null;
+          this.uploadedSize = this.uploadedSize.add(chunk.length);
           return;
         }
       } catch (err) {
@@ -102,22 +107,21 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
             throw new FileTooBig(this.fileSize);
           }
         }
-        console.error(err);
+        Logger.error(`${this.fileName} ${err}`);
       }
     }
   }
 
   private async saveUncompletedChunks() {
     while (true) {
-      const unfinishedChunks = this._uploadingChunks.filter((x) => x !== null);
-
-      if (unfinishedChunks.length === 0) {
+      const unCompletedChunks = this._uploadingChunks.filter((x) => x !== null);
+      if (unCompletedChunks.length === 0) {
         break;
       }
 
-      for (const { chunk, filePart } of unfinishedChunks) {
+      for (const { chunk, filePart } of unCompletedChunks) {
         if (chunk) {
-          await this.saveChunk(0, chunk, filePart);
+          await this.uploadChunk(0, chunk, filePart);
         }
       }
     }
@@ -129,10 +133,10 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     }
 
     const chunkLength =
-      this.uploaded.add(this.chunkSize) > this.fileSize
-        ? this.fileSize.minus(this.uploaded)
+      this.readSize.add(this.chunkSize) > this.fileSize
+        ? this.fileSize.minus(this.readSize)
         : this.chunkSize;
-    this.uploaded = this.uploaded.add(chunkLength);
+    this.readSize = this.readSize.add(chunkLength);
     const filePart = this.partCnt++; // 0-indexed
 
     if (chunkLength.eq(0)) {
@@ -140,9 +144,8 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     }
 
     const chunk = await this.read(chunkLength.toJSNumber());
-    this._uploadingChunks[workerId] = { chunk, filePart };
 
-    await this.saveChunk(workerId, chunk, filePart);
+    await this.uploadChunk(workerId, chunk, filePart);
 
     return chunkLength;
   }
@@ -160,27 +163,22 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     try {
       this.fileName = fileName ?? this.defaultFileName;
 
-      let onCompleteEmitted = false;
-
       const createWorker = async (workerId: number): Promise<boolean> => {
         try {
           while (!this.done()) {
             const partSize = await this.uploadNextPart(workerId);
+            Logger.info(
+              `[worker ${workerId}] ${this.uploadedSize
+                .multiply(100)
+                .divide(this.fileSize)
+                .toJSNumber()}% uploaded ${this.fileId}(${this.fileName})`,
+            );
+
             if (partSize && callback) {
-              Logger.info(
-                `[worker ${workerId}] ${this.uploaded
-                  .multiply(100)
-                  .divide(this.fileSize)
-                  .toJSNumber()}% uploaded ${this.fileId}`,
-              );
-              callback(this.uploaded, this.fileSize);
+              callback(this.readSize, this.fileSize);
             }
           }
-          if (!onCompleteEmitted) {
-            onCompleteEmitted = true;
-            await this.saveUncompletedChunks();
-            await this.onComplete();
-          }
+
           return true;
         } catch (err) {
           this._errors[workerId] = err;
@@ -188,14 +186,20 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
         }
       };
 
-      const promises: Array<Promise<boolean>> = [];
+      while (this.uploadedSize < this.fileSize) {
+        const promises: Array<Promise<boolean>> = [];
 
-      const numWorkers = this.isBig ? this.workers.big : this.workers.small;
-      for (let i = 0; i < numWorkers; i++) {
-        promises.push(createWorker(i));
+        const numWorkers = this.isBig ? this.workers.big : this.workers.small;
+        for (let i = 0; i < numWorkers; i++) {
+          promises.push(createWorker(i));
+        }
+
+        await Promise.all(promises);
+        await this.saveUncompletedChunks();
       }
 
-      await Promise.all(promises);
+      await sleep(500); // sleep 500ms before sending the file message, otherwise Telegram reports FILE_PART_0_MISSING error.
+      await this.onComplete();
     } finally {
       this.close();
 
@@ -207,7 +211,7 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
   }
 
   private done(): boolean {
-    return this.uploaded >= this.fileSize;
+    return this.readSize >= this.fileSize;
   }
 
   public get errors(): Array<Error> {
@@ -218,6 +222,8 @@ export abstract class FileUploader<T extends GeneralFileMessage> {
     chatId: number,
     caption?: string,
   ): Promise<SendMessageResp> {
+    Logger.info(`sending file ${this.fileName}`);
+
     if (Object.keys(this._errors).length > 0) {
       throw new AggregatedError(this.errors);
     }

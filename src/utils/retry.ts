@@ -16,11 +16,10 @@ export function retry(
           const result = await originalMethod.apply(this, args);
           return result;
         } catch (error) {
-          console.error(error);
           if (i === retries) throw error;
           const waitTime = Math.pow(2, i) * backoff;
           Logger.error(
-            `Method ${String(propertyKey)}: Attempt ${i + 1} failed. Retrying in ${waitTime}ms...`,
+            `Method ${String(propertyKey)}: Attempt ${i + 1} failed because of ${error}. Retrying in ${waitTime}ms...`,
           );
           await new Promise((resolve) => setTimeout(resolve, waitTime));
         }
