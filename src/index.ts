@@ -2,7 +2,6 @@
 import express from 'express';
 import fs from 'fs';
 
-import ip from 'ip';
 import { exit } from 'process';
 import { v2 as webdav } from 'webdav-server';
 import yargs from 'yargs';
@@ -15,6 +14,7 @@ import { config, createConfig, loadConfig } from './config';
 import { BusinessError } from './errors/base';
 import { managerServer, startBot } from './server/manager';
 import { webdavServer } from './server/webdav';
+import { getIPAddress } from './utils/ip-address';
 import { Logger } from './utils/logger';
 
 const { argv }: any = yargs(hideBin(process.argv))
@@ -62,7 +62,7 @@ const { argv }: any = yargs(hideBin(process.argv))
     masterApp.listen(port, host);
 
     if (host === '0.0.0.0' || host === '::') {
-      host = ip.address();
+      host = getIPAddress('IPv4');
     }
     Logger.info(`${name} is running on ${host}:${port}${path}`);
   };
