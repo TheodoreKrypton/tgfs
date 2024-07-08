@@ -1,84 +1,35 @@
-import { saveToBuffer } from 'src/api/utils';
 import { TGFSDirectory } from 'src/model/directory';
 import { TGFSMetadata } from 'src/model/metadata';
 
-import { FileDescApi } from './file-desc-api';
+import { IMetaDataRepository } from './repository/interface';
 
-export class MetaDataApi extends FileDescApi {
+export class MetaDataApi {
   private metadata: TGFSMetadata;
-  private updateMetaDataTimeout: NodeJS.Timeout = null;
 
-  protected async initMetadata() {
-    this.metadata = await this.getMetadata();
+  constructor(private metadataRepo: IMetaDataRepository) {}
+
+  public async init() {
+    this.metadata = await this.metadataRepo.get();
     if (!this.metadata) {
       this.metadata = new TGFSMetadata();
     }
+    if (!this.getRootDirectory()) {
+      await this.resetMetadata();
+      await this.syncMetadata();
+    }
   }
 
-  protected async resetMetadata() {
+  public async resetMetadata() {
     this.metadata.dir = new TGFSDirectory('root', null);
   }
 
-  protected async getMetadata() {
-    const pinnedMessage = (
-      await this.tdlib.account.getPinnedMessages({
-        chatId: this.privateChannelId,
-      })
-    )[0];
-
-    if (!pinnedMessage) {
-      return null;
-    }
-    const metadata = TGFSMetadata.fromObject(
-      JSON.parse(
-        String(
-          await saveToBuffer(
-            this.downloadFile('metadata.json', pinnedMessage.messageId),
-          ),
-        ),
-      ),
-    );
-    metadata.msgId = pinnedMessage.messageId;
-    return metadata;
-  }
-
-  protected async syncMetadata() {
-    this.metadata.syncWith(await this.getMetadata());
+  public async syncMetadata() {
+    this.metadata.syncWith(await this.metadataRepo.get());
     await this.updateMetadata();
   }
 
-  protected async updateMetadata(): Promise<undefined> {
-    const buffer = Buffer.from(JSON.stringify(this.metadata.toObject()));
-    if (this.metadata.msgId) {
-      // update current metadata
-      await this.editMessageMedia(
-        this.metadata.msgId,
-        buffer,
-        'metadata.json',
-        '',
-      );
-      // return new Promise((resolve, reject) => {
-      //   if (this.updateMetaDataTimeout) {
-      //     clearTimeout(this.updateMetaDataTimeout);
-      //   }
-      //   this.updateMetaDataTimeout = setTimeout(async () => {
-      //     try {
-
-      //       resolve(undefined);
-      //     } catch (err) {
-      //       reject(err);
-      //     }
-      //   }, 1000);
-      // });
-    } else {
-      // doesn't exist, create new metadata and pin
-      const { messageId } = await this.sendFile({
-        buffer,
-        name: 'metadata.json',
-      });
-      this.metadata.msgId = messageId;
-      await this.pinMessage(messageId);
-    }
+  private async updateMetadata(): Promise<undefined> {
+    this.metadata.msgId = await this.metadataRepo.save(this.metadata);
   }
 
   public getRootDirectory() {

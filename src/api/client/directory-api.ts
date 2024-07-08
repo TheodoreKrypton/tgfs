@@ -1,17 +1,16 @@
-import { DirectoryIsNotEmptyError } from 'src/errors/path';
-import { FileOrDirectoryDoesNotExistError } from 'src/errors/path';
+import {
+  DirectoryIsNotEmptyError,
+  FileOrDirectoryDoesNotExistError,
+} from 'src/errors/path';
 import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
 import { validateName } from 'src/utils/validate-name';
 
 import { MetaDataApi } from './metadata-api';
 
-export class DirectoryApi extends MetaDataApi {
-  protected async createRootDirectory() {
-    await this.resetMetadata();
-    await this.syncMetadata();
+export class DirectoryApi {
+  constructor(private metadataApi: MetaDataApi) {}
 
-    return this.getRootDirectory();
-  }
+
 
   public async createDirectory(
     where: { name: string; under: TGFSDirectory },
@@ -20,7 +19,7 @@ export class DirectoryApi extends MetaDataApi {
     validateName(where.name);
 
     const newDirectory = where.under.createDir(where.name, dir);
-    await this.syncMetadata();
+    await this.metadataApi.syncMetadata();
 
     return newDirectory;
   }
@@ -48,6 +47,6 @@ export class DirectoryApi extends MetaDataApi {
 
   public async dangerouslyDeleteDirectory(directory: TGFSDirectory) {
     directory.delete();
-    await this.syncMetadata();
+    await this.metadataApi.syncMetadata();
   }
 }

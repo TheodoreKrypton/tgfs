@@ -1,6 +1,11 @@
 import { Readable } from 'stream';
 
-import { Message } from 'src/api/types';
+import { TGFSFile } from 'src/model/file';
+
+export type FileDescAPIResponse = {
+  messageId?: number;
+  fd?: TGFSFile;
+};
 
 export type FileTags = {
   sha256: string;

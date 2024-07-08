@@ -1,48 +1,16 @@
-import { MessageNotFound } from 'src/errors/telegram';
+import { FileDescAPIResponse } from 'src/api/client/model';
 import { TGFSFileRef } from 'src/model/directory';
-import { TGFSFile, TGFSFileVersion } from 'src/model/file';
-import { Logger } from 'src/utils/logger';
+import { TGFSFile } from 'src/model/file';
 
-import { MessageApi } from './message-api';
-import { GeneralFileMessage, isFileMessageEmpty } from './message-api/types';
+import { GeneralFileMessage, isFileMessageEmpty } from './model';
+import { FileRepository } from './repository/impl/file';
+import { IFDRepository } from './repository/interface';
 
-type FileDescAPIResponse = {
-  messageId?: number;
-  fd?: TGFSFile;
-};
-
-export class FileDescApi extends MessageApi {
-  private async sendFileDesc(
-    fd: TGFSFile,
-    messageId?: number,
-  ): Promise<FileDescAPIResponse> {
-    if (!messageId) {
-      return {
-        messageId: await this.sendText(JSON.stringify(fd.toObject())),
-        fd,
-      };
-    }
-    // edit an existing message
-    try {
-      return {
-        messageId: await this.editMessageText(
-          messageId,
-          JSON.stringify(fd.toObject()),
-        ),
-        fd,
-      };
-    } catch (err) {
-      if (err instanceof MessageNotFound) {
-        // the message to edit is gone
-        return {
-          messageId: await this.sendText(JSON.stringify(fd.toObject())),
-          fd,
-        };
-      } else {
-        throw err;
-      }
-    }
-  }
+export class FileDescApi {
+  constructor(
+    private readonly fdRepo: IFDRepository,
+    private readonly fileRepo: FileRepository,
+  ) {}
 
   public async createFileDesc(
     fileMsg: GeneralFileMessage,
@@ -52,59 +20,15 @@ export class FileDescApi extends MessageApi {
     if ('empty' in fileMsg) {
       fd.addEmptyVersion();
     } else {
-      const sentFileMsg = await this.sendFile(fileMsg);
+      const sentFileMsg = await this.fileRepo.save(fileMsg);
       fd.addVersionFromSentFileMessage(sentFileMsg);
     }
 
-    return await this.sendFileDesc(fd);
+    return await this.fdRepo.save(fd);
   }
 
-  public async getFileDesc(fileRef: TGFSFileRef): Promise<TGFSFile> {
-    const message = (await this.getMessages([fileRef.getMessageId()]))[0];
-
-    if (!message) {
-      Logger.error(
-        `File description (messageId: ${fileRef.getMessageId()}) for ${
-          fileRef.name
-        } not found`,
-      );
-      return TGFSFile.empty(`[Content Not Found]${fileRef.name}`);
-    }
-
-    const fileDesc = TGFSFile.fromObject(JSON.parse(message.text));
-
-    const versions = Object.values(fileDesc.versions);
-
-    const nonEmptyVersions = versions.filter(
-      (version) => version.messageId != TGFSFileVersion.EMPTY_FILE,
-    ); // may contain empty versions
-
-    const versionsWithoutSizeInfo = nonEmptyVersions.filter(
-      (version) => version.size == TGFSFileVersion.INVALID_FILE_SIZE,
-    );
-
-    const fileMessages = await this.getMessages(
-      versionsWithoutSizeInfo.map((version) => version.messageId),
-    );
-
-    versionsWithoutSizeInfo.forEach((version, i) => {
-      const fileMessage = fileMessages[i];
-      if (fileMessage) {
-        version.size = Number(fileMessage.document.size);
-      } else {
-        version.setInvalid();
-      }
-    });
-
-    if (versionsWithoutSizeInfo.length > 0) {
-      const { fd } = await this.updateFileDesc(
-        fileRef.getMessageId(),
-        fileDesc,
-      );
-      return fd;
-    }
-
-    return fileDesc;
+  public async getFileDesc(fr: TGFSFileRef): Promise<TGFSFile> {
+    return await this.fdRepo.get(fr);
   }
 
   public async addFileVersion(
@@ -116,24 +40,11 @@ export class FileDescApi extends MessageApi {
     if (isFileMessageEmpty(fileMsg)) {
       fd.addEmptyVersion();
     } else {
-      const sentFileMsg = await this.sendFile(fileMsg);
+      const sentFileMsg = await this.fileRepo.save(fileMsg);
       fd.addVersionFromSentFileMessage(sentFileMsg);
     }
-    await this.sendFileDesc(fd, fr.getMessageId());
+    await this.fdRepo.save(fd, fr.getMessageId());
     return { messageId: fr.getMessageId(), fd };
-  }
-
-  public async updateFileDesc(
-    messageId: number,
-    fileDesc: TGFSFile,
-  ): Promise<FileDescAPIResponse> {
-    return {
-      messageId: await this.editMessageText(
-        messageId,
-        JSON.stringify(fileDesc.toObject()),
-      ),
-      fd: fileDesc,
-    };
   }
 
   public async updateFileVersion(
@@ -147,13 +58,13 @@ export class FileDescApi extends MessageApi {
       fv.setInvalid();
       fd.updateVersion(fv);
     } else {
-      const sentFileMsg = await this.sendFile(fileMsg);
+      const sentFileMsg = await this.fileRepo.save(fileMsg);
       const fv = fd.getVersion(versionId);
       fv.messageId = sentFileMsg.messageId;
       fv.size = sentFileMsg.size.toJSNumber();
       fd.updateVersion(fv);
     }
-    await this.sendFileDesc(fd, fr.getMessageId());
+    await this.fdRepo.save(fd, fr.getMessageId());
     return { messageId: fr.getMessageId(), fd };
   }
 
@@ -163,7 +74,7 @@ export class FileDescApi extends MessageApi {
   ): Promise<FileDescAPIResponse> {
     const fd = await this.getFileDesc(fr);
     fd.deleteVersion(versionId);
-    await this.sendFileDesc(fd, fr.getMessageId());
+    await this.fdRepo.save(fd, fr.getMessageId());
     return { messageId: fr.getMessageId(), fd };
   }
 }

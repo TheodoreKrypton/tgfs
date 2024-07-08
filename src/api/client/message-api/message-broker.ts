@@ -18,7 +18,7 @@ export class MessageBroker {
     protected timeout: NodeJS.Timeout = null,
   ) {}
 
-  async getMessages(ids: number[]): Promise<Api.Message[]> {
+  public async getMessages(ids: number[]): Promise<Api.Message[]> {
     return new Promise((resolve, reject) => {
       this.requests.push({ ids, resolve, reject });
       if (this.timeout) {

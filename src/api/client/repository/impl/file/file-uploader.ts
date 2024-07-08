@@ -6,6 +6,12 @@ import { RPCError } from 'telegram/errors';
 import bigInt from 'big-integer';
 import path from 'path';
 
+import {
+  FileMessageFromBuffer,
+  FileMessageFromPath,
+  FileMessageFromStream,
+  GeneralFileMessage,
+} from 'src/api/client/model';
 import { ITDLibClient, TDLibApi } from 'src/api/interface';
 import { SendMessageResp, UploadedFile } from 'src/api/types';
 import { generateFileId, getAppropriatedPartSize } from 'src/api/utils';
@@ -15,13 +21,6 @@ import { manager } from 'src/server/manager';
 import { Logger } from 'src/utils/logger';
 import { Queue } from 'src/utils/queue';
 import { sleep } from 'src/utils/sleep';
-
-import {
-  FileMessageFromBuffer,
-  FileMessageFromPath,
-  FileMessageFromStream,
-  GeneralFileMessage,
-} from './types';
 
 const isBig = (fileSize: bigInt.BigInteger): boolean => {
   return fileSize.greaterOrEquals(10 * 1024 * 1024);
@@ -365,7 +364,7 @@ export class UploaderFromStream extends FileUploader<FileMessageFromStream> {
   }
 }
 
-export function getUploader(
+export function createUploader(
   tdlib: TDLibApi,
   fileMsg: GeneralFileMessage,
   onComplete: () => Promise<void> = async () => {},
