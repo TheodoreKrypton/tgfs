@@ -1,8 +1,9 @@
+import { Client } from 'src/api';
 import { FakeGramJSApi } from 'src/api/impl/fake/gramjs';
 import { Messages } from 'src/api/impl/fake/messages';
 import { FakeTelegraf } from 'src/api/impl/fake/telegraf';
 
-export const createMockClient = async () => {
+export const createMockClient = async (): Promise<Client> => {
   jest.resetModules();
 
   const mockMessages = new Messages();

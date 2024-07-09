@@ -35,14 +35,8 @@ export const createClient = async () => {
 };
 
 export class Client {
-  file: FileApi;
-  dir: DirectoryApi;
-
   constructor(
-    private readonly fileApi: FileApi,
-    private readonly dirApi: DirectoryApi,
-  ) {
-    this.file = this.fileApi;
-    this.dir = this.dirApi;
-  }
+    public readonly file: FileApi,
+    public readonly dir: DirectoryApi,
+  ) {}
 }

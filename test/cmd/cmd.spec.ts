@@ -47,8 +47,8 @@ describe('commands', () => {
       jest.replaceProperty(process, 'argv', ['ls', '/f1']);
       await executor.execute(parse());
 
-      const fr = client.getRootDirectory().findFiles(['f1'])[0];
-      const fd = await client.getFileDesc(fr);
+      const fr = client.dir.root().findFiles(['f1'])[0];
+      const fd = await client.file.desc(fr);
 
       expect(Logger.stdout).toHaveBeenCalledWith(
         expect.stringContaining(fd.latestVersionId),
@@ -134,7 +134,7 @@ describe('commands', () => {
       jest.replaceProperty(process, 'argv', ['cp', fileName, '/f1']);
       await executor.execute(parse());
 
-      const f1 = client.getRootDirectory().findFiles(['f1'])[0];
+      const f1 = client.dir.root().findFiles(['f1'])[0];
       expect(f1.name).toEqual('f1');
 
       fs.rmSync(fileName);
@@ -154,30 +154,30 @@ describe('commands', () => {
       const client = await createMockClient();
       const executor = getExecutor(client);
 
-      await client.uploadFile(
-        { under: client.getRootDirectory() },
+      await client.file.upload(
+        { under: client.dir.root() },
         { name: 'f1', buffer: Buffer.from('content') },
       );
 
       jest.replaceProperty(process, 'argv', ['rm', '/f1']);
       await executor.execute(parse());
 
-      expect(client.getRootDirectory().findFiles(['f1']).length).toEqual(0);
+      expect(client.dir.root().findFiles(['f1']).length).toEqual(0);
     });
 
     it('should remove a directory', async () => {
       const client = await createMockClient();
       const executor = getExecutor(client);
 
-      await client.createDirectory({
+      await client.dir.create({
         name: 'd1',
-        under: client.getRootDirectory(),
+        under: client.dir.root(),
       });
 
       jest.replaceProperty(process, 'argv', ['rm', '/d1']);
       await executor.execute(parse());
 
-      expect(client.getRootDirectory().findDirs(['d1']).length).toEqual(0);
+      expect(client.dir.root().findDirs(['d1']).length).toEqual(0);
     });
 
     it('should throw an error if path does not exist', async () => {
@@ -192,11 +192,11 @@ describe('commands', () => {
       const client = await createMockClient();
       const executor = getExecutor(client);
 
-      const d1 = await client.createDirectory({
+      const d1 = await client.dir.create({
         name: 'd1',
-        under: client.getRootDirectory(),
+        under: client.dir.root(),
       });
-      await client.uploadFile(
+      await client.file.upload(
         { under: d1 },
         { name: 'f1', buffer: Buffer.from('content') },
       );
@@ -215,7 +215,7 @@ describe('commands', () => {
       jest.replaceProperty(process, 'argv', ['rm', '/d1', '-r']);
       await executor.execute(parse());
 
-      expect(client.getRootDirectory().findDirs(['d1']).length).toEqual(0);
+      expect(client.dir.root().findDirs(['d1']).length).toEqual(0);
     });
   });
 
@@ -227,7 +227,7 @@ describe('commands', () => {
       jest.replaceProperty(process, 'argv', ['touch', '/f1']);
       await executor.execute(parse());
 
-      const f1 = client.getRootDirectory().findFiles(['f1'])[0];
+      const f1 = client.dir.root().findFiles(['f1'])[0];
       expect(f1.name).toEqual('f1');
     });
   });
