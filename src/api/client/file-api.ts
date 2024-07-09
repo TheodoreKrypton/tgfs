@@ -6,7 +6,7 @@ import { FileDescApi } from './file-desc-api';
 import { MetaDataApi } from './metadata-api';
 import { GeneralFileMessage } from './model';
 
-export class FileRefApi {
+export class FileApi {
   constructor(
     private readonly metadataApi: MetaDataApi,
     private readonly fileDescApi: FileDescApi,
