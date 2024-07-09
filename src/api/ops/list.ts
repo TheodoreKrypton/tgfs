@@ -8,21 +8,21 @@ import { splitPath } from './utils';
 
 export const list =
   (client: Client) =>
-    async (
-      path: PathLike,
-    ): Promise<TGFSFileRef | Array<TGFSFileRef | TGFSDirectory>> => {
-      const [basePath, name] = splitPath(path);
-      const dir = navigateToDir(client)(basePath);
+  async (
+    path: PathLike,
+  ): Promise<TGFSFileRef | Array<TGFSFileRef | TGFSDirectory>> => {
+    const [basePath, name] = splitPath(path);
+    const dir = navigateToDir(client)(basePath);
 
-      let nextDir = dir;
+    let nextDir = dir;
 
-      if (name) {
-        nextDir = dir.findDir(name);
-      }
-      if (nextDir) {
-        return client.ls(nextDir);
-      } else {
-        // cannot find a sub-directory with the given name, so assume it's a file
-        return client.ls(dir, name);
-      }
-    };
+    if (name) {
+      nextDir = dir.findDir(name);
+    }
+    if (nextDir) {
+      return client.dir.ls(nextDir);
+    } else {
+      // cannot find a sub-directory with the given name, so assume it's a file
+      return client.dir.ls(dir, name);
+    }
+  };

@@ -9,7 +9,7 @@ export const removeFile = (client: Client) => async (path: string) => {
   const dir = navigateToDir(client)(basePath);
   const fileRef = dir.findFiles([name])[0];
   if (fileRef) {
-    await client.deleteFile(fileRef);
+    await client.file.rm(fileRef);
   } else {
     throw new FileOrDirectoryDoesNotExistError(path, `remove file ${path}`);
   }

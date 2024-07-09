@@ -11,12 +11,12 @@ export const removeDir =
     if (!recursive) {
       const child = dir.findDirs([name])[0];
       if (child) {
-        await client.deleteEmptyDirectory(child);
+        await client.dir.rmEmpty(child);
       } else {
         throw new FileOrDirectoryDoesNotExistError(path, `remove dir ${path}`);
       }
     } else {
       const nextDir = name ? dir.findDirs([name])[0] : dir;
-      await client.dangerouslyDeleteDirectory(nextDir);
+      await client.dir.rmDangerously(nextDir);
     }
   };

@@ -7,7 +7,7 @@ export const navigateToDir = (client: Client) => (path: string) => {
     .split('/')
     .filter((part) => part !== '');
 
-  let currentDirectory = client.getRootDirectory();
+  let currentDirectory = client.dir.root();
 
   for (const pathPart of pathParts) {
     const directory = currentDirectory.findDirs([pathPart])[0];

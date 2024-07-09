@@ -11,14 +11,14 @@ export const createDir =
     if (!parents) {
       const [basePath, name] = splitPath(path);
       const dir = navigateToDir(client)(basePath);
-      return await client.createDirectory({ name: name, under: dir });
+      return await client.dir.create({ name: name, under: dir });
     } else {
       if (!path.startsWith('/')) {
         throw new RelativePathError(path);
       }
 
       const paths = path.split('/').filter((p) => p);
-      let currentDir = client.getRootDirectory();
+      let currentDir = client.dir.root();
       for (const p of paths) {
         const children = currentDir.findDirs([p]);
         if (children.length > 0) {
@@ -26,7 +26,7 @@ export const createDir =
           continue;
         }
 
-        const dir = await client.createDirectory({
+        const dir = await client.dir.create({
           name: p,
           under: currentDir,
         });

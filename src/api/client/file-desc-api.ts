@@ -1,6 +1,6 @@
 import { FileDescAPIResponse } from 'src/api/client/model';
 import { TGFSFileRef } from 'src/model/directory';
-import { TGFSFile } from 'src/model/file';
+import { TGFSFile, TGFSFileVersion } from 'src/model/file';
 
 import { GeneralFileMessage, isFileMessageEmpty } from './model';
 import { FileRepository } from './repository/impl/file';
@@ -29,6 +29,13 @@ export class FileDescApi {
 
   public async getFileDesc(fr: TGFSFileRef): Promise<TGFSFile> {
     return await this.fdRepo.get(fr);
+  }
+
+  public async *downloadFileAtVersion(
+    asName: string,
+    version: TGFSFileVersion,
+  ): AsyncGenerator<Buffer> {
+    return this.fileRepo.downloadFile(asName, version.messageId);
   }
 
   public async addFileVersion(

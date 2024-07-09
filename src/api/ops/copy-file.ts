@@ -28,6 +28,6 @@ export const copyFile =
     const [basePathTo, nameTo] = splitPath(pathTo);
     const dir2 = navigateToDir(client)(basePathTo);
 
-    const res = await client.copyFile(dir2, frToCopy, nameTo ?? nameFrom);
+    const res = await client.file.copy(dir2, frToCopy, nameTo ?? nameFrom);
     return { from: frToCopy, to: res };
   };

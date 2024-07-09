@@ -10,6 +10,6 @@ export const createEmptyFile = (client: Client) => async (path: PathLike) => {
   const dir = navigateToDir(client)(basePath);
 
   if (!existsSync(path)) {
-    return await client.uploadFile({ under: dir }, { name, empty: true });
+    return await client.file.upload({ under: dir }, { name, empty: true });
   }
 };

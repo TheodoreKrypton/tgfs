@@ -152,7 +152,7 @@ export class TGFSFileSystem extends VirtualFileSystem {
   ): Promise<TGFSFileRef | (TGFSFileRef | TGFSDirectory)[]> {
     const res = await list(this.tgClient)(path.toString());
     if (res instanceof TGFSFileRef) {
-      const fd = await this.tgClient.getFileDesc(res);
+      const fd = await this.tgClient.file.desc(res);
       this.resources[path.toString()] = TGFSFileResource.fromFileDesc(fd);
     } else {
       this.resources[path.toString()] = new TGFSDirResource();
@@ -169,7 +169,7 @@ export class TGFSFileSystem extends VirtualFileSystem {
         .filter((res) => res instanceof TGFSFileRef)
         .map((fr) => {
           return (async () => {
-            const fd = await this.tgClient.getFileDesc(fr as TGFSFileRef);
+            const fd = await this.tgClient.file.desc(fr as TGFSFileRef);
             if (path.toString() === '/') {
               this.resources[`/${fr.name}`] = TGFSFileResource.fromFileDesc(fd);
             } else {
@@ -315,10 +315,7 @@ export class TGFSFileSystem extends VirtualFileSystem {
         const fileRef = (await list(this.tgClient)(
           path.toString(),
         )) as TGFSFileRef;
-        const chunks = this.tgClient.downloadLatestVersion(
-          fileRef,
-          fileRef.name,
-        );
+        const chunks = this.tgClient.file.retrieve(fileRef, fileRef.name);
 
         callback(null, Readable.from(chunks));
       } catch (err) {

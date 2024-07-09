@@ -1,5 +1,5 @@
 import { TGFSDirectory, TGFSFileRef } from 'src/model/directory';
-import { TGFSFile } from 'src/model/file';
+import { TGFSFile, TGFSFileVersion } from 'src/model/file';
 import { validateName } from 'src/utils/validate-name';
 
 import { FileDescApi } from './file-desc-api';
@@ -12,7 +12,7 @@ export class FileRefApi {
     private readonly fileDescApi: FileDescApi,
   ) {}
 
-  public async copyFile(
+  public async copy(
     where: TGFSDirectory,
     fr: TGFSFileRef,
     name?: string,
@@ -22,7 +22,7 @@ export class FileRefApi {
     return copiedFR;
   }
 
-  private async createFile(
+  private async create(
     where: TGFSDirectory,
     fileMsg: GeneralFileMessage,
   ): Promise<TGFSFile> {
@@ -45,7 +45,7 @@ export class FileRefApi {
     }
   }
 
-  private async updateFile(
+  private async update(
     fr: TGFSFileRef,
     fileMsg: GeneralFileMessage,
     versionId?: string,
@@ -57,7 +57,7 @@ export class FileRefApi {
     return fd;
   }
 
-  public async deleteFile(fr: TGFSFileRef, version?: string): Promise<void> {
+  public async rm(fr: TGFSFileRef, version?: string): Promise<void> {
     if (!version) {
       fr.delete();
       await this.metadataApi.syncMetadata();
@@ -70,7 +70,7 @@ export class FileRefApi {
     }
   }
 
-  public async uploadFile(
+  public async upload(
     where: {
       under: TGFSDirectory;
       versionId?: string;
@@ -79,9 +79,34 @@ export class FileRefApi {
   ): Promise<TGFSFile> {
     const fr = where.under.findFiles([fileMsg.name])[0];
     if (fr) {
-      return await this.updateFile(fr, fileMsg, where.versionId);
+      return await this.update(fr, fileMsg, where.versionId);
     } else {
-      return await this.createFile(where.under, fileMsg);
+      return await this.create(where.under, fileMsg);
     }
+  }
+
+  public async *retrieve(
+    fr: TGFSFileRef,
+    asName?: string,
+  ): AsyncGenerator<Buffer> {
+    const fd = await this.desc(fr);
+
+    if (fd.isEmptyFile()) {
+      yield Buffer.from('');
+    } else {
+      const version = fd.getLatest();
+      yield* this.fileDescApi.downloadFileAtVersion(asName ?? fr.name, version);
+    }
+  }
+
+  public async *retrieveVersion(
+    version: TGFSFileVersion,
+    asName: string,
+  ): AsyncGenerator<Buffer> {
+    yield* this.fileDescApi.downloadFileAtVersion(asName, version);
+  }
+
+  public async desc(fr: TGFSFileRef): Promise<TGFSFile> {
+    return await this.fileDescApi.getFileDesc(fr);
   }
 }

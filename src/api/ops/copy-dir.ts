@@ -32,7 +32,7 @@ export const copyDir =
     const [basePathTo, nameTo] = splitPath(pathTo);
     const dir2 = navigateToDir(client)(basePathTo);
 
-    const res = await client.createDirectory(
+    const res = await client.dir.create(
       { name: nameTo ?? nameFrom, under: dir2 },
       dirToCopy,
     );

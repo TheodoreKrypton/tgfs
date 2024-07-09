@@ -5,7 +5,7 @@ import { TGFSMetadata } from 'src/model/metadata';
 
 import { FileRepository } from '../file';
 
-export class MetadataRepository implements IMetaDataRepository {
+export class JSONMetadataRepository implements IMetaDataRepository {
   constructor(
     private readonly msgApi: MessageApi,
     private readonly fileRepo: FileRepository,

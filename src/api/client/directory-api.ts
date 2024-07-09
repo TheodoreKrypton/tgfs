@@ -10,9 +10,11 @@ import { MetaDataApi } from './metadata-api';
 export class DirectoryApi {
   constructor(private metadataApi: MetaDataApi) {}
 
+  public root() {
+    return this.metadataApi.getRootDirectory();
+  }
 
-
-  public async createDirectory(
+  public async create(
     where: { name: string; under: TGFSDirectory },
     dir?: TGFSDirectory,
   ) {
@@ -38,14 +40,14 @@ export class DirectoryApi {
     return [...dir.findDirs(), ...dir.findFiles()];
   }
 
-  public async deleteEmptyDirectory(directory: TGFSDirectory) {
+  public async rmEmpty(directory: TGFSDirectory) {
     if (directory.findDirs().length > 0 || directory.findFiles().length > 0) {
       throw new DirectoryIsNotEmptyError();
     }
-    await this.dangerouslyDeleteDirectory(directory);
+    await this.rmDangerously(directory);
   }
 
-  public async dangerouslyDeleteDirectory(directory: TGFSDirectory) {
+  public async rmDangerously(directory: TGFSDirectory) {
     directory.delete();
     await this.metadataApi.syncMetadata();
   }
