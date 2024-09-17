@@ -1,6 +1,8 @@
 import { Hash, createHash } from 'crypto';
 import fs from 'fs';
 
+
+
 import bigInt from 'big-integer';
 
 import { MessageApi } from 'src/api/client/message-api';
@@ -162,6 +164,7 @@ export class FileRepository {
         task.reportProgress(downloaded);
       }
     } catch (err) {
+      Logger.error(`Error downloading file: ${err}`);
       task.setErrors([err]);
       throw err;
     } finally {

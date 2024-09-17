@@ -35,7 +35,7 @@ export class FileDescApi {
     asName: string,
     version: TGFSFileVersion,
   ): AsyncGenerator<Buffer> {
-    return this.fileRepo.downloadFile(asName, version.messageId);
+    yield* this.fileRepo.downloadFile(asName, version.messageId);
   }
 
   public async addFileVersion(

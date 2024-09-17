@@ -1,5 +1,7 @@
 import { RPCError } from 'telegram/errors';
 
+
+
 import { IBot, TDLibApi } from 'src/api/interface';
 import { DownloadFileResp, MessageResp } from 'src/api/types';
 import { config } from 'src/config';
@@ -74,8 +76,8 @@ export class MessageApi extends MessageBroker {
     });
   }
 
-  public async downloadFile(messageId: number): Promise<DownloadFileResp> {
-    return await this.tdlib.account.downloadFile({
+  public downloadFile(messageId: number): Promise<DownloadFileResp> {
+    return this.tdlib.account.downloadFile({
       chatId: this.privateChannelId,
       messageId: messageId,
       chunkSize: config.tgfs.download.chunk_size_kb,

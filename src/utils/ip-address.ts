@@ -1,12 +1,13 @@
 import os from 'os';
 
+
 type IpFamily = 'IPv4' | 'IPv6';
 
 const loopback = (family?: IpFamily): string => {
   return family === 'IPv4' ? '127.0.0.1' : 'fe80::1';
 };
 
-export const getIPAddress = (family: IpFamily): string => {
+export const getIPAddress = (family: IpFamily): string[] => {
   const interfaces = os.networkInterfaces();
 
   const all = Object.keys(interfaces)
@@ -18,6 +19,5 @@ export const getIPAddress = (family: IpFamily): string => {
       return addresses.length ? addresses[0].address : undefined;
     })
     .filter(Boolean);
-  console.log(all);
-  return all.length ? all[0] : loopback(family);
+  return [...all, loopback(family)];
 };
