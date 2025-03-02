@@ -1,0 +1,50 @@
+azure:
+  key_vault:
+    url: https://your-keyvault-name.vault.azure.net/
+    enabled: true
+    secret_mapping:
+      api_id: tgfs-api-id
+      api_hash: tgfs-api-hash
+      bot_token: tgfs-bot-token
+      private_file_channel: tgfs-private-file-channel
+      password: tgfs-user-password
+      jwt_secret: tgfs-jwt-secret
+
+telegram:
+  # These values will be overridden by Key Vault if enabled
+  api_id: your_api_id (mandatory, refer to README)
+  api_hash: your_api_hash (mandatory, refer to README)
+  account:
+    session_file: ~/.tgfs/account.session
+  bot:
+    token: your_bot_token (mandatory, apply from @BotFather)
+    session_file: ~/.tgfs/bot.session
+  login_timeout: 300000
+  private_file_channel: your_channel_id (mandatory, refer to README)
+  public_file_channel: 0
+
+tgfs:
+  users:
+    user:
+      # Password will be loaded from Key Vault as tgfs-user-password-user if enabled
+      password: password
+  download:
+    chunk_size_kb: 1024
+
+webdav:
+  host: 0.0.0.0
+  port: 1900
+  path: /
+
+manager:
+  host: 0.0.0.0
+  port: 1901
+  path: /
+  bot:
+    token: your_bot_token (optional, apply from @BotFather)
+    chat_id: your_chat_id (optional, the chat id between you and your bot)
+  jwt:
+    # Secret will be loaded from Key Vault as tgfs-jwt-secret if enabled
+    secret: your_jwt_secret
+    algorithm: HS256
+    life: 604800 

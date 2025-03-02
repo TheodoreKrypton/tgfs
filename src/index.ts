@@ -2,8 +2,6 @@
 import express from 'express';
 import fs from 'fs';
 
-
-
 import { exit } from 'process';
 import { v2 as webdav } from 'webdav-server';
 import yargs from 'yargs';
@@ -41,11 +39,11 @@ const { argv }: any = yargs(hideBin(process.argv))
   }
 
   try {
-    loadConfig(configPath);
+    await loadConfig(configPath);
   } catch (err) {
     Logger.debug(err);
     configPath = await createConfig();
-    loadConfig(configPath);
+    await loadConfig(configPath);
   }
 
   const client = await createClient();

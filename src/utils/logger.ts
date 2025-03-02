@@ -21,6 +21,10 @@ export class Logger {
     console.info(`[${this.getTime()}] [INFO]  ${this.prefix()}`, ...args);
   }
 
+  static warn(...args: any[]) {
+    console.warn(`[${this.getTime()}] [WARN]  ${this.prefix()}`, ...args);
+  }
+
   static errorMsg(err: string | Error) {
     if (err instanceof AggregatedError) {
       err.errors.forEach((e) => this.errorMsg(e));

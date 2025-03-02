@@ -1,0 +1,55 @@
+azure:
+  key_vault:
+    # Replace with your actual Azure Key Vault URL
+    url: https://your-keyvault-name.vault.azure.net/
+    enabled: true
+    secret_mapping:
+      api_id: tgfs-api-id
+      api_hash: tgfs-api-hash
+      bot_token: tgfs-bot-token
+      private_file_channel: tgfs-private-file-channel
+      password: tgfs-user-password
+      jwt_secret: tgfs-jwt-secret
+
+telegram:
+  # These values will be used as fallbacks if Key Vault retrieval fails
+  # You can leave them empty or with placeholder values for security
+  api_id: 0
+  api_hash: ""
+  account:
+    session_file: ~/.tgfs/account.session
+  bot:
+    token: ""
+    session_file: ~/.tgfs/bot.session
+  login_timeout: 300000
+  private_file_channel: ""
+  public_file_channel: ""
+
+tgfs:
+  users:
+    # Define your users here
+    # Passwords will be loaded from Key Vault as tgfs-user-password-{username}
+    admin:
+      password: ""  # Will be loaded from Key Vault as tgfs-user-password-admin
+    user:
+      password: ""  # Will be loaded from Key Vault as tgfs-user-password-user
+  download:
+    chunk_size_kb: 1024
+
+webdav:
+  host: 0.0.0.0
+  port: 1900
+  path: /
+
+manager:
+  host: 0.0.0.0
+  port: 1901
+  path: /
+  bot:
+    token: ""  # Optional, will use the main bot token if not specified
+    chat_id: 0
+  jwt:
+    # Will be loaded from Key Vault as tgfs-jwt-secret
+    secret: ""
+    algorithm: HS256
+    life: 604800 

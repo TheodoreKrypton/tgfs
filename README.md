@@ -113,6 +113,18 @@ A config file will be auto-generated when you run the program for the first time
 
 ## Config fields explanation
 
+- azure
+  - key_vault
+    - url: The URL of your Azure Key Vault (e.g., https://your-vault.vault.azure.net/)
+    - enabled: Whether to use Azure Key Vault for secrets
+    - secret_mapping: Mapping of TGFS config keys to Azure Key Vault secret names
+      - api_id: Secret name for the Telegram API ID
+      - api_hash: Secret name for the Telegram API Hash
+      - bot_token: Secret name for the Telegram Bot Token
+      - private_file_channel: Secret name for the Private File Channel ID
+      - password: Base secret name for user passwords (will be suffixed with username)
+      - jwt_secret: Secret name for the JWT Secret
+
 - telegram
 
   - account/bot:
@@ -139,3 +151,26 @@ Frequently sending messages may get your account banned, so using a bot is the b
 **Q: Why do I need an account API then?**
 
 The functionality of bot API is limited. For example, a bot can neither read history messages, nor send files exceeding 50MB. The account API is used when a bot cannot do the job.
+
+## Azure Key Vault Integration
+
+TGFS supports storing sensitive configuration values in Azure Key Vault. This is particularly useful when running in Azure environments with managed identities.
+
+### Setting up Azure Key Vault Integration
+
+1. Create an Azure Key Vault in your Azure subscription
+2. Create secrets in the Key Vault for each sensitive value (api_id, api_hash, bot_token, etc.)
+3. If running on an Azure VM, ensure the VM has a managed identity assigned
+4. Grant the managed identity "Get" permissions for secrets in the Key Vault
+5. Configure TGFS to use Azure Key Vault by setting the appropriate values in the config file
+
+### Example Configuration
+
+See `example-config-azure.yaml` for a complete example of how to configure Azure Key Vault integration.
+
+### Local Development
+
+For local development or when running outside of Azure, you can:
+1. Set `azure.key_vault.enabled` to `false` to use values directly from the config file
+2. Use Azure CLI to authenticate (`az login`) before running TGFS
+3. Use environment variables for Azure authentication

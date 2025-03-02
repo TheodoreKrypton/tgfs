@@ -24,6 +24,7 @@ describe('config', () => {
         'mock-bot-token',
       'Create a PRIVATE channel and paste the channel id here\nChannel to store the files':
         '1919810',
+      'Do you want to use Azure Key Vault for secrets?': false,
     };
 
     const getAnswer = async (prompt: string) => {
@@ -37,7 +38,7 @@ describe('config', () => {
     });
 
     await createConfig();
-    const config = loadConfig(configPath);
+    const config = await loadConfig(configPath);
 
     expect(config.telegram).toEqual({
       api_id: 114514,

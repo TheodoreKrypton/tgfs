@@ -4,8 +4,24 @@ import input from 'input';
 import yaml from 'js-yaml';
 import os from 'os';
 import path from 'path';
+import { KeyVaultClient, getSecretOrDefault } from './utils/key-vault';
+import { Logger } from './utils/logger';
 
 export type Config = {
+  azure?: {
+    key_vault?: {
+      url: string;
+      enabled: boolean;
+      secret_mapping?: {
+        api_id?: string;
+        api_hash?: string;
+        bot_token?: string;
+        private_file_channel?: string;
+        password?: string;
+        jwt_secret?: string;
+      };
+    };
+  };
   telegram: {
     api_id: number;
     api_hash: string;
@@ -52,7 +68,7 @@ export type Config = {
 
 export let config: Config;
 
-export const loadConfig = (configPath: string): Config => {
+export const loadConfig = async (configPath: string): Promise<Config> => {
   const file = fs.readFileSync(configPath, 'utf8');
   const cfg = yaml.load(file);
 
@@ -68,26 +84,81 @@ export const loadConfig = (configPath: string): Config => {
     return session_file;
   };
 
+  // Initialize Key Vault client if enabled
+  let keyVaultClient: KeyVaultClient | null = null;
+  const azureConfig = cfg['azure']?.['key_vault'];
+  const useKeyVault = azureConfig?.enabled === true && azureConfig?.url;
+  
+  if (useKeyVault) {
+    Logger.info('Azure Key Vault integration enabled, initializing client...');
+    keyVaultClient = KeyVaultClient.getInstance(azureConfig.url);
+    if (!keyVaultClient.isInitialized()) {
+      Logger.warn('Failed to initialize Azure Key Vault client, falling back to file-based configuration');
+    }
+  }
+
+  // Load secrets from Key Vault or config file
+  const secretMapping = azureConfig?.secret_mapping || {};
+  
+  // Load API ID (convert to number)
+  const apiIdSecret = useKeyVault && secretMapping.api_id 
+    ? await getSecretOrDefault(keyVaultClient, secretMapping.api_id, cfg['telegram']['api_id'])
+    : cfg['telegram']['api_id'];
+  
+  // Load API Hash
+  const apiHashSecret = useKeyVault && secretMapping.api_hash
+    ? await getSecretOrDefault(keyVaultClient, secretMapping.api_hash, cfg['telegram']['api_hash'])
+    : cfg['telegram']['api_hash'];
+  
+  // Load Bot Token
+  const botTokenSecret = useKeyVault && secretMapping.bot_token
+    ? await getSecretOrDefault(keyVaultClient, secretMapping.bot_token, cfg['telegram']['bot']['token'])
+    : cfg['telegram']['bot']['token'];
+  
+  // Load Private File Channel
+  const privateFileChannelSecret = useKeyVault && secretMapping.private_file_channel
+    ? await getSecretOrDefault(keyVaultClient, secretMapping.private_file_channel, cfg['telegram']['private_file_channel'])
+    : cfg['telegram']['private_file_channel'];
+  
+  // Load JWT Secret
+  const jwtSecretSecret = useKeyVault && secretMapping.jwt_secret
+    ? await getSecretOrDefault(keyVaultClient, secretMapping.jwt_secret, cfg['manager']['jwt']['secret'])
+    : cfg['manager']['jwt']['secret'];
+
+  // Load user passwords
+  const users = cfg['tgfs']['users'] || {};
+  if (useKeyVault && secretMapping.password) {
+    for (const username in users) {
+      const passwordKey = `${secretMapping.password}-${username}`;
+      users[username].password = await getSecretOrDefault(
+        keyVaultClient, 
+        passwordKey, 
+        users[username].password
+      );
+    }
+  }
+
   config = {
+    azure: cfg['azure'],
     telegram: {
-      api_id: cfg['telegram']['api_id'],
-      api_hash: cfg['telegram']['api_hash'],
+      api_id: Number(apiIdSecret),
+      api_hash: apiHashSecret,
       account: {
         session_file: getSessionFilePath(
           cfg['telegram']['account']['session_file'],
         ),
       },
       bot: {
-        token: cfg['telegram']['bot']['token'],
+        token: botTokenSecret,
         session_file: getSessionFilePath(
           cfg['telegram']['bot']['session_file'],
         ),
       },
-      private_file_channel: `-100${cfg['telegram']['private_file_channel']}`,
+      private_file_channel: `-100${privateFileChannelSecret}`,
       public_file_channel: cfg['telegram']['public_file_channel'],
     },
     tgfs: {
-      users: cfg['tgfs']['users'],
+      users: users,
       download: {
         chunk_size_kb: cfg['tgfs']['download']['chunk_size_kb'] ?? 1024,
       },
@@ -106,7 +177,7 @@ export const loadConfig = (configPath: string): Config => {
         chat_id: cfg['manager']['bot']['chat_id'],
       },
       jwt: {
-        secret: cfg['manager']['jwt']['secret'],
+        secret: jwtSecretSecret,
         algorithm: cfg['manager']['jwt']['algorithm'] ?? 'HS256',
         life: cfg['manager']['jwt']['life'],
       },
@@ -147,7 +218,36 @@ export const createConfig = async (): Promise<string> => {
     return secret;
   };
 
+  const useAzureKeyVault = await input.confirm(
+    'Do you want to use Azure Key Vault for secrets?',
+    { default: false }
+  );
+
+  let azureConfig = undefined;
+  if (useAzureKeyVault) {
+    const keyVaultUrl = await input.text(
+      'Enter your Azure Key Vault URL (e.g., https://your-vault.vault.azure.net/)',
+      { validate: validateNotEmpty }
+    );
+
+    azureConfig = {
+      key_vault: {
+        url: keyVaultUrl,
+        enabled: true,
+        secret_mapping: {
+          api_id: await input.text('Secret name for api_id in Key Vault', { default: 'tgfs-api-id' }),
+          api_hash: await input.text('Secret name for api_hash in Key Vault', { default: 'tgfs-api-hash' }),
+          bot_token: await input.text('Secret name for bot token in Key Vault', { default: 'tgfs-bot-token' }),
+          private_file_channel: await input.text('Secret name for private_file_channel in Key Vault', { default: 'tgfs-private-file-channel' }),
+          password: await input.text('Base secret name for user passwords in Key Vault (will be suffixed with username)', { default: 'tgfs-user-password' }),
+          jwt_secret: await input.text('Secret name for JWT secret in Key Vault', { default: 'tgfs-jwt-secret' }),
+        }
+      }
+    };
+  }
+
   const res: Config = {
+    azure: azureConfig,
     telegram: {
       api_id: Number(
         await input.text(
