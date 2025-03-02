@@ -55,6 +55,28 @@ export class KeyVaultClient {
   }
 
   /**
+   * Set a secret in Azure Key Vault
+   * @param secretName The name of the secret to set
+   * @param secretValue The value of the secret to set
+   * @returns true if successful, false otherwise
+   */
+  public async setSecret(secretName: string, secretValue: string): Promise<boolean> {
+    if (!this.client) {
+      Logger.warn(`Azure Key Vault client not initialized, cannot set secret: ${secretName}`);
+      return false;
+    }
+
+    try {
+      await this.client.setSecret(secretName, secretValue);
+      Logger.info(`Secret ${secretName} set successfully in Key Vault`);
+      return true;
+    } catch (error) {
+      Logger.error(`Failed to set secret ${secretName}: ${error.message}`);
+      return false;
+    }
+  }
+
+  /**
    * Check if the Key Vault client is initialized
    * @returns true if initialized, false otherwise
    */
