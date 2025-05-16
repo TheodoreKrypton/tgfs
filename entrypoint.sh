@@ -1,1 +1,0 @@
-node /tgfs/index.js $@
