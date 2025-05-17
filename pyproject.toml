@@ -1,0 +1,24 @@
+[project]
+name = "tgfs"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "WheatCarrier",email = "wheatcarrier@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "telethon (>=1.40.0,<2.0.0)",
+    "wsgidav (>=4.3.3,<5.0.0)",
+    "cheroot (>=10.0.1,<11.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.15.0"
+ruff = "^0.11.10"
+
