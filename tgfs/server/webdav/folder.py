@@ -6,11 +6,12 @@ from wsgidav.dav_provider import DAVCollection
 
 from .resource import Resource
 
+
 class Folder(DAVCollection):
     def __init__(self, path: str, environ):
         super().__init__(path, environ)
         self.items = {}
-        self.created =  time.time()
+        self.created = time.time()
         self.modified = self.created
 
     def get_creation_date(self) -> Optional[float]:

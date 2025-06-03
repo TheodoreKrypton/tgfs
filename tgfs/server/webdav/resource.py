@@ -1,3 +1,5 @@
+import aiofiles
+import asyncio
 import io
 import time
 from typing import Optional
@@ -28,7 +30,20 @@ class Resource(DAVNonCollection):
         return self.name
 
     def get_content(self):
-        return io.BytesIO(self.content)
+        res = io.BytesIO()
+
+        async def pipe_content():
+            async with aiofiles.open(self.path, "rb") as f:
+                while True:
+                    chunk = await f.read(8192)
+                    if not chunk:
+                        break
+                    res.write(chunk)
+
+        if self.content:
+            asyncio.run(pipe_content())
+
+        return res
 
     def support_etag(self):
         return True
@@ -51,4 +66,5 @@ class Resource(DAVNonCollection):
             def close(self):
                 self.resource.content = b"".join(self.buffer)
                 self.resource.modified = time.time()
+
         return WriteContext(self)

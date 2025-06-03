@@ -4,7 +4,7 @@ from tgfs.server.webdav.folder import Folder
 
 
 class Provider(DAVProvider):
-    def __init__(self):
+    def __init__(self, client):
         super().__init__()
         self.root = Folder("/", {"wsgidav.provider": self})
 

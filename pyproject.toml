@@ -6,11 +6,13 @@ authors = [
     {name = "WheatCarrier",email = "wheatcarrier@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<4.0"
 dependencies = [
     "telethon (>=1.40.0,<2.0.0)",
     "wsgidav (>=4.3.3,<5.0.0)",
-    "cheroot (>=10.0.1,<11.0.0)"
+    "cheroot (>=10.0.1,<11.0.0)",
+    "pyrate-limiter (>=3.7.0,<4.0.0)",
+    "aiofiles (>=24.1.0,<25.0.0)",
 ]
 
 
@@ -21,4 +23,4 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.15.0"
 ruff = "^0.11.10"
-
+black = "^25.1.0"

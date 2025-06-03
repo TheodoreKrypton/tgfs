@@ -1,0 +1,77 @@
+from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
+
+from .types import (
+    GetMessagesReq,
+    SendTextReq,
+    GetMessagesResp,
+    SendMessageResp,
+    EditMessageTextReq,
+    SearchMessageReq,
+    GetPinnedMessageReq,
+    PinMessageReq,
+    SaveBigFilePartReq,
+    SaveFilePartResp,
+    SaveFilePartReq,
+    SendFileReq,
+    EditMessageMediaReq,
+    Message,
+    DownloadFileReq,
+    DownloadFileResp
+)
+
+
+class ITDLibClient(metaclass=ABCMeta):
+    @abstractmethod
+    async def get_messages(self, req: GetMessagesReq) -> GetMessagesResp:
+        pass
+
+    @abstractmethod
+    async def send_text(self, req: SendTextReq) -> SendMessageResp:
+        pass
+
+    @abstractmethod
+    async def edit_message_text(self, req: EditMessageTextReq) -> SendMessageResp:
+        pass
+
+    @abstractmethod
+    async def search_messages(self, req: SearchMessageReq) -> GetMessagesResp:
+        pass
+
+    @abstractmethod
+    async def get_pinned_messages(self, req: GetPinnedMessageReq) -> GetMessagesResp:
+        pass
+
+    @abstractmethod
+    async def pin_message(self, req: PinMessageReq) -> None:
+        pass
+
+    @abstractmethod
+    async def save_big_file_part(self, req: SaveBigFilePartReq) -> SaveFilePartResp:
+        pass
+
+    @abstractmethod
+    async def save_file_part(self, req: SaveFilePartReq) -> SaveFilePartResp:
+        pass
+
+    @abstractmethod
+    async def send_big_file(self, req: SendFileReq) -> SendMessageResp:
+        pass
+
+    @abstractmethod
+    async def send_small_file(self, req: SendFileReq) -> SendMessageResp:
+        pass
+
+    @abstractmethod
+    async def edit_message_media(self, req: EditMessageMediaReq) -> Message:
+        pass
+
+    @abstractmethod
+    async def download_file(self, req: DownloadFileReq) -> DownloadFileResp:
+        pass
+
+
+@dataclass
+class TDLibApi:
+    account: ITDLibClient
+    bot: ITDLibClient
