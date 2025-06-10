@@ -3,7 +3,7 @@ from typing import Optional
 from tgfs.api.client.api.file_desc import FileDescApi
 from tgfs.api.client.api.metadata import MetaDataApi
 from tgfs.api.client.api.model import GeneralFileMessage, FileMessageEmpty
-from tgfs.api.utils.byte_pipe import BytePipe
+from asgidav.byte_pipe import BytePipe
 from tgfs.model.directory import TGFSDirectory, TGFSFileRef
 from tgfs.model.file import TGFSFile, TGFSFileVersion
 from tgfs.utils.validate_name import validate_name
@@ -81,5 +81,7 @@ class FileApi:
                 as_name or fr.name, version
             )
 
-    def retrieve_version(self, version: TGFSFileVersion, as_name: str) -> BytePipe:
-        return self.__file_desc_api.download_file_at_version(as_name, version)
+    async def retrieve_version(
+        self, version: TGFSFileVersion, as_name: str
+    ) -> BytePipe:
+        return await self.__file_desc_api.download_file_at_version(as_name, version)

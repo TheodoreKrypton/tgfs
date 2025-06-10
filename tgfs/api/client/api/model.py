@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Union, Optional
 
 from tgfs.model.file import TGFSFile
-from tgfs.api.utils.byte_pipe import BytePipe
+from asgidav.byte_pipe import BytePipe
 
 
 @dataclass

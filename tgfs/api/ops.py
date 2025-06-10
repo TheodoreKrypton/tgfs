@@ -1,17 +1,18 @@
 import os.path
 
-from tgfs.api.client.api import Client
-from tgfs.api.client.api.model import (
+from asgidav.byte_pipe import BytePipe
+
+from tgfs.errors.path import InvalidPath, FileOrDirectoryDoesNotExist
+from tgfs.model.directory import TGFSDirectory, TGFSFileRef
+from tgfs.model.file import TGFSFile
+from .client.api.client import Client
+from .client.api.model import (
     FileMessageEmpty,
     FileTags,
     FileMessageFromPath,
     FileMessageFromBuffer,
     FileMessageFromStream,
 )
-from tgfs.api.utils.byte_pipe import BytePipe
-from tgfs.errors.path import InvalidPath, FileOrDirectoryDoesNotExist
-from tgfs.model.directory import TGFSDirectory, TGFSFileRef
-from tgfs.model.file import TGFSFile
 
 
 class Ops:
@@ -44,13 +45,22 @@ class Ops:
         next_dir = d
 
         if basename:
-            next_dir = d.find_dir(basename)
+            try:
+                next_dir = d.find_dir(basename)
+            except FileOrDirectoryDoesNotExist:
+                next_dir = None
 
         if next_dir:
             return self.__client.dir_api.ls(next_dir)
         else:
             # cannot find a subdirectory with the given name, so assume it's a file
             return self.__client.dir_api.ls(d, basename)
+
+    async def desc(self, path: str) -> TGFSFile:
+        file_ref = self.ls(path)
+        if not isinstance(file_ref, TGFSFileRef):
+            raise FileOrDirectoryDoesNotExist(path)
+        return await self.__client.file_api.desc(file_ref)
 
     async def cp_dir(
         self, path_from: str, path_to: str
@@ -203,3 +213,15 @@ class Ops:
                 name=basename, caption="", tags=FileTags(), stream=stream, size=size
             ),
         )
+
+    async def download(self, path: str, as_name: str) -> BytePipe:
+        self.__validate_path(path)
+        dirname, basename = os.path.dirname(path), os.path.basename(path)
+
+        d = self.cd(dirname)
+        file_ref = d.find_file(basename)
+
+        if not file_ref:
+            raise FileOrDirectoryDoesNotExist(path)
+
+        return await self.__client.file_api.retrieve(file_ref, as_name)

@@ -1,70 +1,52 @@
-import aiofiles
 import asyncio
 import io
-import time
 from typing import Optional
 
-from wsgidav.dav_provider import DAVNonCollection
+from asgidav.resource import Resource as _Resource
+
+from tgfs.api.client.api.client import Client
+from tgfs.api.ops import Ops
+from tgfs.model.file import TGFSFile
 
 
-class Resource(DAVNonCollection):
-    def __init__(self, path, environ, content=b""):
-        super().__init__(path, environ)
-        self.content = content
-        self.created = time.time()
-        self.modified = self.created
+class Resource(_Resource):
+    def __init__(self, path: str, client: Client):
+        super().__init__(path)
+        self.__client = client
+        self.__ops = Ops(client)
+        self.__fr = self.__ops.ls(path)
+        self.__fd_value: Optional[TGFSFile] = None
 
-    def get_content_length(self):
-        return len(self.content)
+    async def __fd(self) -> TGFSFile:
+        if self.__fd_value is None:
+            self.__fd_value = await self.__ops.desc(self.path)
+        return self.__fd_value
 
-    def get_content_type(self):
-        return "text/plain"
+    async def creation_date(self) -> int:
+        return int((await self.__fd()).created_at.timestamp())
 
-    def get_creation_date(self) -> Optional[float]:
-        return self.created
+    async def last_modified(self) -> int:
+        return int((await self.__fd()).get_latest_version().updated_at_timestamp)
 
-    def get_last_modified(self):
-        return self.modified
+    async def content_length(self):
+        return (await self.__fd()).get_latest_version().size
 
-    def get_display_name(self) -> str:
-        return self.name
+    async def content_type(self):
+        return "application/octet-stream"
 
-    def get_content(self):
+    async def display_name(self) -> str:
+        return self.__fr.name
+
+    async def get_content(self, begin: int = -1, end: int = -1) -> io.BytesIO:
         res = io.BytesIO()
 
         async def pipe_content():
-            async with aiofiles.open(self.path, "rb") as f:
-                while True:
-                    chunk = await f.read(8192)
-                    if not chunk:
-                        break
-                    res.write(chunk)
+            pipe = await self.__ops.download(self.path, "unnamed")
+            while True:
+                chunk = await pipe.read(8192)
+                if not chunk:
+                    break
+                res.write(chunk)
 
-        if self.content:
-            asyncio.run(pipe_content())
-
+        pipe_content()
         return res
-
-    def support_etag(self):
-        return True
-
-    def get_etag(self):
-        return f'"{hex(hash(self.content))}'[2:]
-
-    def support_ranges(self):
-        return False
-
-    def begin_write(self, *, content_type=None):
-        class WriteContext:
-            def __init__(self, resource):
-                self.resource = resource
-                self.buffer = []
-
-            def write(self, data):
-                self.buffer.append(data)
-
-            def close(self):
-                self.resource.content = b"".join(self.buffer)
-                self.resource.modified = time.time()
-
-        return WriteContext(self)

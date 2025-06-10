@@ -4,8 +4,8 @@ from typing import TypedDict, Literal
 class TGFSFileVersionSerialized(TypedDict):
     type: Literal["FV"]
     id: str
-    updated_at: int
-    message_id: int
+    updatedAt: int
+    messageId: int
     size: int
 
 

@@ -47,7 +47,7 @@ class TGMsgFDRepository(IFDRepository):
             )
             return TGFSFile.empty(f"[Content Not Found]${fr.name}")
 
-        fd = TGFSFile.from_dict(json.loads(message.message))
+        fd = TGFSFile.from_dict(json.loads(message.text))
 
         versions = fd.get_versions(exclude_empty=True)
 
@@ -57,8 +57,11 @@ class TGMsgFDRepository(IFDRepository):
 
         for i, version in enumerate(versions):
             if file_messages[i]:
-                version.size = file_messages[i].media.document.size
+                version.size = file_messages[i].document.size
             else:
+                logger.warning(
+                    f"File message for version {version.id} of {fr.name} not found"
+                )
                 version.set_invalid()
 
         if versions:

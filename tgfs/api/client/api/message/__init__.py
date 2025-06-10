@@ -1,4 +1,4 @@
-from telethon.errors import RPCError
+from telethon.errors import RPCError, MessageNotModifiedError
 from pyrate_limiter import Limiter, Duration, Rate, InMemoryBucket
 
 from tgfs.api.interface import TDLibApi
@@ -25,8 +25,12 @@ class MessageApi(MessageBatcher):
     def __init__(self, tdlib: TDLibApi):
         super().__init__(tdlib)
 
+    @staticmethod
+    def __try_acquire(name: str):
+        limiter.try_acquire(name)
+
     async def send_text(self, message: str) -> int:
-        await limiter.try_acquire("MessageApi.send_text")
+        self.__try_acquire("MessageApi.send_text")
         return (
             await self.tdlib.bot.send_text(
                 SendTextReq(chat_id=self.private_channel_id, text=message)
@@ -34,7 +38,7 @@ class MessageApi(MessageBatcher):
         ).message_id
 
     async def edit_message_text(self, message_id: int, message: str) -> int:
-        await limiter.try_acquire("MessageApi.edit_message_text")
+        self.__try_acquire("MessageApi.edit_message_text")
         try:
             return (
                 await self.tdlib.bot.edit_message_text(
@@ -45,16 +49,14 @@ class MessageApi(MessageBatcher):
                     )
                 )
             ).message_id
+        except MessageNotModifiedError:
+            return message_id
         except RPCError as e:
             if e.message == "Message to edit not found":
                 raise MessageNotFound(message_id=message_id)
             if e.message == "Message is not modified":
                 return message_id
             raise e
-
-    @staticmethod
-    def __try_acquire(name: str):
-        limiter.try_acquire(name)
 
     async def get_pinned_message(self) -> MessageResp:
         self.__try_acquire("MessageApi.get_pinned_message")

@@ -21,7 +21,11 @@ class Client:
         self.dir_api = dir_api
 
     @classmethod
-    async def create(cls, account: TelegramClient, bot: TelegramClient) -> "Client":
+    async def create(
+        cls,
+        account: TelegramClient,
+        bot: TelegramClient,
+    ) -> "Client":
         message_api = MessageApi(
             TDLibApi(account=TelethonAPI(account), bot=TelethonAPI(bot))
         )

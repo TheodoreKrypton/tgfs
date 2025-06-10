@@ -15,7 +15,7 @@ from tgfs.api.client.api.model import (
 )
 from tgfs.api.client.repository.impl.file.file_uploader import create_uploader
 from tgfs.api.types import SentFileMessage, EditMessageMediaReq
-from tgfs.api.utils.byte_pipe import BytePipe
+from asgidav.byte_pipe import BytePipe
 from tgfs.errors.base import TechnicalError
 from tgfs.model.file import EMPTY_FILE
 

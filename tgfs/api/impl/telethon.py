@@ -4,7 +4,7 @@ from getpass import getpass
 
 from telethon import TelegramClient, types as tlt, functions as tlf
 from telethon.sessions import StringSession
-from telethon.tl.types import InputDocumentFileLocation, PeerChannel
+from telethon.tl.types import InputDocumentFileLocation
 from telethon.errors import SessionPasswordNeededError
 
 from tgfs.api.interface import ITDLibClient
@@ -28,7 +28,7 @@ from tgfs.api.types import (
     DownloadFileReq,
     DownloadFileResp,
 )
-from tgfs.api.utils.byte_pipe import BytePipe
+from asgidav.byte_pipe import BytePipe
 from tgfs.config import Config
 
 
@@ -53,7 +53,7 @@ class TelethonAPI(ITDLibClient):
             if m.message:
                 obj.text = m.message
 
-            if doc := m.media.document:
+            if m.media and (doc := m.media.document):
                 obj.document = Document(
                     size=doc.size,
                     id=doc.id,

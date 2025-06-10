@@ -3,7 +3,7 @@ from typing import Iterable, Optional
 
 from telethon.tl.types import PeerChannel
 
-from tgfs.api.utils.byte_pipe import BytePipe
+from asgidav.byte_pipe import BytePipe
 
 
 @dataclass

@@ -4,7 +4,7 @@ from tgfs.api.client.api.model import GeneralFileMessage, FileMessageEmpty
 from tgfs.api.client.api.model import FileDescAPIResponse
 from tgfs.model.file import TGFSFile, TGFSFileVersion
 from tgfs.model.directory import TGFSFileRef
-from tgfs.api.utils.byte_pipe import BytePipe
+from asgidav.byte_pipe import BytePipe
 
 
 class FileDescApi:

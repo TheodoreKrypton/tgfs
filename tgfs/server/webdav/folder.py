@@ -1,33 +1,41 @@
-import time
-from typing import Optional
+from asgidav.folder import Folder as _Folder
 
-from wsgidav.dav_error import DAVError, HTTP_FORBIDDEN
-from wsgidav.dav_provider import DAVCollection
-
+from tgfs.api import Ops, Client
 from .resource import Resource
 
 
-class Folder(DAVCollection):
-    def __init__(self, path: str, environ):
-        super().__init__(path, environ)
-        self.items = {}
-        self.created = time.time()
-        self.modified = self.created
+class Folder(_Folder):
+    def __init__(self, path: str, client: Client):
+        super().__init__(path)
+        self.__client = client
+        self.__ops = Ops(client)
+        self.__folder = client.dir_api.root if path == "/" else self.__ops.cd(path)
+        self.__sub_folders = frozenset([d.name for d in self.__folder.find_dirs()])
+        self.__sub_files = frozenset([f.name for f in self.__folder.find_files()])
 
-    def get_creation_date(self) -> Optional[float]:
-        return self.created
+    async def display_name(self) -> str:
+        return self.__folder.name
 
-    def get_last_modified(self):
-        return self.modified
+    async def member_names(self):
+        return self.__sub_folders.union(self.__sub_files)
 
-    def get_display_name(self) -> str:
-        return self.name
+    async def member(self, path: str):
+        names = path.split("/", 1)
 
-    def get_member_names(self):
-        return list(self.items.keys())
+        if names[0] == "":
+            return self
 
-    def get_member(self, name):
-        return self.items.get(name)
+        if names[0] in self.__sub_files:
+            return Resource(self._sub_path(names[0]), self.__client)
+
+        if names[0] in self.__sub_folders:
+            if len(names) > 1:
+                return await Folder(self._sub_path(names[0]), self.__client).member(
+                    names[1]
+                )
+            return Folder(self._sub_path(names[0]), self.__client)
+
+        return None
 
     def _sub_path(self, name: str):
         if self.path.endswith("/"):
@@ -35,27 +43,14 @@ class Folder(DAVCollection):
         else:
             return f"{self.path}/{name}"
 
-    def create_empty_resource(self, name: str):
-        assert name not in self.items, f"Resource {name} already exists"
-        path = self._sub_path(name)
-        resource = Resource(str(path), self.environ)
-        self.items[name] = resource
-        self.modified = time.time()
-        return resource
+    async def create_empty_resource(self, name: str):
+        return await self.__ops.touch(self._sub_path(name))
 
-    def create_collection(self, name: str):
-        assert name not in self.items, f"Folder {name} already exists"
-        path = self._sub_path(name)
-        folder = Folder(path, self.environ)
-        self.items[name] = folder
-        self.modified = time.time()
-        return folder
+    async def create_folder(self, name: str):
+        return await self.__ops.mkdir(self._sub_path(name), False)
 
-    def support_recursive_delete(self):
-        return True
+    async def creation_date(self) -> int:
+        return 0
 
-    def handle_delete(self):
-        raise DAVError(HTTP_FORBIDDEN)
-
-    def get_ref_url(self):
-        return self.path
+    async def last_modified(self) -> int:
+        return 0

@@ -3,10 +3,12 @@ from uuid import uuid4 as uuid
 from dataclasses import dataclass, field
 
 from tgfs.api.types import SentFileMessage
+from tgfs.utils.noexcept import no_except
 from .message import TGFSFileVersionSerialized, TGFSFileObject
 
 EMPTY_FILE = -1
 INVALID_FILE_SIZE = -1
+INVALID_VERSION_ID = ""
 
 
 @dataclass
@@ -16,12 +18,16 @@ class TGFSFileVersion:
     message_id: int
     size: int
 
+    @property
+    def updated_at_timestamp(self) -> int:
+        return int((no_except(lambda: self.updated_at.timestamp()) or 0) * 1000)
+
     def to_dict(self) -> TGFSFileVersionSerialized:
         return TGFSFileVersionSerialized(
             type="FV",
             id=self.id,
-            updated_at=int(self.updated_at.timestamp()),
-            message_id=self.message_id,
+            updatedAt=self.updated_at_timestamp,
+            messageId=self.message_id,
             size=self.size,
         )
 
@@ -45,11 +51,12 @@ class TGFSFileVersion:
 
     @staticmethod
     def from_dict(data: TGFSFileVersionSerialized) -> "TGFSFileVersion":
+        print(data["updatedAt"])
         return TGFSFileVersion(
             id=data["id"],
-            updated_at=datetime.datetime.fromtimestamp(data["updated_at"]),
-            message_id=data["message_id"],
-            size=data["size"] or INVALID_FILE_SIZE,
+            updated_at=datetime.datetime.fromtimestamp(data["updatedAt"] / 1000),
+            message_id=data["messageId"],
+            size=data.get("size", INVALID_FILE_SIZE),
         )
 
     def set_invalid(self):
@@ -73,8 +80,13 @@ class TGFSFile:
 
     @staticmethod
     def from_dict(data: TGFSFileObject) -> "TGFSFile":
-        versions = {v["id"]: TGFSFileVersion.from_dict(v) for v in data["versions"]}
-        latest_version_id = max(versions, key=lambda k: versions[k].updated_at)
+        versions = {
+            v["id"]: TGFSFileVersion.from_dict(v) for v in data["versions"] if v
+        }
+        if versions:
+            latest_version_id = max(versions, key=lambda k: versions[k].updated_at)
+        else:
+            latest_version_id = INVALID_VERSION_ID
         return TGFSFile(
             versions=versions,
             latest_version_id=latest_version_id,
@@ -92,7 +104,11 @@ class TGFSFile:
         )
 
     def get_latest_version(self) -> TGFSFileVersion:
-        return self.versions[self.latest_version_id]
+        return (
+            self.versions[self.latest_version_id]
+            if self.latest_version_id
+            else TGFSFileVersion.empty()
+        )
 
     def get_version(self, version_id: str) -> TGFSFileVersion:
         return self.versions[version_id]
@@ -116,14 +132,18 @@ class TGFSFile:
     def update_version(self, version: TGFSFileVersion):
         self.versions[version.id] = version
 
-    def get_versions(self, sort: bool = False, exclude_empty: bool = False):
+    def get_versions(
+        self, sort: bool = False, exclude_empty: bool = False
+    ) -> list[TGFSFileVersion]:
         if not sort:
             res = self.versions.values()
         else:
-            res = sorted(
-                self.versions.values(),
-                key=lambda v: v.updataed_at,
-                reverse=True,
+            res = list(
+                sorted(
+                    self.versions.values(),
+                    key=lambda v: v.updated_at,
+                    reverse=True,
+                )
             )
 
         if exclude_empty:

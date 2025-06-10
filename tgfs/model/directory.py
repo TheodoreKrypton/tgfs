@@ -9,7 +9,7 @@ from .message import TGFSDirectorySerialized, TGFSFileRefSerialized
 class TGFSFileRef:
     message_id: int
     name: str
-    location: "TGFSDirectory"
+    location: "TGFSDirectory" = field(repr=False)
 
     def to_dict(self) -> TGFSFileRefSerialized:
         return TGFSFileRefSerialized(

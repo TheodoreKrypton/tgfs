@@ -188,6 +188,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         callback: Optional[Callable[[int, int], None]] = None,
         file_name: Optional[str] = None,
     ) -> int:
+        loop = asyncio.get_running_loop()
         await self._prepare(file)
         self.__file_name = file_name or file.name or self._default_file_name
 
@@ -210,7 +211,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
 
         while self.__uploaded_size < self._file_size:
             futures: list[asyncio.Future[bool]] = [
-                asyncio.create_task(create_worker(worker_id))
+                loop.create_task(create_worker(worker_id))
                 for worker_id in range(self.__num_workers)
             ]
             await asyncio.gather(*futures)
