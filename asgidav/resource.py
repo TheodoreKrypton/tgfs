@@ -5,7 +5,7 @@ from asgidav.byte_pipe import BytePipe
 
 
 class ResourceProperties(Properties):
-    getcontentlength: int
+    getcontentlength: str
 
 
 class Resource(Member):
@@ -24,6 +24,5 @@ class Resource(Member):
     async def get_properties(self) -> ResourceProperties:
         properties = await Member.get_properties(self)
         return ResourceProperties(
-            **properties,
-            getcontentlength=await self.content_length(),
+            **properties, getcontentlength=str(max(0, await self.content_length()))
         )

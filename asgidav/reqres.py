@@ -1,12 +1,12 @@
-import asyncio
 from typing import Tuple, List
 from fastapi import Request
 
-from dataclasses import dataclass, field
-import xml.etree.ElementTree as ET
+from dataclasses import dataclass
+from lxml import etree as et
 
 from asgidav.folder import Folder
-from asgidav.member import Member
+from asgidav.member import Member, ResourceType
+from asgidav.async_map import async_map
 
 DAV_NS = "DAV:"
 NS_MAP = {"D": DAV_NS}
@@ -30,32 +30,41 @@ class PropfindRequest:
         depth = int(request.headers["Depth"])
 
         body = await request.body()
-        content = body.decode("utf-8")
-        root = ET.fromstring(content)
+        root = et.fromstring(body)
 
-        if root.find(".//D:propname", NS_MAP):
+        if root.find(".//D:propname", NS_MAP) is not None:
             return cls(depth=depth)
 
-        if root.find(".//D:allprop", NS_MAP):
+        if root.find(".//D:allprop", NS_MAP) is not None:
             return cls(depth=depth)
 
-        if root.find(".//D:prop", NS_MAP):
-            raise NotImplemented
+        if (elem := root.find(".//D:prop", NS_MAP)) is not None:
+            requested_props = frozenset(
+                et.QName(prop_elem).localname for prop_elem in elem
+            )
+            return cls(
+                depth=depth, props=tuple(requested_props.intersection(cls.props))
+            )
 
         return cls(depth=depth)
 
 
-async def _propstat(member: Member, prop_names: Tuple[str, ...]) -> ET.Element:
-    root = ET.Element("D:propstat", {"xmlns:D": DAV_NS})
+def _tag(name: str) -> str:
+    return "{%s}%s" % (DAV_NS, name)
 
-    properties = dict(await member.get_properties())
 
-    prop = ET.SubElement(root, "D:prop")
+async def _propstat(member: Member, prop_names: Tuple[str, ...]) -> et.Element:
+    root = et.Element(_tag("propstat"), nsmap=NS_MAP)
+    properties: dict[str, str] = dict(await member.get_properties())
+    props = et.SubElement(root, _tag("prop"))
     for name in set(prop_names) & set(properties.keys()):
-        creation = ET.SubElement(prop, f"D:{name}")
-        creation.text = str(properties[name])
+        prop = et.SubElement(props, _tag(name))
+        if name == "resourcetype" and member.resource_type == ResourceType.COLLECTION:
+            et.SubElement(prop, _tag(properties[name]))
+        else:
+            prop.text = properties[name]
 
-    status = ET.SubElement(root, "D:status")
+    status = et.SubElement(root, _tag("status"))
     status.text = "HTTP/1.1 200 OK"
 
     return root
@@ -63,11 +72,11 @@ async def _propstat(member: Member, prop_names: Tuple[str, ...]) -> ET.Element:
 
 async def _propfind_response(
     member: Member, depth: int, prop_names: Tuple[str, ...]
-) -> List[ET.Element]:
-    root = ET.Element("D:response")
+) -> List[et.Element]:
+    root = et.Element(_tag("response"))
 
-    href_elem = ET.SubElement(root, "D:href")
-    href_elem.text = f"/{member.path}"
+    href_elem = et.SubElement(root, _tag("href"))
+    href_elem.text = member.path
 
     propstat_elem = await _propstat(
         member=member,
@@ -78,9 +87,14 @@ async def _propfind_response(
     res = [root]
 
     if depth > 0 and isinstance(member, Folder):
-        for name in await member.member_names():
-            if sub_member := await member.member(name):
-                res.extend(await _propfind_response(sub_member, depth - 1, prop_names))
+        names = await member.member_names()
+        sub_members = await async_map(lambda name: member.member(name), names)
+        propfind_responses = await async_map(
+            lambda sub_member: _propfind_response(sub_member, depth - 1, prop_names),
+            sub_members,
+        )
+        for sub_response in propfind_responses:
+            res.extend(sub_response)
 
     return res
 
@@ -88,19 +102,14 @@ async def _propfind_response(
 async def propfind(
     members: Tuple[Member, ...], depth: int, prop_names: Tuple[str, ...]
 ) -> str:
-    root = ET.Element("D:multistatus", {"xmlns:D": DAV_NS})
+    root = et.Element(_tag("multistatus"), nsmap=NS_MAP)
 
-    tasks = []
-
-    for member in members:
-        tasks.append(asyncio.create_task(_propfind_response(member, depth, prop_names)))
-
-    task_responses = await asyncio.gather(*tasks)
-    for propfind_responses in task_responses:
+    for propfind_responses in await async_map(
+        lambda member: _propfind_response(member, depth, prop_names), members
+    ):
         for response in propfind_responses:
             root.append(response)
 
-    ET.register_namespace("D", DAV_NS)
-    xml_str = ET.tostring(root, encoding="unicode")
-
-    return f'<?xml version="1.0" encoding="utf-8"?>\n{xml_str}'
+    et.register_namespace("D", DAV_NS)
+    xml_str = et.tostring(root, encoding="utf-8", xml_declaration=True)
+    return xml_str.decode("utf-8")

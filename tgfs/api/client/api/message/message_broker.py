@@ -37,7 +37,8 @@ class MessageBatcher:
             if self.__task and not self.__task.done():
                 self.__task.cancel()
             self.__task = loop.create_task(self.process_requests())
-        return await future
+        res = await future
+        return res
 
     async def process_requests(self):
         try:
@@ -50,7 +51,6 @@ class MessageBatcher:
                 return
 
             ids = reduce(lambda full, req: full.union(req.ids), requests, set())
-            print(ids)
             messages = await self.tdlib.account.get_messages(
                 GetMessagesReq(chat_id=self.private_channel_id, message_ids=list(ids))
             )
@@ -62,6 +62,6 @@ class MessageBatcher:
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            for req in requests:
-                if not req.future.done():
-                    req.future.set_exception(e)
+            for request in requests:
+                if not request.future.done():
+                    request.future.set_exception(e)

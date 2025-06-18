@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import Tuple
 
-from asgidav.member import Member, Properties
+from asgidav.member import Member, Properties, ResourceType
 
 
 class FolderProperties(Properties):
@@ -9,6 +9,8 @@ class FolderProperties(Properties):
 
 
 class Folder(Member):
+    resource_type: ResourceType = ResourceType.COLLECTION
+
     async def content_type(self) -> str:
         return "httpd/unix-directory"
 

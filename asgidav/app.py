@@ -1,7 +1,10 @@
-from typing import Optional
+from typing import Optional, Callable, Any
 
 from fastapi import FastAPI, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
+from contextvars import ContextVar
+import uuid
+
 
 from asgidav.folder import Folder
 from .reqres import PropfindRequest, propfind
@@ -24,6 +27,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+uuid_context = ContextVar("uuid", default="")
+
+
+@app.middleware("http")
+async def add_uuid_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
+    # Set request UUID.
+    uuid_context.set(str(uuid.uuid4()))
+    return await call_next(request)
+
 
 @app.options("/{path:path}")
 async def handle_options():
@@ -43,6 +55,9 @@ async def handle_propfind(request: Request, path: str):
     r = await PropfindRequest.from_request(request)
     if member := await root_folder.member(path.lstrip("/")):
         if isinstance(member, Folder):
-            return await propfind((member,), r.depth, r.props)
-        pass
+            resp = await propfind((member,), r.depth, r.props)
+            return Response(
+                resp,
+                media_type="application/xml",
+            )
     return Response(status_code=404)

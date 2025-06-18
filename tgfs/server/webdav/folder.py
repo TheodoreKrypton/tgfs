@@ -26,22 +26,19 @@ class Folder(_Folder):
             return self
 
         if names[0] in self.__sub_files:
-            return Resource(self._sub_path(names[0]), self.__client)
+            return Resource(f"{self.path}{names[0]}", self.__client)
 
         if names[0] in self.__sub_folders:
             if len(names) > 1:
-                return await Folder(self._sub_path(names[0]), self.__client).member(
+                return await Folder(f"{self.path}{names[0]}/", self.__client).member(
                     names[1]
                 )
-            return Folder(self._sub_path(names[0]), self.__client)
+            return Folder(f"{self.path}{names[0]}/", self.__client)
 
         return None
 
     def _sub_path(self, name: str):
-        if self.path.endswith("/"):
-            return f"{self.path}{name}"
-        else:
-            return f"{self.path}/{name}"
+        return f"{self.path}{name}"
 
     async def create_empty_resource(self, name: str):
         return await self.__ops.touch(self._sub_path(name))

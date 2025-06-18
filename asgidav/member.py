@@ -1,3 +1,4 @@
+import asyncio
 from abc import ABC, abstractmethod
 from typing import TypedDict
 import datetime
@@ -5,10 +6,12 @@ import email
 from email.utils import formatdate
 from enum import Enum
 
+from asgidav.async_map import async_map
+
 
 class ResourceType(Enum):
     DEFAULT = ""
-    COLLECTION = "<D:collection/>"
+    COLLECTION = "collection"
 
 
 class Properties(TypedDict, total=False):
@@ -46,21 +49,28 @@ class Member(ABC):
 
     @abstractmethod
     async def get_properties(self) -> Properties:
+        getlastmodified, creationdate, displayname, getcontenttype = (
+            await asyncio.gather(
+                self.last_modified(),
+                self.creation_date(),
+                self.display_name(),
+                self.content_type(),
+            )
+        )
         return Properties(
-            getlastmodified=self.unixdate2iso8601(await self.last_modified()),
-            creationdate=self.unixdate2iso8601(await self.creation_date()),
-            displayname=await self.display_name(),
+            getlastmodified=self.unixdate2rfc1123(getlastmodified),
+            creationdate=self.unixdate2iso8601(creationdate),
+            displayname=displayname,
             resourcetype=self.resource_type.value,
-            getcontenttype=await self.content_type(),
+            getcontenttype=getcontenttype,
         )
 
     @classmethod
     def unixdate2iso8601(cls, t: float):
-        print(t)
         return datetime.datetime.fromtimestamp(
             t / 1000, tz=datetime.timezone.utc
         ).isoformat()
 
     @classmethod
     def unixdate2rfc1123(cls, t: float):
-        return email.utils.formatdate(t, usegmt=True)
+        return email.utils.formatdate(t / 1000, usegmt=True)

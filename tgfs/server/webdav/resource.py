@@ -16,10 +16,12 @@ class Resource(_Resource):
         self.__ops = Ops(client)
         self.__fr = self.__ops.ls(path)
         self.__fd_value: Optional[TGFSFile] = None
+        self.__lock = asyncio.Lock()
 
     async def __fd(self) -> TGFSFile:
-        if self.__fd_value is None:
-            self.__fd_value = await self.__ops.desc(self.path)
+        async with self.__lock:
+            if self.__fd_value is None:
+                self.__fd_value = await self.__ops.desc(self.path)
         return self.__fd_value
 
     async def creation_date(self) -> int:

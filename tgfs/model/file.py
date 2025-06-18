@@ -1,9 +1,9 @@
 import datetime
+from typing import Optional
 from uuid import uuid4 as uuid
 from dataclasses import dataclass, field
 
 from tgfs.api.types import SentFileMessage
-from tgfs.utils.noexcept import no_except
 from .message import TGFSFileVersionSerialized, TGFSFileObject
 
 EMPTY_FILE = -1
@@ -14,13 +14,15 @@ INVALID_VERSION_ID = ""
 @dataclass
 class TGFSFileVersion:
     id: str
-    updated_at: datetime.datetime
+    updated_at: Optional[datetime.datetime]
     message_id: int
     size: int
 
     @property
     def updated_at_timestamp(self) -> int:
-        return int((no_except(lambda: self.updated_at.timestamp()) or 0) * 1000)
+        if self.updated_at is None:
+            return 0
+        return int(self.updated_at.timestamp() * 1000)
 
     def to_dict(self) -> TGFSFileVersionSerialized:
         return TGFSFileVersionSerialized(
@@ -51,10 +53,13 @@ class TGFSFileVersion:
 
     @staticmethod
     def from_dict(data: TGFSFileVersionSerialized) -> "TGFSFileVersion":
-        print(data["updatedAt"])
+        if (updated_at := data.get("updatedAt", 0)) > 0:
+            updated_at = datetime.datetime.fromtimestamp(updated_at / 1000)
+        else:
+            updated_at = None
         return TGFSFileVersion(
             id=data["id"],
-            updated_at=datetime.datetime.fromtimestamp(data["updatedAt"] / 1000),
+            updated_at=updated_at,
             message_id=data["messageId"],
             size=data.get("size", INVALID_FILE_SIZE),
         )
@@ -84,7 +89,9 @@ class TGFSFile:
             v["id"]: TGFSFileVersion.from_dict(v) for v in data["versions"] if v
         }
         if versions:
-            latest_version_id = max(versions, key=lambda k: versions[k].updated_at)
+            latest_version_id = max(
+                versions, key=lambda k: versions[k].updated_at_timestamp
+            )
         else:
             latest_version_id = INVALID_VERSION_ID
         return TGFSFile(
@@ -141,7 +148,7 @@ class TGFSFile:
             res = list(
                 sorted(
                     self.versions.values(),
-                    key=lambda v: v.updated_at,
+                    key=lambda v: v.updated_at_timestamp,
                     reverse=True,
                 )
             )

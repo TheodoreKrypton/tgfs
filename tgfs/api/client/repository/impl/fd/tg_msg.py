@@ -1,7 +1,6 @@
 import json
 from typing import Optional
 import logging
-
 from tgfs.api.client.api.message import MessageApi
 from tgfs.api.client.api.model import FileDescAPIResponse
 from tgfs.api.client.repository.interface import IFDRepository
@@ -41,16 +40,18 @@ class TGMsgFDRepository(IFDRepository):
 
     async def get(self, fr: TGFSFileRef) -> TGFSFile:
         message = (await self.__message_api.get_messages([fr.message_id]))[0]
+
+        empty = TGFSFile.empty(f"[Content Not Found]${fr.name}")
+
         if not message:
             logging.error(
                 f"File descriptor (message_id: {fr.message_id}) for {fr.name} not found"
             )
-            return TGFSFile.empty(f"[Content Not Found]${fr.name}")
+            return empty
 
         fd = TGFSFile.from_dict(json.loads(message.text))
 
         versions = fd.get_versions(exclude_empty=True)
-
         file_messages = await self.__message_api.get_messages(
             [version.message_id for version in versions if version.message_id]
         )
@@ -64,7 +65,4 @@ class TGMsgFDRepository(IFDRepository):
                 )
                 version.set_invalid()
 
-        if versions:
-            return (await self.__update(fd, fr.message_id)).fd
-
-        return fd
+        return fd if versions else empty
