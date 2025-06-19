@@ -5,8 +5,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextvars import ContextVar
 import uuid
 
+from starlette.responses import StreamingResponse
 
 from asgidav.folder import Folder
+from asgidav.resource import Resource
 from .reqres import PropfindRequest, propfind
 
 root_folder: Optional[Folder] = None
@@ -54,10 +56,51 @@ async def handle_options():
 async def handle_propfind(request: Request, path: str):
     r = await PropfindRequest.from_request(request)
     if member := await root_folder.member(path.lstrip("/")):
+        resp = await propfind((member,), r.depth, r.props)
+        return Response(
+            resp,
+            media_type="application/xml",
+        )
+
+    return Response(status_code=404)
+
+
+@app.head("/{path:path}")
+async def handle_head(request: Request, path: str):
+    if member := await root_folder.member(path.lstrip("/")):
         if isinstance(member, Folder):
-            resp = await propfind((member,), r.depth, r.props)
             return Response(
-                resp,
-                media_type="application/xml",
+                status_code=200,
+                headers={
+                    "Content-Type": "httpd/unix-directory",
+                    "Last-Modified": str(await member.last_modified()),
+                },
             )
+        else:
+            return Response(
+                status_code=200,
+                headers={
+                    "Content-Type": await member.content_type(),
+                    "Content-Length": str(await member.content_length()),
+                    "Last-Modified": str(await member.last_modified()),
+                },
+            )
+
+    return Response(status_code=404)
+
+
+@app.get("/{path:path}")
+async def handle_get(request: Request, path: str):
+    if member := await root_folder.member(path.lstrip("/")):
+        if isinstance(member, Resource):
+            return StreamingResponse(
+                content=await member.get_content(),
+                media_type=await member.content_type(),
+                headers={
+                    "Content-Length": str(await member.content_length()),
+                    "Last-Modified": str(await member.last_modified()),
+                },
+            )
+        else:
+            raise ValueError("Expected a Resource, got a Folder")
     return Response(status_code=404)

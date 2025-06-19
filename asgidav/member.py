@@ -6,8 +6,6 @@ import email
 from email.utils import formatdate
 from enum import Enum
 
-from asgidav.async_map import async_map
-
 
 class ResourceType(Enum):
     DEFAULT = ""

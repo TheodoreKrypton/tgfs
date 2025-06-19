@@ -3,6 +3,7 @@ import aiofiles
 import hashlib
 import logging
 from dataclasses import asdict
+from typing import AsyncIterator
 
 from tgfs.api.client.api.message import MessageApi
 from tgfs.api.client.api.model import (
@@ -15,7 +16,6 @@ from tgfs.api.client.api.model import (
 )
 from tgfs.api.client.repository.impl.file.file_uploader import create_uploader
 from tgfs.api.types import SentFileMessage, EditMessageMediaReq
-from asgidav.byte_pipe import BytePipe
 from tgfs.errors.base import TechnicalError
 from tgfs.model.file import EMPTY_FILE
 
@@ -122,7 +122,7 @@ class FileRepository:
         await uploader.upload(file_msg, self.__report, file_msg.name)
         return message_id
 
-    async def download_file(self, name: str, message_id: int) -> BytePipe:
+    async def download_file(self, name: str, message_id: int) -> AsyncIterator[bytes]:
         logger.info(f"Downloading file {name} with message ID {message_id}")
         resp = await self.__message_api.download_file(message_id)
         return resp.chunks

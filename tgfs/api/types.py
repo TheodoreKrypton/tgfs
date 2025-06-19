@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable, Optional
+from typing import Iterable, Optional, AsyncIterator
 
 from telethon.tl.types import PeerChannel
 
@@ -95,5 +95,5 @@ class DownloadFileReq(Chat, Message):
 
 @dataclass
 class DownloadFileResp:
-    chunks: BytePipe
+    chunks: AsyncIterator[bytes]
     size: int

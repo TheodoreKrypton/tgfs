@@ -28,7 +28,6 @@ from tgfs.api.types import (
     DownloadFileReq,
     DownloadFileResp,
 )
-from asgidav.byte_pipe import BytePipe
 from tgfs.config import Config
 
 
@@ -160,24 +159,21 @@ class TelethonAPI(ITDLibClient):
             entity=req.chat_id, ids=req.message_id
         )
 
-        pipe = BytePipe()
-
-        i = 0
         chunk_size = req.chunk_size * 1024
 
-        async for chunk in self._client.iter_download(
-            file=InputDocumentFileLocation(
-                id=message.media.document.id,
-                access_hash=message.media.document.access_hash,
-                file_reference=message.media.document.file_reference,
-                thumb_size="",
-            ),
-            request_size=chunk_size,
-        ):
-            i += 1
-            await pipe.write(chunk)
+        async def chunks():
+            async for chunk in self._client.iter_download(
+                file=InputDocumentFileLocation(
+                    id=message.media.document.id,
+                    access_hash=message.media.document.access_hash,
+                    file_reference=message.media.document.file_reference,
+                    thumb_size="",
+                ),
+                request_size=chunk_size,
+            ):
+                yield chunk
 
-        return DownloadFileResp(chunks=pipe, size=message.media.document.size)
+        return DownloadFileResp(chunks=chunks(), size=message.media.document.size)
 
 
 class Session:

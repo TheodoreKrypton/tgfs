@@ -1,7 +1,7 @@
 from abc import abstractmethod
+from typing import AsyncIterator
 
 from asgidav.member import Member, Properties
-from asgidav.byte_pipe import BytePipe
 
 
 class ResourceProperties(Properties):
@@ -18,7 +18,7 @@ class Resource(Member):
         pass
 
     @abstractmethod
-    async def get_content(self, begin: int = -1, end: int = -1) -> BytePipe:
+    async def get_content(self, begin: int = -1, end: int = -1) -> AsyncIterator[bytes]:
         pass
 
     async def get_properties(self) -> ResourceProperties:

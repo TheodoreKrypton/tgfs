@@ -1,6 +1,6 @@
 import asyncio
 import io
-from typing import Optional
+from typing import Optional, AsyncIterator
 
 from asgidav.resource import Resource as _Resource
 
@@ -39,16 +39,5 @@ class Resource(_Resource):
     async def display_name(self) -> str:
         return self.__fr.name
 
-    async def get_content(self, begin: int = -1, end: int = -1) -> io.BytesIO:
-        res = io.BytesIO()
-
-        async def pipe_content():
-            pipe = await self.__ops.download(self.path, "unnamed")
-            while True:
-                chunk = await pipe.read(8192)
-                if not chunk:
-                    break
-                res.write(chunk)
-
-        pipe_content()
-        return res
+    async def get_content(self, begin: int = -1, end: int = -1) -> AsyncIterator[bytes]:
+        return await self.__ops.download(self.path, "unnamed")

@@ -1,4 +1,5 @@
 import os.path
+from typing import AsyncIterator
 
 from asgidav.byte_pipe import BytePipe
 
@@ -214,7 +215,7 @@ class Ops:
             ),
         )
 
-    async def download(self, path: str, as_name: str) -> BytePipe:
+    async def download(self, path: str, as_name: str) -> AsyncIterator[bytes]:
         self.__validate_path(path)
         dirname, basename = os.path.dirname(path), os.path.basename(path)
 

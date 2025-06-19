@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, AsyncIterator
 
 from tgfs.api.client.api.file_desc import FileDescApi
 from tgfs.api.client.api.metadata import MetaDataApi
@@ -71,17 +71,21 @@ class FileApi:
     async def desc(self, fr: TGFSFileRef) -> TGFSFile:
         return await self.__file_desc_api.get_file_desc(fr)
 
-    async def retrieve(self, fr: TGFSFileRef, as_name: str) -> BytePipe:
+    async def retrieve(self, fr: TGFSFileRef, as_name: str) -> AsyncIterator[bytes]:
         fd = await self.desc(fr)
         if isinstance(fd, FileMessageEmpty):
-            return BytePipe.empty()
+
+            async def empty_file() -> AsyncIterator[bytes]:
+                yield b""
+
+            return empty_file()
         else:
             version = fd.get_latest_version()
-            return self.__file_desc_api.download_file_at_version(
+            return await self.__file_desc_api.download_file_at_version(
                 as_name or fr.name, version
             )
 
     async def retrieve_version(
         self, version: TGFSFileVersion, as_name: str
-    ) -> BytePipe:
+    ) -> AsyncIterator[bytes]:
         return await self.__file_desc_api.download_file_at_version(as_name, version)

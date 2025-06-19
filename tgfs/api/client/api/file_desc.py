@@ -1,10 +1,11 @@
+from typing import AsyncIterator
+
 from tgfs.api.client.repository.impl.file import FileRepository
 from tgfs.api.client.repository.interface import IFDRepository
 from tgfs.api.client.api.model import GeneralFileMessage, FileMessageEmpty
 from tgfs.api.client.api.model import FileDescAPIResponse
 from tgfs.model.file import TGFSFile, TGFSFileVersion
 from tgfs.model.directory import TGFSFileRef
-from asgidav.byte_pipe import BytePipe
 
 
 class FileDescApi:
@@ -30,7 +31,7 @@ class FileDescApi:
 
     async def download_file_at_version(
         self, as_name: str, version: TGFSFileVersion
-    ) -> BytePipe:
+    ) -> AsyncIterator[bytes]:
         return await self.__file_repo.download_file(
             name=as_name, message_id=version.message_id
         )
