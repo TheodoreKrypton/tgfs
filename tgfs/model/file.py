@@ -9,6 +9,9 @@ from .message import TGFSFileVersionSerialized, TGFSFileObject
 EMPTY_FILE = -1
 INVALID_FILE_SIZE = -1
 INVALID_VERSION_ID = ""
+FIRST_DAY_OF_EPOCH = datetime.datetime(
+    1970, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
+)
 
 
 @dataclass
@@ -54,7 +57,7 @@ class TGFSFileVersion:
         if (updated_at_ts := data.get("updatedAt", 0)) > 0:
             updated_at = datetime.datetime.fromtimestamp(updated_at_ts / 1000)
         else:
-            updated_at = datetime.datetime.fromtimestamp(0)
+            updated_at = FIRST_DAY_OF_EPOCH
         return TGFSFileVersion(
             id=data["id"],
             updated_at=updated_at,

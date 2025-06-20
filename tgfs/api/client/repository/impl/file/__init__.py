@@ -63,9 +63,12 @@ class FileRepository:
 
         async def on_complete():
             nonlocal message_id
-            message_id = await uploader.send(
-                self.__message_api.private_channel_id, self.__get_file_caption(file_msg)
-            )
+            message_id = (
+                await uploader.send(
+                    self.__message_api.private_channel_id,
+                    self.__get_file_caption(file_msg),
+                )
+            ).message_id
 
         uploader = create_uploader(self.__message_api.tdlib, file_msg, on_complete)
         size = await uploader.upload(file_msg, self.__report, file_msg.name)

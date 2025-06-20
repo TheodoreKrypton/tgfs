@@ -1,6 +1,6 @@
 import asyncio
 from abc import ABC, abstractmethod
-from typing import TypedDict, Literal, Mapping
+from typing import TypedDict, Literal
 import datetime
 import email.utils
 from enum import Enum

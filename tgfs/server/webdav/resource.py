@@ -6,6 +6,7 @@ from asgidav.resource import Resource as _Resource
 from tgfs.api.client.api.client import Client
 from tgfs.api.ops import Ops
 from tgfs.errors.base import TechnicalError
+from tgfs.model.directory import TGFSFileRef
 from tgfs.model.file import TGFSFile
 
 
@@ -18,12 +19,12 @@ class Resource(_Resource):
         if not (fr := self.__ops.ls(path)):
             raise TechnicalError(f"Resource {path} does not exist")
 
-        if not isinstance(fr, TGFSFile):
+        if not isinstance(fr, TGFSFileRef):
             raise TechnicalError(
                 "Resource must be a file, not a directory or other type"
             )
 
-        self.__fr: TGFSFile = fr
+        self.__fr: TGFSFileRef = fr
         self.__fd_value: Optional[TGFSFile] = None
         self.__lock = asyncio.Lock()
 
@@ -53,4 +54,3 @@ class Resource(_Resource):
 
     async def write(self, content: AsyncIterator[bytes], size: int) -> None:
         await self.__ops.upload_from_stream(content, size, self.path)
-        self.__fd_value = None

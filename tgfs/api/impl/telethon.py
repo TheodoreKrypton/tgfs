@@ -35,7 +35,6 @@ from tgfs.api.types import (
 )
 from tgfs.config import Config
 from tgfs.errors.base import TechnicalError
-from tgfs.errors.telegram import MessageNotFound
 from tgfs.errors.tgfs import UnDownloadableMessage
 
 
@@ -43,16 +42,8 @@ class TelethonAPI(ITDLibClient):
     def __init__(self, client: TelegramClient):
         self._client = client
 
-    async def __get_messages(
-        self,
-        entity: tlt.PeerChannel,
-        ids: Iterable[int] = tuple(),
-        search: Optional[str] = None,
-        filter_: Optional[InputMessagesFilterPinned] = None,
-    ) -> List[tlt.Message]:
-        messages = await self._client.get_messages(
-            entity=entity, ids=ids, search=search
-        )
+    async def __get_messages(self, *args, **kwargs) -> List[tlt.Message]:
+        messages = await self._client.get_messages(*args, **kwargs)
         if not isinstance(messages, TotalList):
             raise TechnicalError("Unexpected response type from get_messages")
         return messages
@@ -74,11 +65,7 @@ class TelethonAPI(ITDLibClient):
             if m.message:
                 obj.text = m.message
 
-            if (
-                m.media
-                and (isinstance(m, MessageMediaDocument))
-                and (doc := m.document)
-            ):
+            if (doc := getattr(m, "document", None)) and isinstance(doc, tlt.Document):
                 obj.document = Document(
                     size=doc.size,
                     id=doc.id,
@@ -122,7 +109,7 @@ class TelethonAPI(ITDLibClient):
 
     async def get_pinned_messages(self, req: GetPinnedMessageReq) -> GetMessagesResp:
         messages = await self.__get_messages(
-            entity=req.chat_id, filter_=tlt.InputMessagesFilterPinned()
+            entity=req.chat_id, filter=tlt.InputMessagesFilterPinned()
         )
         return self.__transform_messages(messages)
 
@@ -181,14 +168,12 @@ class TelethonAPI(ITDLibClient):
         return SendMessageResp(message_id=message.id)
 
     async def download_file(self, req: DownloadFileReq) -> DownloadFileResp:
-        message = await self._client.get_messages(
-            entity=req.chat_id, ids=req.message_id
-        )
+        messages = await self.__get_messages(entity=req.chat_id, ids=[req.message_id])
+        message = messages[0]
 
-        if not message or not isinstance(message, tlt.Message):
-            raise MessageNotFound(req.message_id)
-
-        if not isinstance(message, MessageMediaDocument):
+        if not (document := getattr(message, "document", None)) and isinstance(
+            document, tlt.Document
+        ):
             raise UnDownloadableMessage(message.id)
 
         chunk_size = req.chunk_size * 1024
@@ -196,16 +181,16 @@ class TelethonAPI(ITDLibClient):
         async def chunks():
             async for chunk in self._client.iter_download(
                 file=InputDocumentFileLocation(
-                    id=message.document.id,
-                    access_hash=message.document.access_hash,
-                    file_reference=message.document.file_reference,
+                    id=document.id,
+                    access_hash=document.access_hash,
+                    file_reference=document.file_reference,
                     thumb_size="",
                 ),
                 request_size=chunk_size,
             ):
                 yield chunk
 
-        return DownloadFileResp(chunks=chunks(), size=message.document.size)
+        return DownloadFileResp(chunks=chunks(), size=document.size)
 
 
 class Session:

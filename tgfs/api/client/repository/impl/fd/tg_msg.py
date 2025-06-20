@@ -2,8 +2,6 @@ import json
 from typing import Optional
 import logging
 
-from telethon.tl.types import MessageMediaDocument
-
 from tgfs.api.client.api.message import MessageApi
 from tgfs.api.client.api.model import FileDescAPIResponse
 from tgfs.api.client.repository.interface import IFDRepository
