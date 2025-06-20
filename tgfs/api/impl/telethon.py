@@ -1,10 +1,15 @@
 import os
-from typing import Optional
+from typing import Optional, List, Iterable
 from getpass import getpass
 
 from telethon import TelegramClient, types as tlt, functions as tlf
+from telethon.helpers import TotalList
 from telethon.sessions import StringSession
-from telethon.tl.types import InputDocumentFileLocation
+from telethon.tl.types import (
+    InputDocumentFileLocation,
+    MessageMediaDocument,
+    InputMessagesFilterPinned,
+)
 from telethon.errors import SessionPasswordNeededError
 
 from tgfs.api.interface import ITDLibClient
@@ -29,14 +34,31 @@ from tgfs.api.types import (
     DownloadFileResp,
 )
 from tgfs.config import Config
+from tgfs.errors.base import TechnicalError
+from tgfs.errors.telegram import MessageNotFound
+from tgfs.errors.tgfs import UnDownloadableMessage
 
 
 class TelethonAPI(ITDLibClient):
     def __init__(self, client: TelegramClient):
         self._client = client
 
+    async def __get_messages(
+        self,
+        entity: tlt.PeerChannel,
+        ids: Iterable[int] = tuple(),
+        search: Optional[str] = None,
+        filter_: Optional[InputMessagesFilterPinned] = None,
+    ) -> List[tlt.Message]:
+        messages = await self._client.get_messages(
+            entity=entity, ids=ids, search=search
+        )
+        if not isinstance(messages, TotalList):
+            raise TechnicalError("Unexpected response type from get_messages")
+        return messages
+
     @staticmethod
-    def __transform_messages(messages: list[tlt.Message]) -> GetMessagesResp:
+    def __transform_messages(messages: List[tlt.Message]) -> GetMessagesResp:
         res = GetMessagesResp()
 
         for m in messages:
@@ -52,7 +74,11 @@ class TelethonAPI(ITDLibClient):
             if m.message:
                 obj.text = m.message
 
-            if m.media and (doc := m.media.document):
+            if (
+                m.media
+                and (isinstance(m, MessageMediaDocument))
+                and (doc := m.document)
+            ):
                 obj.document = Document(
                     size=doc.size,
                     id=doc.id,
@@ -64,9 +90,7 @@ class TelethonAPI(ITDLibClient):
         return res
 
     async def get_messages(self, req: GetMessagesReq) -> GetMessagesResp:
-        messages = await self._client.get_messages(
-            entity=req.chat_id, ids=req.message_ids
-        )
+        messages = await self.__get_messages(entity=req.chat_id, ids=req.message_ids)
         return self.__transform_messages(messages)
 
     async def send_text(self, req: SendTextReq) -> SendMessageResp:
@@ -93,14 +117,12 @@ class TelethonAPI(ITDLibClient):
         return Message(message_id=message.id)
 
     async def search_messages(self, req: SearchMessageReq) -> GetMessagesResp:
-        messages = await self._client.get_messages(
-            entity=req.chat_id, search=req.search
-        )
+        messages = await self.__get_messages(entity=req.chat_id, search=req.search)
         return self.__transform_messages(messages)
 
     async def get_pinned_messages(self, req: GetPinnedMessageReq) -> GetMessagesResp:
-        messages = await self._client.get_messages(
-            entity=req.chat_id, filter=tlt.InputMessagesFilterPinned()
+        messages = await self.__get_messages(
+            entity=req.chat_id, filter_=tlt.InputMessagesFilterPinned()
         )
         return self.__transform_messages(messages)
 
@@ -140,6 +162,8 @@ class TelethonAPI(ITDLibClient):
         message = await self._client.send_file(
             entity=req.chat_id, file=file, caption=req.caption, force_document=True
         )
+        if not isinstance(message, tlt.Message):
+            raise TechnicalError("Unexpected response type from send_file")
         return SendMessageResp(message_id=message.id)
 
     async def send_small_file(self, req: SendFileReq) -> SendMessageResp:
@@ -152,6 +176,8 @@ class TelethonAPI(ITDLibClient):
         message = await self._client.send_file(
             entity=req.chat_id, file=file, caption=req.caption, force_document=True
         )
+        if not isinstance(message, tlt.Message):
+            raise TechnicalError("Unexpected response type from send_file")
         return SendMessageResp(message_id=message.id)
 
     async def download_file(self, req: DownloadFileReq) -> DownloadFileResp:
@@ -159,21 +185,27 @@ class TelethonAPI(ITDLibClient):
             entity=req.chat_id, ids=req.message_id
         )
 
+        if not message or not isinstance(message, tlt.Message):
+            raise MessageNotFound(req.message_id)
+
+        if not isinstance(message, MessageMediaDocument):
+            raise UnDownloadableMessage(message.id)
+
         chunk_size = req.chunk_size * 1024
 
         async def chunks():
             async for chunk in self._client.iter_download(
                 file=InputDocumentFileLocation(
-                    id=message.media.document.id,
-                    access_hash=message.media.document.access_hash,
-                    file_reference=message.media.document.file_reference,
+                    id=message.document.id,
+                    access_hash=message.document.access_hash,
+                    file_reference=message.document.file_reference,
                     thumb_size="",
                 ),
                 request_size=chunk_size,
             ):
                 yield chunk
 
-        return DownloadFileResp(chunks=chunks(), size=message.media.document.size)
+        return DownloadFileResp(chunks=chunks(), size=message.document.size)
 
 
 class Session:
@@ -216,7 +248,7 @@ async def login_as_account(config: Config) -> TelegramClient:
         password = getpass("Enter the 2FA password: ")
         await client.sign_in(password=password)
 
-    session.save(client.session.save())
+    session.save(client.session.save())  # type: ignore
 
     return client
 
@@ -231,8 +263,8 @@ async def login_as_bot(config: Config) -> TelegramClient:
         await client.connect()
         return client
 
-    client = await TelegramClient(StringSession(), api_id, api_hash).start(
+    client = TelegramClient(StringSession(), api_id, api_hash).start(
         bot_token=config.telegram.bot.token
     )
-    session.save(client.session.save())
+    session.save(client.session.save())  # type: ignore
     return client

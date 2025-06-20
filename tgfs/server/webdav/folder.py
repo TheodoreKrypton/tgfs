@@ -26,22 +26,36 @@ class Folder(_Folder):
             return self
 
         if names[0] in self.__sub_files:
-            return Resource(f"{self.path}{names[0]}", self.__client)
+            return Resource(self._sub_path(names[0]), self.__client)
 
         if names[0] in self.__sub_folders:
             if len(names) > 1:
-                return await Folder(f"{self.path}{names[0]}/", self.__client).member(
-                    names[1]
-                )
-            return Folder(f"{self.path}{names[0]}/", self.__client)
+                return await Folder(
+                    f"{self._sub_path(names[0])}/", self.__client
+                ).member(names[1])
+            return Folder(f"{self._sub_path(names[0])}/", self.__client)
 
         return None
 
     def _sub_path(self, name: str):
         return f"{self.path}{name}"
 
-    async def create_empty_resource(self, name: str):
-        return await self.__ops.touch(self._sub_path(name))
+    async def create_empty_resource(self, path: str):
+        names = path.split("/", 1)
+
+        if len(names) > 1:
+            sub_folder = await self.member(names[0])
+            if not isinstance(sub_folder, Folder):
+                raise ValueError(f"{self._sub_path(names[0])} is not a folder")
+            return sub_folder.create_empty_resource(names[1])
+
+        if names[0] == "":
+            raise ValueError("the requested path is a folder")
+
+        if names[0] not in self.__sub_files:
+            await self.__ops.touch(self._sub_path(names[0]))
+
+        return Resource(self._sub_path(names[0]), self.__client)
 
     async def create_folder(self, name: str):
         return await self.__ops.mkdir(self._sub_path(name), False)

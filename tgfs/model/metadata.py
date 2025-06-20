@@ -15,6 +15,6 @@ class TGFSMetadata:
 
     def to_dict(self) -> dict:
         return {
-            type: "TGFSMetadata",
-            dir: self.dir.to_dict(),
+            "type": "TGFSMetadata",
+            "dir": self.dir.to_dict(),
         }

@@ -2,10 +2,10 @@ from typing import Tuple, List
 from fastapi import Request
 
 from dataclasses import dataclass
-from lxml import etree as et
+import lxml.etree as et  # type: ignore
 
 from asgidav.folder import Folder
-from asgidav.member import Member, ResourceType
+from asgidav.member import Member, ResourceType, Properties, PropertyName
 from asgidav.async_map import async_map
 
 DAV_NS = "DAV:"
@@ -53,9 +53,9 @@ def _tag(name: str) -> str:
     return "{%s}%s" % (DAV_NS, name)
 
 
-async def _propstat(member: Member, prop_names: Tuple[str, ...]) -> et.Element:
+async def _propstat(member: Member, prop_names: Tuple[PropertyName, ...]) -> et.Element:
     root = et.Element(_tag("propstat"), nsmap=NS_MAP)
-    properties: dict[str, str] = dict(await member.get_properties())
+    properties: Properties = await member.get_properties()
     props = et.SubElement(root, _tag("prop"))
     for name in set(prop_names) & set(properties.keys()):
         prop = et.SubElement(props, _tag(name))
@@ -71,7 +71,7 @@ async def _propstat(member: Member, prop_names: Tuple[str, ...]) -> et.Element:
 
 
 async def _propfind_response(
-    member: Member, depth: int, prop_names: Tuple[str, ...]
+    member: Member, depth: int, prop_names: Tuple[PropertyName, ...]
 ) -> List[et.Element]:
     root = et.Element(_tag("response"))
 
@@ -100,7 +100,7 @@ async def _propfind_response(
 
 
 async def propfind(
-    members: Tuple[Member, ...], depth: int, prop_names: Tuple[str, ...]
+    members: Tuple[Member, ...], depth: int, prop_names: Tuple[PropertyName, ...]
 ) -> str:
     root = et.Element(_tag("multistatus"), nsmap=NS_MAP)
 

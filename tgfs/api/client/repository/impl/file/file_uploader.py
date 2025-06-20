@@ -7,6 +7,7 @@ import logging
 import aiofiles
 from typing import Coroutine, Any
 
+from telethon.tl.types import PeerChannel
 from telethon.utils import get_appropriated_part_size
 from telethon.errors import RPCError
 
@@ -52,7 +53,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         self,
         client: ITDLibClient,
         file_size: int,
-        on_complete: OnComplete,
+        on_complete: Optional[OnComplete],
         workers=WorkersConfig(),
     ):
         self._client = client
@@ -64,7 +65,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         self.__file_name = ""
 
         self.__is_big = self.__is_big_file(file_size)
-        self.__part_cnt = 0
+        self.__part_cnt = -1
         self.__read_size = 0
         self.__uploaded_size = 0
 
@@ -160,7 +161,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         return self.__read_size >= self._file_size
 
     async def __upload_next_part(self, worker_id: int) -> int:
-        with self.__lock:
+        async with self.__lock:
             if self.__done_reading():
                 return 0
 
@@ -218,7 +219,9 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
             await self.__save_uncompleted_chunks()
 
         await asyncio.sleep(0.5)
-        await self.__on_complete()
+
+        if self.__on_complete:
+            await self.__on_complete()
 
         await self._close()
         return self._file_size
@@ -234,7 +237,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
             name=self.__file_name,
         )
 
-    async def send(self, chat_id: int, caption: str = "") -> SendMessageResp:
+    async def send(self, chat_id: PeerChannel, caption: str = "") -> SendMessageResp:
         logger.info(
             f"Sending file {self.__file_name} ({self._file_id}) to chat {chat_id}"
         )
@@ -284,19 +287,20 @@ class UploaderFromBuffer(IFileUploader[FileMessageFromBuffer]):
 
 class UploaderFromStream(IFileUploader[FileMessageFromStream]):
     async def _read(self, length: int) -> bytes:
-        return await self.__stream.read(length)
+        return await anext(self.__stream)
 
     async def _prepare(self, file_msg: FileMessageFromStream) -> None:
         self.__stream = file_msg.stream
 
-    async def _default_file_name(self) -> str:
+    @property
+    def _default_file_name(self) -> str:
         return "unnamed"
 
 
 def create_uploader(
     tdlib: TDLibApi,
     file_msg: GeneralFileMessage,
-    on_complete: OnComplete = lambda: None,
+    on_complete: Optional[OnComplete] = None,
 ):
     def select_api(size: int) -> ITDLibClient:
         if size >= 50 * 1024 * 1024:

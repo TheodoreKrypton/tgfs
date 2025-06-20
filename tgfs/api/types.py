@@ -3,8 +3,6 @@ from typing import Iterable, Optional, AsyncIterator
 
 from telethon.tl.types import PeerChannel
 
-from asgidav.byte_pipe import BytePipe
-
 
 @dataclass
 class Message:

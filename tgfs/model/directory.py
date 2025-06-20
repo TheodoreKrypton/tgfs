@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, Optional
 
 from tgfs.errors.path import FileOrDirectoryAlreadyExists, FileOrDirectoryDoesNotExist
-from .message import TGFSDirectorySerialized, TGFSFileRefSerialized
+from .message import TGFSDirectorySerialized
 
 
 @dataclass
@@ -11,8 +11,8 @@ class TGFSFileRef:
     name: str
     location: "TGFSDirectory" = field(repr=False)
 
-    def to_dict(self) -> TGFSFileRefSerialized:
-        return TGFSFileRefSerialized(
+    def to_dict(self) -> dict:
+        return dict(
             type="FR",
             messageId=self.message_id,
             name=self.name,
@@ -29,8 +29,8 @@ class TGFSDirectory:
     children: list["TGFSDirectory"] = field(default_factory=list)
     files: list[TGFSFileRef] = field(default_factory=list)
 
-    def to_dict(self) -> TGFSDirectorySerialized:
-        return TGFSDirectorySerialized(
+    def to_dict(self) -> dict:
+        return dict(
             type="D",
             name=self.name,
             children=[child.to_dict() for child in self.children],
@@ -39,7 +39,7 @@ class TGFSDirectory:
 
     @staticmethod
     def from_dict(
-        data: TGFSDirectorySerialized, parent: "TGFSDirectory" = None
+        data: TGFSDirectorySerialized, parent: Optional["TGFSDirectory"] = None
     ) -> "TGFSDirectory":
         d = TGFSDirectory(
             name=data["name"],
@@ -101,7 +101,7 @@ class TGFSDirectory:
         return files[0]
 
     def create_file_ref(self, name: str, file_message_id: int) -> TGFSFileRef:
-        if self.find_file(name):
+        if self.find_files([name]):
             raise FileOrDirectoryAlreadyExists(name)
 
         fr = TGFSFileRef(

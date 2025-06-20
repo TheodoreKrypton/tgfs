@@ -1,6 +1,9 @@
 import json
 from typing import Optional
 import logging
+
+from telethon.tl.types import MessageMediaDocument
+
 from tgfs.api.client.api.message import MessageApi
 from tgfs.api.client.api.model import FileDescAPIResponse
 from tgfs.api.client.repository.interface import IFDRepository
@@ -57,8 +60,8 @@ class TGMsgFDRepository(IFDRepository):
         )
 
         for i, version in enumerate(versions):
-            if file_messages[i]:
-                version.size = file_messages[i].document.size
+            if (file_message := file_messages[i]) and file_message.document:
+                version.size = file_message.document.size
             else:
                 logger.warning(
                     f"File message for version {version.id} of {fr.name} not found"

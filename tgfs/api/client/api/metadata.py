@@ -1,6 +1,7 @@
 from typing import Optional
 
 from tgfs.api.client.repository.interface import IMetaDataRepository
+from tgfs.errors.tgfs import MetadataNotInitialized
 from tgfs.model.directory import TGFSDirectory
 from tgfs.model.metadata import TGFSMetadata
 
@@ -21,7 +22,11 @@ class MetaDataApi:
         self.__metadata = TGFSMetadata(dir=TGFSDirectory.root_dir(), message_id=-1)
 
     async def update(self) -> None:
+        if not self.__metadata:
+            raise MetadataNotInitialized
         self.__metadata.message_id = await self.__metadata_repo.save(self.__metadata)
 
     def get_root_directory(self) -> TGFSDirectory:
+        if not self.__metadata:
+            raise MetadataNotInitialized
         return self.__metadata.dir

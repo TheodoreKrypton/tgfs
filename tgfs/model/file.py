@@ -1,5 +1,5 @@
 import datetime
-from typing import Optional
+from typing import List, Iterable
 from uuid import uuid4 as uuid
 from dataclasses import dataclass, field
 
@@ -14,18 +14,16 @@ INVALID_VERSION_ID = ""
 @dataclass
 class TGFSFileVersion:
     id: str
-    updated_at: Optional[datetime.datetime]
+    updated_at: datetime.datetime
     message_id: int
     size: int
 
     @property
     def updated_at_timestamp(self) -> int:
-        if self.updated_at is None:
-            return 0
         return int(self.updated_at.timestamp() * 1000)
 
-    def to_dict(self) -> TGFSFileVersionSerialized:
-        return TGFSFileVersionSerialized(
+    def to_dict(self) -> dict:
+        return dict(
             type="FV",
             id=self.id,
             updatedAt=self.updated_at_timestamp,
@@ -53,10 +51,10 @@ class TGFSFileVersion:
 
     @staticmethod
     def from_dict(data: TGFSFileVersionSerialized) -> "TGFSFileVersion":
-        if (updated_at := data.get("updatedAt", 0)) > 0:
-            updated_at = datetime.datetime.fromtimestamp(updated_at / 1000)
+        if (updated_at_ts := data.get("updatedAt", 0)) > 0:
+            updated_at = datetime.datetime.fromtimestamp(updated_at_ts / 1000)
         else:
-            updated_at = None
+            updated_at = datetime.datetime.fromtimestamp(0)
         return TGFSFileVersion(
             id=data["id"],
             updated_at=updated_at,
@@ -76,8 +74,8 @@ class TGFSFile:
     created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
     versions: dict[str, TGFSFileVersion] = field(default_factory=dict)
 
-    def to_dict(self) -> TGFSFileObject:
-        return TGFSFileObject(
+    def to_dict(self) -> dict:
+        return dict(
             type="F",
             name=self.name,
             versions=[v.to_dict() for v in self.get_versions(sort=True)],
@@ -122,7 +120,10 @@ class TGFSFile:
 
     def add_version(self, version: TGFSFileVersion) -> None:
         self.versions[version.id] = version
-        if version.updated_at > self.versions[self.latest_version_id].updated_at:
+        if (
+            self.latest_version_id == INVALID_VERSION_ID
+            or version.updated_at > self.versions[self.latest_version_id].updated_at
+        ):
             self.latest_version_id = version.id
         if not self.created_at or version.updated_at < self.created_at:
             self.created_at = version.updated_at
@@ -141,16 +142,14 @@ class TGFSFile:
 
     def get_versions(
         self, sort: bool = False, exclude_empty: bool = False
-    ) -> list[TGFSFileVersion]:
+    ) -> List[TGFSFileVersion]:
         if not sort:
-            res = self.versions.values()
+            res: Iterable[TGFSFileVersion] = self.versions.values()
         else:
-            res = list(
-                sorted(
-                    self.versions.values(),
-                    key=lambda v: v.updated_at_timestamp,
-                    reverse=True,
-                )
+            res = sorted(
+                self.versions.values(),
+                key=lambda v: v.updated_at_timestamp,
+                reverse=True,
             )
 
         if exclude_empty:
@@ -159,7 +158,7 @@ class TGFSFile:
                 for v in res
                 if v.message_id != EMPTY_FILE and v.size != INVALID_FILE_SIZE
             ]
-        return res
+        return list(res)
 
     def delete_version(self, version_id: str) -> None:
         if version_id not in self.versions:

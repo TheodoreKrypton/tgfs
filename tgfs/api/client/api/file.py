@@ -3,7 +3,7 @@ from typing import Optional, AsyncIterator
 from tgfs.api.client.api.file_desc import FileDescApi
 from tgfs.api.client.api.metadata import MetaDataApi
 from tgfs.api.client.api.model import GeneralFileMessage, FileMessageEmpty
-from asgidav.byte_pipe import BytePipe
+from tgfs.errors.path import FileOrDirectoryDoesNotExist
 from tgfs.model.directory import TGFSDirectory, TGFSFileRef
 from tgfs.model.file import TGFSFile, TGFSFileVersion
 from tgfs.utils.validate_name import validate_name
@@ -38,7 +38,7 @@ class FileApi:
             await self.__metadata_api.update()
 
     async def __update(
-        self, fr: TGFSFileRef, file_msg: GeneralFileMessage, version_id: str
+        self, fr: TGFSFileRef, file_msg: GeneralFileMessage, version_id: Optional[str]
     ) -> TGFSFile:
         if version_id:
             resp = await self.__file_desc_api.update_file_version(
@@ -60,12 +60,13 @@ class FileApi:
     async def upload(
         self,
         under: TGFSDirectory,
-        file_msg: Optional[GeneralFileMessage],
+        file_msg: GeneralFileMessage,
         version_id: Optional[str] = None,
     ) -> TGFSFile:
-        if fr := under.find_file(file_msg.name):
+        try:
+            fr = under.find_file(file_msg.name)
             return await self.__update(fr, file_msg, version_id)
-        else:
+        except FileOrDirectoryDoesNotExist:
             return await self.__create(under, file_msg)
 
     async def desc(self, fr: TGFSFileRef) -> TGFSFile:

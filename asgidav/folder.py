@@ -16,21 +16,22 @@ class Folder(Member):
 
     @abstractmethod
     async def display_name(self) -> str:
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     async def member_names(self) -> Tuple[str, ...]:
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
-    async def member(self, name) -> Member | None:
-        raise NotImplemented
+    async def member(self, path: str) -> Member | None:
+        raise NotImplementedError
 
-    async def create_empty_resource(self, name: str) -> Member:
-        raise NotImplemented
+    @abstractmethod
+    async def create_empty_resource(self, path: str) -> Member:
+        raise NotImplementedError
 
     async def create_folder(self, name: str) -> "Folder":
-        raise NotImplemented
+        raise NotImplementedError
 
     async def get_properties(self) -> FolderProperties:
         properties = await Member.get_properties(self)

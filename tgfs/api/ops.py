@@ -1,7 +1,5 @@
 import os.path
-from typing import AsyncIterator
-
-from asgidav.byte_pipe import BytePipe
+from typing import AsyncIterator, Optional
 
 from tgfs.errors.path import InvalidPath, FileOrDirectoryDoesNotExist
 from tgfs.model.directory import TGFSDirectory, TGFSFileRef
@@ -43,7 +41,7 @@ class Ops:
         dirname, basename = os.path.dirname(path), os.path.basename(path)
 
         d = self.cd(dirname)
-        next_dir = d
+        next_dir: Optional[TGFSDirectory] = d
 
         if basename:
             try:
@@ -201,7 +199,7 @@ class Ops:
         )
 
     async def upload_from_stream(
-        self, stream: BytePipe, size: int, remote: str
+        self, stream: AsyncIterator[bytes], size: int, remote: str
     ) -> TGFSFile:
         self.__validate_path(remote)
         dirname, basename = os.path.dirname(remote), os.path.basename(remote)

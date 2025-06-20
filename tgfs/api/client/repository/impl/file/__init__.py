@@ -1,8 +1,6 @@
-import json
 import aiofiles
 import hashlib
 import logging
-from dataclasses import asdict
 from typing import AsyncIterator
 
 from tgfs.api.client.api.message import MessageApi
@@ -71,19 +69,12 @@ class FileRepository:
 
         uploader = create_uploader(self.__message_api.tdlib, file_msg, on_complete)
         size = await uploader.upload(file_msg, self.__report, file_msg.name)
-        logger.debug(f"File sent {json.dumps(asdict(file_msg))}")
 
         return SentFileMessage(message_id=message_id, size=size)
 
     async def save(self, file_msg: GeneralFileMessage) -> SentFileMessage:
         if isinstance(file_msg, FileMessageFromStream):
-            # cannot compute sha256 for stream
-            logger.debug(
-                f"Sending file {json.dumps({**asdict(file_msg), 'stream': 'hidden'})}"
-            )
             return await self.__send_file(file_msg)
-
-        logger.debug(f"Sending file {json.dumps(asdict(file_msg))}")
 
         sha256 = await self.__sha256(file_msg)
         file_msg.tags = FileTags(sha256=sha256)
@@ -92,9 +83,10 @@ class FileRepository:
             f"#sha256IS{sha256}"
         )
 
-        if existing_file_msg:
-            msg = existing_file_msg[0]
-            logger.debug(f"File with SHA256 {sha256} already exists, skipping upload")
+        for msg in existing_file_msg:
+            if not msg.document:
+                continue
+            logger.info(f"File with SHA256 {sha256} already exists, skipping upload")
             return SentFileMessage(
                 message_id=msg.message_id,
                 size=msg.document.size,
@@ -116,9 +108,7 @@ class FileRepository:
                 )
             )
 
-        uploader = await create_uploader(
-            self.__message_api.tdlib, file_msg, on_complete
-        )
+        uploader = create_uploader(self.__message_api.tdlib, file_msg, on_complete)
         await uploader.upload(file_msg, self.__report, file_msg.name)
         return message_id
 

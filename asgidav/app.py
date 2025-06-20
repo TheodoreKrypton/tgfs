@@ -11,12 +11,19 @@ from asgidav.folder import Folder
 from asgidav.resource import Resource
 from .reqres import PropfindRequest, propfind
 
-root_folder: Optional[Folder] = None
 
+class RootFolder:
+    __root_folder: Optional[Folder] = None
 
-def set_root_folder(folder: Folder):
-    global root_folder
-    root_folder = folder
+    @classmethod
+    def set(cls, folder: Folder):
+        cls.__root_folder = folder
+
+    @classmethod
+    def get(cls) -> Folder:
+        if cls.__root_folder is None:
+            raise ValueError("Root folder is not set.")
+        return cls.__root_folder
 
 
 app = FastAPI()
@@ -40,7 +47,7 @@ async def add_uuid_middleware(request: Request, call_next: Callable[[Any], Any])
 
 
 @app.options("/{path:path}")
-async def handle_options():
+async def options():
     return Response(
         status_code=200,
         headers={
@@ -55,7 +62,7 @@ async def handle_options():
 @app.api_route("/{path:path}", methods=["PROPFIND"])
 async def handle_propfind(request: Request, path: str):
     r = await PropfindRequest.from_request(request)
-    if member := await root_folder.member(path.lstrip("/")):
+    if member := await RootFolder.get().member(path):
         resp = await propfind((member,), r.depth, r.props)
         return Response(
             resp,
@@ -66,8 +73,8 @@ async def handle_propfind(request: Request, path: str):
 
 
 @app.head("/{path:path}")
-async def handle_head(request: Request, path: str):
-    if member := await root_folder.member(path.lstrip("/")):
+async def head(request: Request, path: str):
+    if member := await RootFolder.get().member(path):
         if isinstance(member, Folder):
             return Response(
                 status_code=200,
@@ -76,22 +83,20 @@ async def handle_head(request: Request, path: str):
                     "Last-Modified": str(await member.last_modified()),
                 },
             )
-        else:
-            return Response(
-                status_code=200,
-                headers={
-                    "Content-Type": await member.content_type(),
-                    "Content-Length": str(await member.content_length()),
-                    "Last-Modified": str(await member.last_modified()),
-                },
-            )
+        return Response(
+            status_code=200,
+            headers={
+                "Content-Type": await member.content_type(),
+                "Last-Modified": str(await member.last_modified()),
+            },
+        )
 
     return Response(status_code=404)
 
 
 @app.get("/{path:path}")
-async def handle_get(request: Request, path: str):
-    if member := await root_folder.member(path.lstrip("/")):
+async def get(request: Request, path: str):
+    if member := await RootFolder.get().member(path):
         if isinstance(member, Resource):
             return StreamingResponse(
                 content=await member.get_content(),
@@ -104,3 +109,25 @@ async def handle_get(request: Request, path: str):
         else:
             raise ValueError("Expected a Resource, got a Folder")
     return Response(status_code=404)
+
+
+@app.put("/{path:path}")
+async def put(request: Request, path: str):
+    if not (member := await RootFolder.get().member(path)):
+        member = await RootFolder.get().create_empty_resource(path)
+    if isinstance(member, Resource):
+        await member.write(
+            request.stream(), size=int(request.headers.get("Content-Length", 0))
+        )
+        return Response(
+            status_code=201,
+            headers={
+                "Location": f"/{path}",
+            },
+        )
+    return Response(
+        status_code=405,
+        headers={
+            "Allow": "GET, HEAD, POST, PUT, DELETE, TRACE, OPTIONS, PROPFIND, PROPPATCH, COPY, MOVE, LOCK, UNLOCK, MKCOL",
+        },
+    )

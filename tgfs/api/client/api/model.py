@@ -1,8 +1,7 @@
 from dataclasses import dataclass
-from typing import Union, Optional
+from typing import Union, Optional, AsyncIterator
 
 from tgfs.model.file import TGFSFile
-from asgidav.byte_pipe import BytePipe
 
 
 @dataclass
@@ -40,7 +39,7 @@ class FileMessageFromBuffer(FileMessage):
 
 @dataclass
 class FileMessageFromStream(FileMessage):
-    stream: BytePipe
+    stream: AsyncIterator[bytes]
     size: int
 
 

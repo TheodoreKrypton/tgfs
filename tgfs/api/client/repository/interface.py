@@ -10,7 +10,7 @@ from tgfs.model.metadata import TGFSMetadata
 class IFDRepository(metaclass=ABCMeta):
     @abstractmethod
     async def save(
-        self, fd: TGFSFile, message_id: Optional[int]
+        self, fd: TGFSFile, message_id: Optional[int] = None
     ) -> FileDescAPIResponse:
         pass
 

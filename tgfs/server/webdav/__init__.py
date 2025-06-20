@@ -1,7 +1,7 @@
-from asgidav.app import app, set_root_folder
+from asgidav.app import app, RootFolder
 from .folder import Folder
 
 
 def create_webdav_app(client):
-    set_root_folder(Folder("/", client))
+    RootFolder.set(Folder("/", client))
     return app

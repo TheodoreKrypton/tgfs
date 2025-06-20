@@ -1,15 +1,19 @@
 import asyncio
 from abc import ABC, abstractmethod
-from typing import TypedDict
+from typing import TypedDict, Literal, Mapping
 import datetime
-import email
-from email.utils import formatdate
+import email.utils
 from enum import Enum
 
 
 class ResourceType(Enum):
     DEFAULT = ""
     COLLECTION = "collection"
+
+
+PropertyName = Literal[
+    "getlastmodified", "creationdate", "displayname", "resourcetype", "getcontenttype"
+]
 
 
 class Properties(TypedDict, total=False):
@@ -35,15 +39,15 @@ class Member(ABC):
 
     @abstractmethod
     async def display_name(self) -> str:
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     async def creation_date(self) -> int:
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     async def last_modified(self) -> int:
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     async def get_properties(self) -> Properties:
@@ -55,13 +59,16 @@ class Member(ABC):
                 self.content_type(),
             )
         )
-        return Properties(
+
+        res: Properties = Properties(
             getlastmodified=self.unixdate2rfc1123(getlastmodified),
             creationdate=self.unixdate2iso8601(creationdate),
             displayname=displayname,
             resourcetype=self.resource_type.value,
             getcontenttype=getcontenttype,
         )
+
+        return res
 
     @classmethod
     def unixdate2iso8601(cls, t: float):

@@ -26,3 +26,7 @@ class Resource(Member):
         return ResourceProperties(
             **properties, getcontentlength=str(max(0, await self.content_length()))
         )
+
+    @abstractmethod
+    async def write(self, content: AsyncIterator[bytes], size: int) -> None:
+        raise NotImplementedError
