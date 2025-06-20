@@ -30,10 +30,10 @@ class FileDescApi:
         return await self.__fd_repo.get(fr=fr)
 
     async def download_file_at_version(
-        self, as_name: str, version: TGFSFileVersion
+        self, as_name: str, version: TGFSFileVersion, begin: int, end: int
     ) -> AsyncIterator[bytes]:
         return await self.__file_repo.download_file(
-            name=as_name, message_id=version.message_id
+            name=as_name, message_id=version.message_id, begin=begin, end=end
         )
 
     async def add_file_version(

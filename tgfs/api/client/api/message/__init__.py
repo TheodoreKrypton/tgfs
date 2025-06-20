@@ -77,11 +77,15 @@ class MessageApi(MessageBatcher):
             SearchMessageReq(chat_id=self.private_channel_id, search=search)
         )
 
-    async def download_file(self, message_id: int) -> DownloadFileResp:
+    async def download_file(
+        self, message_id: int, begin: int, end: int
+    ) -> DownloadFileResp:
         return await self.tdlib.account.download_file(
             DownloadFileReq(
                 chat_id=self.private_channel_id,
                 message_id=message_id,
                 chunk_size=get_config().tgfs.download.chunk_size_kb,
+                begin=begin,
+                end=end,
             )
         )

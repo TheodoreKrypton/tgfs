@@ -1,4 +1,3 @@
-import aiofiles
 import hashlib
 import logging
 from typing import AsyncIterator
@@ -33,9 +32,9 @@ class FileRepository:
 
         if isinstance(file_msg, FileMessageFromPath):
             sha256 = hashlib.sha256()
-            async with aiofiles.open(file_msg.path, "rb") as f:
+            with open(file_msg.path, "rb") as f:
                 while True:
-                    chunk = await f.read(8192)
+                    chunk = f.read(8192)
                     if not chunk:
                         break
                     sha256.update(chunk)
@@ -115,7 +114,9 @@ class FileRepository:
         await uploader.upload(file_msg, self.__report, file_msg.name)
         return message_id
 
-    async def download_file(self, name: str, message_id: int) -> AsyncIterator[bytes]:
+    async def download_file(
+        self, name: str, message_id: int, begin: int, end: int
+    ) -> AsyncIterator[bytes]:
         logger.info(f"Downloading file {name} with message ID {message_id}")
-        resp = await self.__message_api.download_file(message_id)
+        resp = await self.__message_api.download_file(message_id, begin, end)
         return resp.chunks

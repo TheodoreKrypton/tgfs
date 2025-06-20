@@ -52,7 +52,10 @@ class TGMsgMetadataRepository(IMetaDataRepository):
             json.loads(
                 await self.__read_all(
                     await self.__file_repo.download_file(
-                        self.METADATA_FILE_NAME, pinned_message.message_id
+                        self.METADATA_FILE_NAME,
+                        pinned_message.message_id,
+                        begin=0,
+                        end=-1,
                     )
                 )
             )

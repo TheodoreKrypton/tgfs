@@ -4,7 +4,6 @@ import asyncio
 from typing import Callable, Optional, Generic, TypeVar
 from dataclasses import dataclass
 import logging
-import aiofiles
 from typing import Coroutine, Any
 
 from telethon.tl.types import PeerChannel
@@ -258,17 +257,17 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
 class UploaderFromPath(IFileUploader[FileMessageFromPath]):
     async def _prepare(self, file_msg: FileMessageFromPath) -> None:
         self.__file_path = file_msg.path
-        self.__file = await aiofiles.open(self.__file_path, "rb")
+        self.__file = open(self.__file_path, "rb")
 
     async def _close(self) -> None:
-        await self.__file.close()
+        self.__file.close()
 
     @property
     def _default_file_name(self) -> str:
         return os.path.basename(self.__file_path)
 
     async def _read(self, length: int) -> bytes:
-        return await self.__file.read(length)
+        return self.__file.read(length)
 
 
 class UploaderFromBuffer(IFileUploader[FileMessageFromBuffer]):

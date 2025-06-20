@@ -96,13 +96,26 @@ async def head(request: Request, path: str):
 
 @app.get("/{path:path}")
 async def get(request: Request, path: str):
+    begin, end = 0, -1
+    if "Range" in request.headers:
+        range_header = request.headers["Range"]
+        if range_header.startswith("bytes="):
+            range_value = range_header[len("bytes=") :]
+            if "-" in range_value:
+                begin_str, end_str = range_value.split("-", 1)
+                if begin_str:
+                    begin = int(begin_str.strip())
+                if end_str:
+                    end = int(end_str.strip())
+            else:
+                begin = int(range_value)
+
     if member := await RootFolder.get().member(path):
         if isinstance(member, Resource):
             return StreamingResponse(
-                content=await member.get_content(),
+                content=await member.get_content(begin, end),
                 media_type=await member.content_type(),
                 headers={
-                    "Content-Length": str(await member.content_length()),
                     "Last-Modified": str(await member.last_modified()),
                 },
             )

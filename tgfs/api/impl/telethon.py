@@ -1,5 +1,5 @@
 import os
-from typing import Optional, List, Iterable
+from typing import Optional, List, Literal, TypedDict
 from getpass import getpass
 
 from telethon import TelegramClient, types as tlt, functions as tlf
@@ -171,14 +171,20 @@ class TelethonAPI(ITDLibClient):
         messages = await self.__get_messages(entity=req.chat_id, ids=[req.message_id])
         message = messages[0]
 
-        if not (document := getattr(message, "document", None)) and isinstance(
-            document, tlt.Document
+        document = getattr(message, "document", None)
+
+        if not (
+            (document := getattr(message, "document", None))
+            and isinstance(document, tlt.Document)
         ):
             raise UnDownloadableMessage(message.id)
 
         chunk_size = req.chunk_size * 1024
 
         async def chunks():
+            bytes_to_read = (
+                document.size - req.begin if req.end < 0 else req.end - req.begin + 1
+            )
             async for chunk in self._client.iter_download(
                 file=InputDocumentFileLocation(
                     id=document.id,
@@ -186,9 +192,17 @@ class TelethonAPI(ITDLibClient):
                     file_reference=document.file_reference,
                     thumb_size="",
                 ),
-                request_size=chunk_size,
+                chunk_size=chunk_size,
+                offset=req.begin if req.begin >= 0 else 0,
+                request_size=bytes_to_read,
             ):
+                if len(chunk) > bytes_to_read:
+                    chunk = chunk[:bytes_to_read]
                 yield chunk
+                if req.end >= 0:
+                    bytes_to_read -= len(chunk)
+                    if bytes_to_read <= 0:
+                        break
 
         return DownloadFileResp(chunks=chunks(), size=document.size)
 

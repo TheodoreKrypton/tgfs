@@ -90,6 +90,8 @@ class EditMessageMediaReq(Chat, Message):
 @dataclass
 class DownloadFileReq(Chat, Message):
     chunk_size: int
+    begin: int
+    end: int
 
 @dataclass
 class DownloadFileResp:

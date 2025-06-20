@@ -49,8 +49,8 @@ class Resource(_Resource):
     async def display_name(self) -> str:
         return self.__fr.name
 
-    async def get_content(self, begin: int = -1, end: int = -1) -> AsyncIterator[bytes]:
-        return await self.__ops.download(self.path, "unnamed")
+    async def get_content(self, begin: int = 0, end: int = -1) -> AsyncIterator[bytes]:
+        return await self.__ops.download(self.path, "unnamed", begin, end)
 
     async def write(self, content: AsyncIterator[bytes], size: int) -> None:
         await self.__ops.upload_from_stream(content, size, self.path)

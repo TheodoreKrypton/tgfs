@@ -18,7 +18,7 @@ class Resource(Member):
         pass
 
     @abstractmethod
-    async def get_content(self, begin: int = -1, end: int = -1) -> AsyncIterator[bytes]:
+    async def get_content(self, begin: int = 0, end: int = -1) -> AsyncIterator[bytes]:
         pass
 
     async def get_properties(self) -> ResourceProperties:
