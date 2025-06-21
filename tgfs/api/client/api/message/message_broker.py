@@ -7,7 +7,7 @@ from tgfs.api.interface import TDLibApi
 from tgfs.api.types import GetMessagesReq, GetMessagesResp, MessageResp
 from tgfs.config import get_config
 
-DELAY = 0.1
+DELAY = 0.5
 
 
 @dataclass
@@ -28,6 +28,13 @@ class MessageBroker:
         self.__task: Optional[asyncio.Task] = None
 
     async def get_messages(self, ids: list[int]) -> list[Optional[MessageResp]]:
+        cached_messages = self.tdlib.account.get_cached_messages(
+            GetMessagesReq(chat_id=self.private_channel_id, message_ids=tuple(ids))
+        )
+
+        if all(msg is not None for msg in cached_messages):
+            return cached_messages
+
         loop = asyncio.get_running_loop()
         future = loop.create_future()
 

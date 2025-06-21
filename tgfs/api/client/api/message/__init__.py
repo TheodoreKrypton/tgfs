@@ -15,7 +15,7 @@ from tgfs.api.types import (
 )
 from tgfs.config import get_config
 from tgfs.errors.telegram import MessageNotFound
-from tgfs.utils.others import remove_none
+from tgfs.utils.others import exclude_none
 
 rate = Rate(20, Duration.SECOND)
 bucket = InMemoryBucket([rate])
@@ -75,7 +75,7 @@ class MessageApi(MessageBroker):
     async def search_messages(self, search: str) -> list[MessageResp]:
         self.__try_acquire("MessageApi.search_messages")
         return list(
-            remove_none(
+            exclude_none(
                 await self.tdlib.account.search_messages(
                     SearchMessageReq(chat_id=self.private_channel_id, search=search)
                 )

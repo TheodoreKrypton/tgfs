@@ -1,6 +1,6 @@
 import os
 from getpass import getpass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from lru import LRU
 from telethon import TelegramClient
@@ -36,7 +36,7 @@ from tgfs.api.types import (
 from tgfs.config import Config
 from tgfs.errors.base import TechnicalError
 from tgfs.errors.tgfs import UnDownloadableMessage
-from tgfs.utils.others import remove_none
+from tgfs.utils.others import exclude_none
 
 message_cache_by_id = LRU(1024)  # type: LRU[int, MessageResp]
 message_cache_by_search = LRU(1024)  # type: LRU[str, Tuple[MessageResp, ...]]
@@ -86,6 +86,12 @@ class TelethonAPI(ITDLibClient):
             res.append(obj)
         return res
 
+    @classmethod
+    def get_cached_messages(cls, req: GetMessagesReq) -> GetMessagesResp:
+        return GetMessagesResp(
+            [message_cache_by_id.get(message_id) for message_id in req.message_ids]
+        )
+
     async def get_messages(self, req: GetMessagesReq) -> GetMessagesResp:
         message_id_to_fetch = [
             message_id
@@ -93,16 +99,13 @@ class TelethonAPI(ITDLibClient):
             if message_cache_by_id.get(message_id) is None
         ]
 
-        fetched_messages = await self.__get_messages(
-            entity=req.chat_id, ids=message_id_to_fetch
-        )
+        if message_id_to_fetch:
+            fetched_messages = await self.__get_messages(
+                entity=req.chat_id, ids=message_id_to_fetch
+            )
 
-        transformed_messages = self.__transform_messages(fetched_messages)
-
-        for message in transformed_messages:
-            if message is None:
-                continue
-            message_cache_by_id[message.message_id] = message
+            for message in exclude_none(self.__transform_messages(fetched_messages)):
+                message_cache_by_id[message.message_id] = message
 
         return [message_cache_by_id.get(message_id) for message_id in req.message_ids]
 
@@ -135,7 +138,7 @@ class TelethonAPI(ITDLibClient):
         if req.search not in message_cache_by_search:
             messages = await self.__get_messages(entity=req.chat_id, search=req.search)
             message_cache_by_search[req.search] = tuple(
-                remove_none(self.__transform_messages(messages))
+                exclude_none(self.__transform_messages(messages))
             )
         return GetMessagesRespNoNone(message_cache_by_search[req.search])
 
@@ -144,7 +147,7 @@ class TelethonAPI(ITDLibClient):
     ) -> GetMessagesRespNoNone:
         return GetMessagesRespNoNone(
             list(
-                remove_none(
+                exclude_none(
                     self.__transform_messages(
                         await self.__get_messages(
                             entity=req.chat_id, filter=tlt.InputMessagesFilterPinned()

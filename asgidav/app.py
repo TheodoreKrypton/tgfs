@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from contextvars import ContextVar
 from typing import Any, Callable, Optional
@@ -112,11 +113,16 @@ async def get(request: Request, path: str):
 
     if member := await RootFolder.get().member(path):
         if isinstance(member, Resource):
+            content, media_type, last_modified = await asyncio.gather(
+                member.get_content(begin, end),
+                member.content_type(),
+                member.last_modified(),
+            )
             return StreamingResponse(
-                content=await member.get_content(begin, end),
-                media_type=await member.content_type(),
+                content=content,
+                media_type=media_type,
                 headers={
-                    "Last-Modified": str(await member.last_modified()),
+                    "Last-Modified": str(last_modified),
                 },
             )
         raise ValueError("Expected a Resource, got a Folder")
