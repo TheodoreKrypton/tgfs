@@ -238,7 +238,6 @@ class TelethonAPI(ITDLibClient):
                 ),
                 chunk_size=chunk_size,
                 offset=req.begin if req.begin >= 0 else 0,
-                request_size=bytes_to_read,
             ):
                 if len(chunk) > bytes_to_read:
                     chunk = chunk[:bytes_to_read]
