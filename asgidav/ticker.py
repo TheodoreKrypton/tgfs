@@ -1,4 +1,7 @@
+import logging
 import time
+
+logger = logging.getLogger("asgidav.ticker")
 
 
 class Ticker:
@@ -9,5 +12,5 @@ class Ticker:
     def tick(self, name: str):
         current_time = time.time()
         elapsed_time = current_time - self._last_tick
-        print(f"{self.name}:{name} tick: {elapsed_time:.2f} seconds")
+        logger.info(f"{self.name}:{name} tick: {elapsed_time:.2f} seconds")
         self._last_tick = current_time

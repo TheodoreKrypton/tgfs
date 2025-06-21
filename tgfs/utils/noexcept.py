@@ -1,5 +1,5 @@
-from typing import TypeVar, Callable, Optional
 import logging
+from typing import Callable, Optional, TypeVar
 
 logger = logging.getLogger(__name__)
 

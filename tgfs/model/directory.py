@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, Optional
 
 from tgfs.errors.path import FileOrDirectoryAlreadyExists, FileOrDirectoryDoesNotExist
+
 from .message import TGFSDirectorySerialized
 
 

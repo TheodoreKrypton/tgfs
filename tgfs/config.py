@@ -1,7 +1,7 @@
-from dataclasses import dataclass
-import yaml
 import os
+from dataclasses import dataclass
 
+import yaml
 from telethon.tl.types import PeerChannel
 
 

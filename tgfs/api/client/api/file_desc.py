@@ -1,11 +1,14 @@
 from typing import AsyncIterator
 
+from tgfs.api.client.api.model import (
+    FileDescAPIResponse,
+    FileMessageEmpty,
+    GeneralFileMessage,
+)
 from tgfs.api.client.repository.impl.file import FileRepository
 from tgfs.api.client.repository.interface import IFDRepository
-from tgfs.api.client.api.model import GeneralFileMessage, FileMessageEmpty
-from tgfs.api.client.api.model import FileDescAPIResponse
-from tgfs.model.file import TGFSFile, TGFSFileVersion
 from tgfs.model.directory import TGFSFileRef
+from tgfs.model.file import TGFSFile, TGFSFileVersion
 
 
 class FileDescApi:

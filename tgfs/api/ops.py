@@ -1,16 +1,17 @@
 import os.path
 from typing import AsyncIterator, Optional
 
-from tgfs.errors.path import InvalidPath, FileOrDirectoryDoesNotExist
+from tgfs.errors.path import FileOrDirectoryDoesNotExist, InvalidPath
 from tgfs.model.directory import TGFSDirectory, TGFSFileRef
 from tgfs.model.file import TGFSFile
+
 from .client.api.client import Client
 from .client.api.model import (
     FileMessageEmpty,
-    FileTags,
-    FileMessageFromPath,
     FileMessageFromBuffer,
+    FileMessageFromPath,
     FileMessageFromStream,
+    FileTags,
 )
 
 
@@ -51,9 +52,8 @@ class Ops:
 
         if next_dir:
             return self.__client.dir_api.ls(next_dir)
-        else:
-            # cannot find a subdirectory with the given name, so assume it's a file
-            return self.__client.dir_api.ls(d, basename)
+        # cannot find a subdirectory with the given name, so assume it's a file
+        return self.__client.dir_api.ls(d, basename)
 
     async def desc(self, path: str) -> TGFSFile:
         file_ref = self.ls(path)
@@ -117,8 +117,7 @@ class Ops:
                 except FileOrDirectoryDoesNotExist:
                     # If the directory does not exist, create it
                     d = await self.__client.dir_api.create(part, d)
-        res = await self.__client.dir_api.create(basename, d)
-        return res
+        return await self.__client.dir_api.create(basename, d)
 
     async def touch(self, path: str) -> None:
         self.__validate_path(path)

@@ -26,3 +26,19 @@ build-backend = "poetry.core.masonry.api"
 mypy = "^1.15.0"
 ruff = "^0.11.10"
 black = "^25.1.0"
+
+[tool.ruff]
+fix = true
+
+[tool.ruff.lint]
+select = [
+    "F",  # Formatting
+    "I",  # Imports
+    "R",  # Refactoring
+    "S",  # Style
+    "T",  # Type checking
+]
+ignore = [
+    "E501",  # Line too long
+    "S320",  # Using `lxml` to parse untrusted data is known to be vulnerable to XML attacks
+]

@@ -1,27 +1,28 @@
-from telethon.errors import RPCError, MessageNotModifiedError
-from pyrate_limiter import Limiter, Duration, Rate, InMemoryBucket
+from pyrate_limiter import Duration, InMemoryBucket, Limiter, Rate
+from telethon.errors import MessageNotModifiedError, RPCError
 
+from tgfs.api.client.api.message.message_broker import MessageBroker
 from tgfs.api.interface import TDLibApi
 from tgfs.api.types import (
-    SendTextReq,
+    DownloadFileReq,
+    DownloadFileResp,
     EditMessageTextReq,
-    MessageResp,
     GetPinnedMessageReq,
+    MessageResp,
     PinMessageReq,
     SearchMessageReq,
-    DownloadFileResp,
-    DownloadFileReq,
+    SendTextReq,
 )
-from tgfs.api.client.api.message.message_broker import MessageBatcher
-from tgfs.errors.telegram import MessageNotFound
 from tgfs.config import get_config
+from tgfs.errors.telegram import MessageNotFound
+from tgfs.utils.others import remove_none
 
 rate = Rate(20, Duration.SECOND)
 bucket = InMemoryBucket([rate])
 limiter = Limiter(bucket, max_delay=60 * 1000)  # 60 seconds max delay
 
 
-class MessageApi(MessageBatcher):
+class MessageApi(MessageBroker):
     def __init__(self, tdlib: TDLibApi):
         super().__init__(tdlib)
 
@@ -73,8 +74,12 @@ class MessageApi(MessageBatcher):
 
     async def search_messages(self, search: str) -> list[MessageResp]:
         self.__try_acquire("MessageApi.search_messages")
-        return await self.tdlib.account.search_messages(
-            SearchMessageReq(chat_id=self.private_channel_id, search=search)
+        return list(
+            remove_none(
+                await self.tdlib.account.search_messages(
+                    SearchMessageReq(chat_id=self.private_channel_id, search=search)
+                )
+            )
         )
 
     async def download_file(

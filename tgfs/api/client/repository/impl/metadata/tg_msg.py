@@ -24,17 +24,16 @@ class TGMsgMetadataRepository(IMetaDataRepository):
                 buffer,
                 self.METADATA_FILE_NAME,
             )
-        else:
-            resp = await self.__file_repo.save(
-                FileMessageFromBuffer(
-                    name=self.METADATA_FILE_NAME,
-                    caption="",
-                    tags=FileTags(),
-                    buffer=buffer,
-                )
+        resp = await self.__file_repo.save(
+            FileMessageFromBuffer(
+                name=self.METADATA_FILE_NAME,
+                caption="",
+                tags=FileTags(),
+                buffer=buffer,
             )
-            await self.__message_api.pin_message(message_id=resp.message_id)
-            return resp.message_id
+        )
+        await self.__message_api.pin_message(message_id=resp.message_id)
+        return resp.message_id
 
     @staticmethod
     async def __read_all(async_iter: AsyncIterator[bytes]) -> bytes:

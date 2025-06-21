@@ -1,12 +1,12 @@
-from typing import Tuple, List
+from dataclasses import dataclass
+from typing import List, Tuple
+
+import lxml.etree as et  # type: ignore
 from fastapi import Request
 
-from dataclasses import dataclass
-import lxml.etree as et  # type: ignore
-
-from asgidav.folder import Folder
-from asgidav.member import Member, ResourceType, Properties, PropertyName
 from asgidav.async_map import async_map
+from asgidav.folder import Folder
+from asgidav.member import Member, Properties, PropertyName, ResourceType
 
 DAV_NS = "DAV:"
 NS_MAP = {"D": DAV_NS}

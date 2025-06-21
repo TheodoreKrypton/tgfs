@@ -1,41 +1,50 @@
 import os
-from typing import Optional, List, Literal, TypedDict
 from getpass import getpass
+from typing import List, Optional
 
-from telethon import TelegramClient, types as tlt, functions as tlf
+from lru import LRU
+from telethon import TelegramClient
+from telethon import functions as tlf
+from telethon import types as tlt
+from telethon.errors import SessionPasswordNeededError
 from telethon.helpers import TotalList
 from telethon.sessions import StringSession
-from telethon.tl.types import (
-    InputDocumentFileLocation,
-    MessageMediaDocument,
-    InputMessagesFilterPinned,
-)
-from telethon.errors import SessionPasswordNeededError
+from telethon.tl.types import InputDocumentFileLocation
 
 from tgfs.api.interface import ITDLibClient
 from tgfs.api.types import (
-    GetMessagesReq,
-    GetMessagesResp,
-    GetPinnedMessageReq,
-    MessageResp,
     Document,
-    SendTextReq,
-    SendMessageResp,
-    EditMessageTextReq,
-    EditMessageMediaReq,
-    Message,
-    SearchMessageReq,
-    PinMessageReq,
-    SaveBigFilePartReq,
-    SaveFilePartResp,
-    SaveFilePartReq,
-    SendFileReq,
     DownloadFileReq,
     DownloadFileResp,
+    EditMessageMediaReq,
+    EditMessageTextReq,
+    GetMessagesReq,
+    GetMessagesResp,
+    GetMessagesRespNoNone,
+    GetPinnedMessageReq,
+    Message,
+    MessageResp,
+    PinMessageReq,
+    SaveBigFilePartReq,
+    SaveFilePartReq,
+    SaveFilePartResp,
+    SearchMessageReq,
+    SendFileReq,
+    SendMessageResp,
+    SendTextReq,
 )
 from tgfs.config import Config
 from tgfs.errors.base import TechnicalError
 from tgfs.errors.tgfs import UnDownloadableMessage
+from tgfs.utils.others import remove_none
+
+message_cache_by_id = LRU(1024)  # type: LRU[int, MessageResp]
+message_cache_by_search = LRU(1024)  # type: LRU[str, Tuple[MessageResp, ...]]
+
+
+def remove_message_cache_by_id(message_id: int) -> None:
+    if message_id in message_cache_by_id:
+        message_cache_by_id.pop(message_id)
 
 
 class TelethonAPI(ITDLibClient):
@@ -54,6 +63,7 @@ class TelethonAPI(ITDLibClient):
 
         for m in messages:
             if not m:
+                res.append(None)
                 continue
 
             obj = MessageResp(
@@ -77,20 +87,38 @@ class TelethonAPI(ITDLibClient):
         return res
 
     async def get_messages(self, req: GetMessagesReq) -> GetMessagesResp:
-        messages = await self.__get_messages(entity=req.chat_id, ids=req.message_ids)
-        return self.__transform_messages(messages)
+        message_id_to_fetch = [
+            message_id
+            for message_id in req.message_ids
+            if message_cache_by_id.get(message_id) is None
+        ]
+
+        fetched_messages = await self.__get_messages(
+            entity=req.chat_id, ids=message_id_to_fetch
+        )
+
+        transformed_messages = self.__transform_messages(fetched_messages)
+
+        for message in transformed_messages:
+            if message is None:
+                continue
+            message_cache_by_id[message.message_id] = message
+
+        return [message_cache_by_id.get(message_id) for message_id in req.message_ids]
 
     async def send_text(self, req: SendTextReq) -> SendMessageResp:
         message = await self._client.send_message(entity=req.chat_id, message=req.text)
         return SendMessageResp(message_id=message.id)
 
     async def edit_message_text(self, req: EditMessageTextReq) -> SendMessageResp:
+        remove_message_cache_by_id(req.message_id)
         message = await self._client.edit_message(
             entity=req.chat_id, message=req.message_id, text=req.text
         )
         return SendMessageResp(message_id=message.id)
 
     async def edit_message_media(self, req: EditMessageMediaReq) -> Message:
+        remove_message_cache_by_id(req.message_id)
         message = await self._client.edit_message(
             entity=req.chat_id,
             message=req.message_id,
@@ -103,15 +131,28 @@ class TelethonAPI(ITDLibClient):
         )
         return Message(message_id=message.id)
 
-    async def search_messages(self, req: SearchMessageReq) -> GetMessagesResp:
-        messages = await self.__get_messages(entity=req.chat_id, search=req.search)
-        return self.__transform_messages(messages)
+    async def search_messages(self, req: SearchMessageReq) -> GetMessagesRespNoNone:
+        if req.search not in message_cache_by_search:
+            messages = await self.__get_messages(entity=req.chat_id, search=req.search)
+            message_cache_by_search[req.search] = tuple(
+                remove_none(self.__transform_messages(messages))
+            )
+        return GetMessagesRespNoNone(message_cache_by_search[req.search])
 
-    async def get_pinned_messages(self, req: GetPinnedMessageReq) -> GetMessagesResp:
-        messages = await self.__get_messages(
-            entity=req.chat_id, filter=tlt.InputMessagesFilterPinned()
+    async def get_pinned_messages(
+        self, req: GetPinnedMessageReq
+    ) -> GetMessagesRespNoNone:
+        return GetMessagesRespNoNone(
+            list(
+                remove_none(
+                    self.__transform_messages(
+                        await self.__get_messages(
+                            entity=req.chat_id, filter=tlt.InputMessagesFilterPinned()
+                        )
+                    )
+                )
+            )
         )
-        return self.__transform_messages(messages)
 
     async def pin_message(self, req: PinMessageReq) -> None:
         await self._client.pin_message(

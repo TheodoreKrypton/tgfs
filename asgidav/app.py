@@ -1,14 +1,14 @@
-from typing import Optional, Callable, Any
-
-from fastapi import FastAPI, Response, Request
-from fastapi.middleware.cors import CORSMiddleware
-from contextvars import ContextVar
 import uuid
+from contextvars import ContextVar
+from typing import Any, Callable, Optional
 
+from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse
 
 from asgidav.folder import Folder
 from asgidav.resource import Resource
+
 from .reqres import PropfindRequest, propfind
 
 
@@ -119,8 +119,7 @@ async def get(request: Request, path: str):
                     "Last-Modified": str(await member.last_modified()),
                 },
             )
-        else:
-            raise ValueError("Expected a Resource, got a Folder")
+        raise ValueError("Expected a Resource, got a Folder")
     return Response(status_code=404)
 
 

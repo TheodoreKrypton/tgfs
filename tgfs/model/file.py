@@ -1,10 +1,11 @@
 import datetime
-from typing import List, Iterable
-from uuid import uuid4 as uuid
 from dataclasses import dataclass, field
+from typing import Iterable, List
+from uuid import uuid4 as uuid
 
 from tgfs.api.types import SentFileMessage
-from .message import TGFSFileVersionSerialized, TGFSFileObject
+
+from .message import TGFSFileObject, TGFSFileVersionSerialized
 
 EMPTY_FILE = -1
 INVALID_FILE_SIZE = -1

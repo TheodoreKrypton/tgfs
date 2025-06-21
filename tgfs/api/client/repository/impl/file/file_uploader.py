@@ -1,14 +1,13 @@
+import asyncio
+import logging
 import os
 from abc import ABCMeta, abstractmethod
-import asyncio
-from typing import Callable, Optional, Generic, TypeVar
 from dataclasses import dataclass
-import logging
-from typing import Coroutine, Any
+from typing import Any, Callable, Coroutine, Generic, Optional, TypeVar
 
+from telethon.errors import RPCError
 from telethon.tl.types import PeerChannel
 from telethon.utils import get_appropriated_part_size
-from telethon.errors import RPCError
 
 from tgfs.api.client.api.model import (
     FileMessageFromBuffer,
@@ -20,13 +19,12 @@ from tgfs.api.interface import ITDLibClient, TDLibApi
 from tgfs.api.types import (
     SaveBigFilePartReq,
     SaveFilePartReq,
-    SendMessageResp,
     SendFileReq,
+    SendMessageResp,
     UploadedFile,
 )
 from tgfs.api.utils import generate_file_id
 from tgfs.errors.telegram import FileSizeTooLarge
-
 
 logger = logging.getLogger(__name__)
 
@@ -250,8 +248,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
 
         if self.__is_big:
             return await self._client.send_big_file(req)
-        else:
-            return await self._client.send_small_file(req)
+        return await self._client.send_small_file(req)
 
 
 class UploaderFromPath(IFileUploader[FileMessageFromPath]):
@@ -314,7 +311,7 @@ def create_uploader(
             on_complete=on_complete,
         )
 
-    elif isinstance(file_msg, FileMessageFromBuffer):
+    if isinstance(file_msg, FileMessageFromBuffer):
         file_size = len(file_msg.buffer)
         return UploaderFromBuffer(
             client=select_api(file_size),
@@ -322,7 +319,7 @@ def create_uploader(
             on_complete=on_complete,
         )
 
-    elif isinstance(file_msg, FileMessageFromStream):
+    if isinstance(file_msg, FileMessageFromStream):
         file_size = file_msg.size
         return UploaderFromStream(
             client=select_api(file_size),

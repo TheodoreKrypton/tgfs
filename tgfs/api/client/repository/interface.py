@@ -2,8 +2,8 @@ from abc import ABCMeta, abstractmethod
 from typing import Optional
 
 from tgfs.api.client.api.model import FileDescAPIResponse
-from tgfs.model.file import TGFSFile
 from tgfs.model.directory import TGFSFileRef
+from tgfs.model.file import TGFSFile
 from tgfs.model.metadata import TGFSMetadata
 
 

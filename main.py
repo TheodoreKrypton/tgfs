@@ -4,8 +4,8 @@ import uvicorn
 from uvicorn.config import Config as UvicornConfig
 from uvicorn.server import Server
 
-from tgfs.config import get_config, set_config_file, Config
 from tgfs.api import Client, login_as_account, login_as_bot
+from tgfs.config import Config, get_config, set_config_file
 from tgfs.server.webdav import create_webdav_app
 
 

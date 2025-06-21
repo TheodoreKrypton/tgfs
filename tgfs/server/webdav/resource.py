@@ -1,8 +1,7 @@
 import asyncio
-from typing import Optional, AsyncIterator
+from typing import AsyncIterator, Optional
 
 from asgidav.resource import Resource as _Resource
-
 from tgfs.api.client.api.client import Client
 from tgfs.api.ops import Ops
 from tgfs.errors.base import TechnicalError

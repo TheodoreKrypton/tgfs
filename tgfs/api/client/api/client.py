@@ -1,8 +1,8 @@
 from telethon import TelegramClient
 
 from tgfs.api.client.repository import (
-    TGMsgFDRepository,
     FileRepository,
+    TGMsgFDRepository,
     TGMsgMetadataRepository,
 )
 from tgfs.api.impl.telethon import TelethonAPI

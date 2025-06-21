@@ -1,4 +1,5 @@
-from asgidav.app import app, RootFolder
+from asgidav.app import RootFolder, app
+
 from .folder import Folder
 
 

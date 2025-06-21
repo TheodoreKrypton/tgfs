@@ -1,14 +1,13 @@
 import json
-from typing import Optional
 import logging
+from typing import Optional
 
 from tgfs.api.client.api.message import MessageApi
 from tgfs.api.client.api.model import FileDescAPIResponse
 from tgfs.api.client.repository.interface import IFDRepository
 from tgfs.errors.telegram import MessageNotFound
-from tgfs.model.file import TGFSFile
 from tgfs.model.directory import TGFSFileRef
-
+from tgfs.model.file import TGFSFile
 
 logger = logging.getLogger(__name__)
 

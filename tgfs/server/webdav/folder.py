@@ -1,6 +1,6 @@
 from asgidav.folder import Folder as _Folder
+from tgfs.api import Client, Ops
 
-from tgfs.api import Ops, Client
 from .resource import Resource
 
 

@@ -1,7 +1,7 @@
 from typing import Optional
 
 from tgfs.api.client.api.metadata import MetaDataApi
-from tgfs.errors.path import FileOrDirectoryDoesNotExist, DirectoryIsNotEmpty
+from tgfs.errors.path import DirectoryIsNotEmpty, FileOrDirectoryDoesNotExist
 from tgfs.model.directory import TGFSDirectory, TGFSFileRef
 from tgfs.utils.validate_name import validate_name
 

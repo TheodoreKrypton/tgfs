@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Union, Optional, AsyncIterator
+from typing import AsyncIterator, Optional, Union
 
 from tgfs.model.file import TGFSFile
 

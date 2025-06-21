@@ -1,8 +1,8 @@
-from typing import Optional, AsyncIterator
+from typing import AsyncIterator, Optional
 
 from tgfs.api.client.api.file_desc import FileDescApi
 from tgfs.api.client.api.metadata import MetaDataApi
-from tgfs.api.client.api.model import GeneralFileMessage, FileMessageEmpty
+from tgfs.api.client.api.model import FileMessageEmpty, GeneralFileMessage
 from tgfs.errors.path import FileOrDirectoryDoesNotExist
 from tgfs.model.directory import TGFSDirectory, TGFSFileRef
 from tgfs.model.file import TGFSFile, TGFSFileVersion
@@ -82,11 +82,10 @@ class FileApi:
                 yield b""
 
             return empty_file()
-        else:
-            version = fd.get_latest_version()
-            return await self.__file_desc_api.download_file_at_version(
-                as_name or fr.name, version, begin, end
-            )
+        version = fd.get_latest_version()
+        return await self.__file_desc_api.download_file_at_version(
+            as_name or fr.name, version, begin, end
+        )
 
     async def retrieve_version(
         self, version: TGFSFileVersion, as_name: str, begin: int, end: int

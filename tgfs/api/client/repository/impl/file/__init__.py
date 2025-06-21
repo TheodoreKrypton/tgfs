@@ -4,15 +4,15 @@ from typing import AsyncIterator
 
 from tgfs.api.client.api.message import MessageApi
 from tgfs.api.client.api.model import (
-    FileMessageFromPath,
-    FileMessageFromBuffer,
     FileMessageEmpty,
-    GeneralFileMessage,
+    FileMessageFromBuffer,
+    FileMessageFromPath,
     FileMessageFromStream,
     FileTags,
+    GeneralFileMessage,
 )
 from tgfs.api.client.repository.impl.file.file_uploader import create_uploader
-from tgfs.api.types import SentFileMessage, EditMessageMediaReq
+from tgfs.api.types import EditMessageMediaReq, SentFileMessage
 from tgfs.errors.base import TechnicalError
 from tgfs.model.file import EMPTY_FILE
 

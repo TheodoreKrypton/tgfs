@@ -2,22 +2,23 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 
 from .types import (
-    GetMessagesReq,
-    SendTextReq,
-    GetMessagesResp,
-    SendMessageResp,
+    DownloadFileReq,
+    DownloadFileResp,
+    EditMessageMediaReq,
     EditMessageTextReq,
-    SearchMessageReq,
+    GetMessagesReq,
+    GetMessagesResp,
+    GetMessagesRespNoNone,
     GetPinnedMessageReq,
+    Message,
     PinMessageReq,
     SaveBigFilePartReq,
-    SaveFilePartResp,
     SaveFilePartReq,
+    SaveFilePartResp,
+    SearchMessageReq,
     SendFileReq,
-    EditMessageMediaReq,
-    Message,
-    DownloadFileReq,
-    DownloadFileResp
+    SendMessageResp,
+    SendTextReq,
 )
 
 
@@ -35,11 +36,11 @@ class ITDLibClient(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    async def search_messages(self, req: SearchMessageReq) -> GetMessagesResp:
+    async def search_messages(self, req: SearchMessageReq) -> GetMessagesRespNoNone:
         pass
 
     @abstractmethod
-    async def get_pinned_messages(self, req: GetPinnedMessageReq) -> GetMessagesResp:
+    async def get_pinned_messages(self, req: GetPinnedMessageReq) -> GetMessagesRespNoNone:
         pass
 
     @abstractmethod

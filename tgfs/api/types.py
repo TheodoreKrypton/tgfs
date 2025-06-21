@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable, Optional, AsyncIterator
+from typing import AsyncIterator, Optional, Tuple
 
 from telethon.tl.types import PeerChannel
 
@@ -18,7 +18,7 @@ class Chat:
 
 @dataclass
 class GetMessagesReq(Chat):
-    message_ids: Iterable[int]
+    message_ids: Tuple[int, ...]
 
 @dataclass
 class Document:
@@ -32,7 +32,8 @@ class MessageResp(Message):
     text: str
     document: Optional[Document]
 
-GetMessagesResp = list[MessageResp]
+GetMessagesResp = list[Optional[MessageResp]]
+GetMessagesRespNoNone = list[MessageResp]
 
 @dataclass
 class SearchMessageReq(Chat):
