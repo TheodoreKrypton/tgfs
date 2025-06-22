@@ -1,5 +1,6 @@
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import List
 
 import yaml
 from telethon.tl.types import PeerChannel
@@ -50,15 +51,22 @@ class TGFSConfig:
         )
 
 
+def expand_path(path: str) -> str:
+    return os.path.expanduser(path).replace("/", os.path.sep)
+
+
 @dataclass
 class BotConfig:
     token: str
     session_file: str
+    tokens: List[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> "BotConfig":
         return cls(
-            token=data["token"], session_file=os.path.expanduser(data["session_file"])
+            token=data["token"],
+            tokens=data.get("tokens", []),
+            session_file=expand_path(data["session_file"]),
         )
 
 
@@ -68,7 +76,7 @@ class AccountConfig:
 
     @classmethod
     def from_dict(cls, data: dict) -> "AccountConfig":
-        return cls(session_file=os.path.expanduser(data["session_file"]))
+        return cls(session_file=expand_path(data["session_file"]))
 
 
 @dataclass

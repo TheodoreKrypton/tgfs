@@ -85,7 +85,7 @@ class MessageApi(MessageBroker):
     async def download_file(
         self, message_id: int, begin: int, end: int
     ) -> DownloadFileResp:
-        return await self.tdlib.account.download_file(
+        return await self.tdlib.bot.download_file(
             DownloadFileReq(
                 chat_id=self.private_channel_id,
                 message_id=message_id,

@@ -1,3 +1,5 @@
+from typing import List
+
 from telethon import TelegramClient
 
 from tgfs.api.client.repository import (
@@ -24,10 +26,12 @@ class Client:
     async def create(
         cls,
         account: TelegramClient,
-        bot: TelegramClient,
+        bots: List[TelegramClient],
     ) -> "Client":
         message_api = MessageApi(
-            TDLibApi(account=TelethonAPI(account), bot=TelethonAPI(bot))
+            TDLibApi(
+                account=TelethonAPI(account), bots=[TelethonAPI(bot) for bot in bots]
+            )
         )
         file_repo = FileRepository(message_api)
         fd_repo = TGMsgFDRepository(message_api)

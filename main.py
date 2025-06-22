@@ -1,19 +1,24 @@
 import asyncio
+import logging
 
 import uvicorn
 from uvicorn.config import Config as UvicornConfig
 from uvicorn.server import Server
 
-from tgfs.api import Client, login_as_account, login_as_bot
+from tgfs.api import Client, login_as_account, login_as_bots
 from tgfs.config import Config, get_config, set_config_file
 from tgfs.server.webdav import create_webdav_app
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 async def create_client(config: Config):
     account = await login_as_account(config)
-    bot = await login_as_bot(config)
+    bots = await login_as_bots(config)
 
-    return await Client.create(account, bot)
+    return await Client.create(account, bots)
 
 
 async def main():

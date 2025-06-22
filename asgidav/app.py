@@ -135,7 +135,7 @@ async def put(request: Request, path: str):
         member = await RootFolder.get().create_empty_resource(path)
     if isinstance(member, Resource):
         await member.write(
-            request.stream(), size=int(request.headers.get("Content-Length", 0))
+            request.stream(), size=int(request.headers["Content-Length"])
         )
         return Response(
             status_code=201,

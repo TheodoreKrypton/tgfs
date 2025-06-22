@@ -1,6 +1,7 @@
+import logging
 import os
 from getpass import getpass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple  # noqa: F401
 
 from lru import LRU
 from telethon import TelegramClient
@@ -37,6 +38,9 @@ from tgfs.config import Config
 from tgfs.errors.base import TechnicalError
 from tgfs.errors.tgfs import UnDownloadableMessage
 from tgfs.utils.others import exclude_none
+
+logger = logging.getLogger(__name__)
+
 
 message_cache_by_id = LRU(1024)  # type: LRU[int, MessageResp]
 message_cache_by_search = LRU(1024)  # type: LRU[str, Tuple[MessageResp, ...]]
@@ -260,7 +264,21 @@ class Session:
                 return StringSession(f.read().strip())
         return None
 
+    def save_multibot(self, session_string: str):
+        dir_ = os.path.dirname(self.session_file)
+        if os.path.isfile(dir_):
+            raise Exception(
+                f"{dir_} is a session file which only supports one bot session. "
+                f"Please remove the file to upgrade to multi-bot version."
+            )
+        os.makedirs(dir_, exist_ok=True)
+        with open(self.session_file, "w") as f:
+            f.write(session_string)
+
     def save(self, session_string: str):
+        if not os.path.exists(self.session_file):
+            dir_ = os.path.dirname(self.session_file)
+            os.makedirs(dir_, exist_ok=True)
         with open(self.session_file, "w") as f:
             f.write(session_string)
 
@@ -273,10 +291,17 @@ async def login_as_account(config: Config) -> TelegramClient:
     if sess := session.get():
         client = TelegramClient(sess, api_id, api_hash)
         await client.connect()
+
+        if (me := await client.get_me()) and isinstance(me, tlt.User):
+            logger.info(f"logged in as account @{me.username}")
+        else:
+            logger.warning("logged in as account, but no username found")
+
         return client
 
     phone_number = input("Phone Number: ")
     client = TelegramClient(StringSession(), api_id, api_hash)
+    await client.start()  # type: ignore
     await client.connect()
 
     sms_req = await client.send_code_request(phone_number, force_sms=False)
@@ -302,11 +327,42 @@ async def login_as_bot(config: Config) -> TelegramClient:
     session = Session(config.telegram.bot.session_file)
     if sess := session.get():
         client = TelegramClient(sess, api_id, api_hash)
-        await client.connect()
-        return client
+    else:
+        client = TelegramClient(StringSession(), api_id, api_hash)
+        await client.start(bot_token=config.telegram.bot.token)  # type: ignore
+        session.save(client.session.save())  # type: ignore
 
-    client = TelegramClient(StringSession(), api_id, api_hash).start(
-        bot_token=config.telegram.bot.token
-    )
-    session.save(client.session.save())  # type: ignore
+    await client.connect()
     return client
+
+
+async def login_as_bots(config: Config) -> List[TelegramClient]:
+    api_id = config.telegram.api_id
+    api_hash = config.telegram.api_hash
+
+    bot_tokens = config.telegram.bot.tokens or [config.telegram.bot.token]
+
+    clients = []
+    for token in bot_tokens:
+        bot_id, _ = token.split(":")
+
+        session = Session(
+            os.path.join(config.telegram.bot.session_file, f"{bot_id}.session")
+        )
+
+        if sess := session.get():
+            client = TelegramClient(sess, api_id, api_hash)
+        else:
+            client = TelegramClient(StringSession(), api_id, api_hash)
+            await client.start(bot_token=token)  # type: ignore
+            session.save_multibot(client.session.save())  # type: ignore
+
+        await client.connect()
+
+        if (me := await client.get_me()) and isinstance(me, tlt.User):
+            logger.info(f"logged in as account @{me.username}")
+        else:
+            logger.warning("logged in as account, but no username found")
+
+        clients.append(client)
+    return clients
