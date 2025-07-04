@@ -188,11 +188,10 @@ class TelethonAPI(ITDLibClient):
         return SaveFilePartResp(success=success)
 
     async def send_big_file(self, req: SendFileReq) -> SendMessageResp:
-        file = tlt.InputFile(
+        file = tlt.InputFileBig(
             id=req.file.id,
             parts=req.file.parts,
             name=req.file.name,
-            md5_checksum="",
         )
         message = await self._client.send_file(
             entity=req.chat_id, file=file, caption=req.caption, force_document=True

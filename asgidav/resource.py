@@ -28,5 +28,8 @@ class Resource(Member):
         )
 
     @abstractmethod
-    async def write(self, content: AsyncIterator[bytes], size: int) -> None:
+    async def overwrite(self, content: AsyncIterator[bytes], size: int) -> None:
+        raise NotImplementedError
+
+    async def remove(self) -> None:
         raise NotImplementedError

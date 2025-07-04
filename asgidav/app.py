@@ -1,4 +1,5 @@
 import asyncio
+import os.path
 import uuid
 from contextvars import ContextVar
 from typing import Any, Callable, Optional
@@ -67,7 +68,7 @@ async def handle_propfind(request: Request, path: str):
         resp = await propfind((member,), r.depth, r.props)
         return Response(
             resp,
-            media_type="application/xml",
+            media_type="application/xml; charset=utf-8",
         )
 
     return Response(status_code=404)
@@ -133,19 +134,19 @@ async def get(request: Request, path: str):
 async def put(request: Request, path: str):
     if not (member := await RootFolder.get().member(path)):
         member = await RootFolder.get().create_empty_resource(path)
+
+    size = int(request.headers["Content-Length"])
+
+    if isinstance(member, Resource) and size > 0:
+        await member.overwrite(request.stream(), size=size)
+
+    return Response(status_code=201)
+
+
+@app.delete("/{path:path}")
+async def delete(request: Request, path: str):
+    member = await RootFolder.get().member(path)
     if isinstance(member, Resource):
-        await member.write(
-            request.stream(), size=int(request.headers["Content-Length"])
-        )
-        return Response(
-            status_code=201,
-            headers={
-                "Location": f"/{path}",
-            },
-        )
-    return Response(
-        status_code=405,
-        headers={
-            "Allow": "GET, HEAD, POST, PUT, DELETE, TRACE, OPTIONS, PROPFIND, PROPPATCH, COPY, MOVE, LOCK, UNLOCK, MKCOL",
-        },
-    )
+        await member.remove()
+
+    return Response(status_code=200)

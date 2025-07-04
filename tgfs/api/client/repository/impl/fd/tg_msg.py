@@ -21,7 +21,9 @@ class TGMsgFDRepository(IFDRepository):
     ) -> FileDescAPIResponse:
         if message_id is None:
             return FileDescAPIResponse(
-                message_id=await self.__message_api.send_text(json.dumps(fd.to_dict())),
+                message_id=await self.__message_api.send_text(
+                    json.dumps(fd.to_dict(), ensure_ascii=False)
+                ),
                 fd=fd,
             )
 
@@ -33,7 +35,8 @@ class TGMsgFDRepository(IFDRepository):
     async def __update(self, fd: TGFSFile, message_id: int) -> FileDescAPIResponse:
         return FileDescAPIResponse(
             message_id=await self.__message_api.edit_message_text(
-                message_id=message_id, message=json.dumps(fd.to_dict())
+                message_id=message_id,
+                message=json.dumps(fd.to_dict(), ensure_ascii=False),
             ),
             fd=fd,
         )
@@ -41,7 +44,7 @@ class TGMsgFDRepository(IFDRepository):
     async def get(self, fr: TGFSFileRef) -> TGFSFile:
         message = (await self.__message_api.get_messages([fr.message_id]))[0]
 
-        empty = TGFSFile.empty(f"[Content Not Found]${fr.name}")
+        empty = TGFSFile.empty(fr.name)
 
         if not message:
             logging.error(

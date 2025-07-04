@@ -51,5 +51,8 @@ class Resource(_Resource):
     async def get_content(self, begin: int = 0, end: int = -1) -> AsyncIterator[bytes]:
         return await self.__ops.download(self.path, "unnamed", begin, end)
 
-    async def write(self, content: AsyncIterator[bytes], size: int) -> None:
+    async def overwrite(self, content: AsyncIterator[bytes], size: int) -> None:
         await self.__ops.upload_from_stream(content, size, self.path)
+
+    async def remove(self) -> None:
+        await self.__ops.rm_file(self.path)

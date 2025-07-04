@@ -27,26 +27,29 @@ class PropfindRequest:
 
     @classmethod
     async def from_request(cls, request: Request):
-        depth = int(request.headers["Depth"])
+        try:
+            depth = int(request.headers["Depth"])
 
-        body = await request.body()
-        root = et.fromstring(body)
+            body = await request.body()
+            root = et.fromstring(body)
 
-        if root.find(".//D:propname", NS_MAP) is not None:
+            if root.find(".//D:propname", NS_MAP) is not None:
+                return cls(depth=depth)
+
+            if root.find(".//D:allprop", NS_MAP) is not None:
+                return cls(depth=depth)
+
+            if (elem := root.find(".//D:prop", NS_MAP)) is not None:
+                requested_props = frozenset(
+                    et.QName(prop_elem).localname for prop_elem in elem
+                )
+                return cls(
+                    depth=depth, props=tuple(requested_props.intersection(cls.props))
+                )
+
             return cls(depth=depth)
-
-        if root.find(".//D:allprop", NS_MAP) is not None:
-            return cls(depth=depth)
-
-        if (elem := root.find(".//D:prop", NS_MAP)) is not None:
-            requested_props = frozenset(
-                et.QName(prop_elem).localname for prop_elem in elem
-            )
-            return cls(
-                depth=depth, props=tuple(requested_props.intersection(cls.props))
-            )
-
-        return cls(depth=depth)
+        except Exception:
+            return cls(depth=999)
 
 
 def _tag(name: str) -> str:
