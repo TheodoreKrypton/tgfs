@@ -14,17 +14,17 @@ from .reqres import PropfindRequest, propfind
 
 
 class RootFolder:
-    __root_folder: Optional[Folder] = None
+    _get_root_folder: Optional[Callable[[], Folder]] = None
 
     @classmethod
-    def set(cls, folder: Folder):
-        cls.__root_folder = folder
+    def set_method(cls, method: Callable[[], Folder]) -> None:
+        cls._get_root_folder = method
 
     @classmethod
     def get(cls) -> Folder:
-        if cls.__root_folder is None:
-            raise ValueError("Root folder is not set.")
-        return cls.__root_folder
+        if cls._get_root_folder is None:
+            raise ValueError("Method to get root folder is not set.")
+        return cls._get_root_folder()
 
 
 app = FastAPI()
@@ -42,7 +42,6 @@ uuid_context = ContextVar("uuid", default="")
 
 @app.middleware("http")
 async def add_uuid_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
-    # Set request UUID.
     uuid_context.set(str(uuid.uuid4()))
     return await call_next(request)
 
