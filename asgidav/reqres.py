@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from typing import List, Tuple
+from urllib.parse import quote
 
 import lxml.etree as et  # type: ignore
 from fastapi import Request
@@ -79,7 +80,7 @@ async def _propfind_response(
     root = et.Element(_tag("response"))
 
     href_elem = et.SubElement(root, _tag("href"))
-    href_elem.text = member.path
+    href_elem.text = quote(member.path, safe="/")
 
     propstat_elem = await _propstat(
         member=member,
@@ -114,5 +115,4 @@ async def propfind(
             root.append(response)
 
     et.register_namespace("D", DAV_NS)
-    xml_str = et.tostring(root, encoding="utf-8", xml_declaration=True)
-    return xml_str.decode("utf-8")
+    return et.tostring(root, encoding="unicode")

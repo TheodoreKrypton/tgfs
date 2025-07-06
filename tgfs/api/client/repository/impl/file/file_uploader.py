@@ -30,6 +30,10 @@ from tgfs.errors.telegram import FileSizeTooLarge
 logger = logging.getLogger(__name__)
 
 
+def is_big_file(size: int) -> bool:
+    return size >= 10 * 1024 * 1024  # 10 MB threshold
+
+
 @dataclass
 class WorkersConfig:
     small: int = 3
@@ -64,7 +68,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         self._file_id = generate_random_long()
         self.__file_name = ""
 
-        self.__is_big = self.__is_big_file(file_size)
+        self.__is_big = is_big_file(file_size)
         self.__part_cnt = -1
         self.__read_size = 0
         self.__uploaded_size = 0
@@ -77,17 +81,13 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         self.__uncompleted_chunks: asyncio.Queue[FileChunk] = asyncio.Queue()
         self.__lock = asyncio.Lock()
 
-    @staticmethod
-    def __is_big_file(size: int) -> bool:
-        return size >= 10 * 1024 * 1024  # 10 MB threshold
-
     @property
     @abstractmethod
     def _default_file_name(self) -> str:
         pass
 
     @abstractmethod
-    async def _prepare(self, file: T) -> None:
+    async def _prepare(self, file_msg: T) -> None:
         pass
 
     async def _close(self) -> None:
@@ -307,9 +307,7 @@ def create_uploader(
     on_complete: Optional[OnComplete] = None,
 ):
     def select_api(size: int) -> ITDLibClient:
-        if size >= 50 * 1024 * 1024:
-            return tdlib.account
-        return tdlib.bot
+        return tdlib.account if is_big_file(size) else tdlib.bot
 
     if isinstance(file_msg, FileMessageFromPath):
         file_size = os.path.getsize(file_msg.path)

@@ -6,7 +6,6 @@ from tgfs.api.client.api.model import FileMessageEmpty, GeneralFileMessage
 from tgfs.errors.path import FileOrDirectoryDoesNotExist
 from tgfs.model.directory import TGFSDirectory, TGFSFileRef
 from tgfs.model.file import TGFSFile, TGFSFileVersion
-from tgfs.utils.validate_name import validate_name
 
 
 class FileApi:
@@ -24,7 +23,6 @@ class FileApi:
     async def __create(
         self, where: TGFSDirectory, file_msg: GeneralFileMessage
     ) -> TGFSFile:
-        validate_name(file_msg.name)
         resp = await self.__file_desc_api.create_file_desc(file_msg)
         where.create_file_ref(file_msg.name, file_message_id=resp.message_id)
         await self.__metadata_api.update()
@@ -33,6 +31,10 @@ class FileApi:
     async def __update_file_ref_message_id_if_necessary(
         self, fr: TGFSFileRef, message_id: int
     ) -> None:
+        """
+        This method is called to update the message_id if the original message of the
+        message_id marked in the metadata is missing (e.g. the message was manually deleted).
+        """
         if fr.message_id != message_id:
             fr.message_id = message_id
             await self.__metadata_api.update()
@@ -45,7 +47,7 @@ class FileApi:
                 fr, file_msg, version_id
             )
         else:
-            resp = await self.__file_desc_api.add_file_version(fr, file_msg)
+            resp = await self.__file_desc_api.append_file_version(file_msg, fr)
         await self.__update_file_ref_message_id_if_necessary(fr, resp.message_id)
         return resp.fd
 

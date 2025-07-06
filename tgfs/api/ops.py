@@ -53,7 +53,7 @@ class Ops:
         if next_dir:
             return self.__client.dir_api.ls(next_dir)
         # cannot find a subdirectory with the given name, so assume it's a file
-        return self.__client.dir_api.ls(d, basename)
+        return self.__client.dir_api.get_fr(d, basename)
 
     async def desc(self, path: str) -> TGFSFile:
         file_ref = self.ls(path)

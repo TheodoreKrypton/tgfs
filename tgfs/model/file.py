@@ -1,18 +1,17 @@
 import datetime
+import json
 from dataclasses import dataclass, field
 from typing import Iterable, List
 from uuid import uuid4 as uuid
 
 from tgfs.api.types import SentFileMessage
 
+from .common import FIRST_DAY_OF_EPOCH, ts, validate_name
 from .message import TGFSFileObject, TGFSFileVersionSerialized
 
 EMPTY_FILE = -1
 INVALID_FILE_SIZE = -1
 INVALID_VERSION_ID = ""
-FIRST_DAY_OF_EPOCH = datetime.datetime(
-    1970, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc
-)
 
 
 @dataclass
@@ -24,7 +23,7 @@ class TGFSFileVersion:
 
     @property
     def updated_at_timestamp(self) -> int:
-        return int(self.updated_at.timestamp() * 1000)
+        return ts(self.updated_at)
 
     def to_dict(self) -> dict:
         return dict(
@@ -78,6 +77,15 @@ class TGFSFile:
     created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
     versions: dict[str, TGFSFileVersion] = field(default_factory=dict)
 
+    @property
+    def updated_at_timestamp(self) -> int:
+        if not self.versions or self.latest_version_id == INVALID_VERSION_ID:
+            return ts(self.created_at)
+        return self.get_latest_version().updated_at_timestamp
+
+    def __post_init__(self):
+        validate_name(self.name)
+
     def to_dict(self) -> dict:
         return dict(
             type="F",
@@ -97,19 +105,20 @@ class TGFSFile:
         else:
             latest_version_id = INVALID_VERSION_ID
         return TGFSFile(
-            versions=versions,
-            latest_version_id=latest_version_id,
-            created_at=datetime.datetime.now(),
             name=data["name"],
+            latest_version_id=latest_version_id,
+            versions=versions,
         )
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), ensure_ascii=False)
 
     @staticmethod
     def empty(name: str) -> "TGFSFile":
         return TGFSFile(
-            versions={},
-            latest_version_id="",
-            created_at=datetime.datetime.now(),
             name=name,
+            latest_version_id="",
+            versions={},
         )
 
     def get_latest_version(self) -> TGFSFileVersion:

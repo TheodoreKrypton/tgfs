@@ -17,29 +17,26 @@ class TGMsgFDRepository(IFDRepository):
         self.__message_api = message_api
 
     async def save(
-        self, fd: TGFSFile, message_id: Optional[int] = None
+        self, fd: TGFSFile, fr: Optional[TGFSFileRef] = None
     ) -> FileDescAPIResponse:
-        if message_id is None:
+        # If file referer is None, create a new file descriptor message.
+        if fr is None:
             return FileDescAPIResponse(
-                message_id=await self.__message_api.send_text(
-                    json.dumps(fd.to_dict(), ensure_ascii=False)
-                ),
+                message_id=await self.__message_api.send_text(fd.to_json()),
                 fd=fd,
             )
 
+        # If file referer is provided, try to update the existing file descriptor.
+        # But if the message is not found (probably got deleted manually), a new file descriptor will be created.
         try:
-            return await self.__update(fd, message_id)
+            return FileDescAPIResponse(
+                message_id=await self.__message_api.edit_message_text(
+                    message_id=fr.message_id, message=fd.to_json()
+                ),
+                fd=fd,
+            )
         except MessageNotFound:
             return await self.save(fd)
-
-    async def __update(self, fd: TGFSFile, message_id: int) -> FileDescAPIResponse:
-        return FileDescAPIResponse(
-            message_id=await self.__message_api.edit_message_text(
-                message_id=message_id,
-                message=json.dumps(fd.to_dict(), ensure_ascii=False),
-            ),
-            fd=fd,
-        )
 
     async def get(self, fr: TGFSFileRef) -> TGFSFile:
         message = (await self.__message_api.get_messages([fr.message_id]))[0]

@@ -3,6 +3,7 @@ from typing import Iterable, Optional
 
 from tgfs.errors.path import FileOrDirectoryAlreadyExists, FileOrDirectoryDoesNotExist
 
+from .common import FIRST_DAY_OF_EPOCH, ts, validate_name
 from .message import TGFSDirectorySerialized
 
 
@@ -29,6 +30,13 @@ class TGFSDirectory:
     parent: Optional["TGFSDirectory"]
     children: list["TGFSDirectory"] = field(default_factory=list)
     files: list[TGFSFileRef] = field(default_factory=list)
+
+    def __post_init__(self):
+        validate_name(self.name)
+
+    @property
+    def created_at_timestamp(self) -> int:
+        return ts(FIRST_DAY_OF_EPOCH)
 
     def to_dict(self) -> dict:
         return dict(

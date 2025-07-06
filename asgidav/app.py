@@ -1,5 +1,4 @@
 import asyncio
-import os.path
 import uuid
 from contextvars import ContextVar
 from typing import Any, Callable, Optional
@@ -68,7 +67,7 @@ async def handle_propfind(request: Request, path: str):
         resp = await propfind((member,), r.depth, r.props)
         return Response(
             resp,
-            media_type="application/xml; charset=utf-8",
+            media_type="application/xml",
         )
 
     return Response(status_code=404)

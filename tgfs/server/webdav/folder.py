@@ -61,7 +61,7 @@ class Folder(_Folder):
         return await self.__ops.mkdir(self._sub_path(name), False)
 
     async def creation_date(self) -> int:
-        return 0
+        return self.__folder.created_at_timestamp
 
     async def last_modified(self) -> int:
-        return 0
+        return self.__folder.created_at_timestamp

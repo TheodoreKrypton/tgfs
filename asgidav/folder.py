@@ -15,10 +15,6 @@ class Folder(Member):
         return "httpd/unix-directory"
 
     @abstractmethod
-    async def display_name(self) -> str:
-        raise NotImplementedError
-
-    @abstractmethod
     async def member_names(self) -> Tuple[str, ...]:
         raise NotImplementedError
 
