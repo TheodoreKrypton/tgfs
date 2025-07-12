@@ -13,6 +13,19 @@ from .member import Member
 from .reqres import PropfindRequest, propfind
 from .resource import Resource
 
+NO_CONTENT = Response(status_code=204)
+CREATED = Response(status_code=201)
+NOT_FOUND = Response(status_code=404)
+CONFLICT = Response(status_code=409)
+
+
+def split_path(path: str) -> tuple[str, str]:
+    path = path.strip("/")
+    parts = path.rsplit("/", 1)
+    if len(parts) == 1:
+        return "/", parts[0]
+    return parts[0], parts[1]
+
 
 def create_app(get_member: Callable[[str], Awaitable[Optional[Member]]]) -> FastAPI:
     async def root() -> Folder:
@@ -128,14 +141,39 @@ def create_app(get_member: Callable[[str], Awaitable[Optional[Member]]]) -> Fast
         if isinstance(member, Resource) and size > 0:
             await member.overwrite(request.stream(), size=size)
 
-        return Response(status_code=201)
+        return CREATED
 
     @app.delete("/{path:path}")
     async def delete(request: Request, path: str):
-        member = await get_member(path)
-        if isinstance(member, Resource):
+        if member := await get_member(path):
             await member.remove()
+            return NO_CONTENT
+        return NOT_FOUND
 
-        return Response(status_code=200)
+    @app.api_route("/{path:path}", methods=["MKCOL"])
+    async def mkcol(request: Request, path: str):
+        parent_path, folder_name = split_path(path)
+        if parent := await get_member(parent_path):
+            if not isinstance(parent, Folder):
+                return Response(
+                    status_code=409,
+                    content=f"Parent {parent_path} is not a folder.",
+                )
+            if member := await parent.member(folder_name):
+                return (
+                    CREATED
+                    if isinstance(member, Folder)
+                    else Response(
+                        status_code=409,
+                        content=f"Resource {path} is a file.",
+                    )
+                )
+            await parent.create_folder(folder_name)
+            return CREATED
+        else:
+            return Response(
+                status_code=409,
+                content=f"Parent folder {parent_path} does not exist.",
+            )
 
     return app

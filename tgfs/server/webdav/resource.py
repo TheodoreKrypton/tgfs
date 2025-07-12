@@ -8,7 +8,7 @@ from tgfs.errors.base import TechnicalError
 from tgfs.model.directory import TGFSFileRef
 from tgfs.model.file import TGFSFile
 
-from .cache import RootCache
+from .cache import fs_cache
 
 
 class Resource(_Resource):
@@ -54,10 +54,9 @@ class Resource(_Resource):
         return await self.__ops.download(self.path, "unnamed", begin, end)
 
     async def overwrite(self, content: AsyncIterator[bytes], size: int) -> None:
-        RootCache.reset(self.path)
+        fs_cache.reset(self.path)
         await self.__ops.upload_from_stream(content, size, self.path)
 
     async def remove(self) -> None:
-        RootCache.reset(self.path)
-        RootCache.reset(self.path.rsplit("/", 1)[0])
+        fs_cache.reset_parent(self.path)
         await self.__ops.rm_file(self.path)

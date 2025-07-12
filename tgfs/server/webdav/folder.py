@@ -1,7 +1,7 @@
 from asgidav.folder import Folder as _Folder
 from tgfs.api import Client, Ops
 
-from .cache import RootCache
+from .cache import fs_cache
 from .resource import Resource
 
 
@@ -44,7 +44,7 @@ class Folder(_Folder):
         return f"{self.path}{name}"
 
     async def create_empty_resource(self, path: str):
-        RootCache.reset(self.path)
+        fs_cache.reset(self.path)
         names = path.split("/", 1)
 
         if len(names) > 1:
@@ -62,7 +62,7 @@ class Folder(_Folder):
         return Resource(self._sub_path(names[0]), self.__client)
 
     async def create_folder(self, name: str):
-        RootCache.reset(self.path)
+        fs_cache.reset(self.path)
         return await self.__ops.mkdir(self._sub_path(name), False)
 
     async def creation_date(self) -> int:
@@ -70,3 +70,7 @@ class Folder(_Folder):
 
     async def last_modified(self) -> int:
         return self.__folder.created_at_timestamp
+
+    async def remove(self) -> None:
+        fs_cache.reset_parent(self.path)
+        await self.__ops.rm_dir(self.path.rstrip("/"), True)

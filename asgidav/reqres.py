@@ -90,15 +90,17 @@ async def _propfind_response(
 
     res = [root]
 
-    if depth > 0 and isinstance(member, Folder):
-        names = await member.member_names()
-        sub_members = await async_map(lambda name: member.member(name), names)
-        propfind_responses = await async_map(
-            lambda sub_member: _propfind_response(sub_member, depth - 1, prop_names),
-            sub_members,
-        )
-        for sub_response in propfind_responses:
-            res.extend(sub_response)
+    if not isinstance(member, Folder) or depth == 0:
+        return res
+
+    names = await member.member_names()
+    sub_members = await async_map(lambda name: member.member(name), names)
+    propfind_responses = await async_map(
+        lambda sub_member: _propfind_response(sub_member, depth - 1, prop_names),
+        sub_members,
+    )
+    for sub_response in propfind_responses:
+        res.extend(sub_response)
 
     return res
 

@@ -50,6 +50,10 @@ class Member(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def remove(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     async def get_properties(self) -> Properties:
         getlastmodified, creationdate, displayname, getcontenttype = (
             await asyncio.gather(
