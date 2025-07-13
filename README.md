@@ -31,6 +31,11 @@ Tested WebDAV Clients:
 
 > **WARNING:** For feature development purpose, any configuration is **unstable** at the current stage. You may need to reconfigure following any update.
 
+### Use Config Generator
+
+You can use the [config generator](https://theodorekrypton.github.io/tgfs/config-generator/) to generate a `config.yaml` file.
+
+### Manual Setup
 #### Preparation
 
 1. Duplicate the `example-config.yaml` file and name it `config.yaml`, place it in the `.tgfs` directory (or the directory you specified in the Docker command).
