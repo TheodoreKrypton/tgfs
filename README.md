@@ -4,95 +4,36 @@
 
 # tgfs
 
-Use telegram as file storage, with a command line tool and WebDAV server. Refer to the [wiki page](https://github.com/TheodoreKrypton/tgfs/wiki/TGFS-Wiki) for more detail.
+Telegram becomes a WebDAV server.
 
-[![Test](https://github.com/TheodoreKrypton/tgfs/actions/workflows/test.yml/badge.svg)](https://github.com/TheodoreKrypton/tgfs/actions/workflows/test.yml) [![codecov](https://codecov.io/gh/TheodoreKrypton/tgfs/branch/master/graph/badge.svg?token=CM6TF4C9B9)](https://codecov.io/gh/TheodoreKrypton/tgfs) [![npm version](https://badge.fury.io/js/tgfs.svg)](https://www.npmjs.com/package/tgfs)
-
-Tested on Windows, Ubuntu, MacOS
+Refer to the [wiki page](https://github.com/TheodoreKrypton/tgfs/wiki/TGFS-Wiki) for technical detail.
 
 ## Installation
 
-### Through NPM
+### Through Docker
+
+You must prepare a directory (defaulted to .tgfs) to store the app data, and place a `config.yaml` file in it.
+
+Refer to the [Set up config file](#set-up-config-file) section for creating the `config.yaml` file.
 
 ```bash
-$ npm install tgfs
-```
-
-### Through Git
-
-```bash
-$ yarn install && yarn build
-$ alias tgfs="yarn start:prod"
-```
-
-## Use it as a WebDAV server
-
-```
-$ tgfs -w
-```
-
-or
-
-```
-$ tgfs --webdav
+docker run -d --name tgfs \
+  -v .tgfs:/home/tgfs/.tgfs \  # Volume to store app data. config.yaml is in this directory.
+  -p 1900:1900 \
+  wheatcarrier/tgfs
 ```
 
 Tested WebDAV Clients:
 
 - [Cyberduck](https://cyberduck.io/)
-- [Mountain Duck](https://mountainduck.io/)
-- [File Stash](https://www.filestash.app/)
-- [WinSCP](https://winscp.net/eng/index.php)
-- [WebDAV Sync](http://www.re.be/webdav_sync/index.xhtml)
-- [Joplin](https://joplinapp.org/)
 
-## cmd usage
+## Set up config file
 
-- ls
-
-  ```bash
-  $ tgfs cmd ls /
-  ```
-
-- mkdir
-
-  ```bash
-  $ tgfs cmd mkdir /documents
-  ```
-
-  ```bash
-  $ tgfs cmd mkdir -p /documents/pictures
-  ```
-
-- cp
-
-  ```bash
-  $ tgfs cmd cp ~/some-file /
-  ```
-
-- rm
-
-  ```bash
-  $ tgfs cmd rm /some-file
-  ```
-
-  ```bash
-  $ tgfs cmd rm -r /some-folder
-  ```
-
-## Step by Step Guide to Set up config
-
-> For feature development purpose, any configuration is **unstable** at the current stage. You may need to reconfigure following any update.
-
-### Automatically:
-
-A config file will be auto-generated when you run the program for the first time. Just follow the instructions to create a Telegram app and a private channel to store the files.
-
-### Manually:
+> **WARNING:** For feature development purpose, any configuration is **unstable** at the current stage. You may need to reconfigure following any update.
 
 #### Preparation
 
-1. Duplicate the `example-config.yaml` file and name it `config.yaml`
+1. Duplicate the `example-config.yaml` file and name it `config.yaml`, place it in the `.tgfs` directory (or the directory you specified in the Docker command).
 
 #### Set up account details ([why do I need this?](#FAQ))
 
@@ -108,16 +49,21 @@ A config file will be auto-generated when you run the program for the first time
 #### Set up a Telegram bot ([why do I need this?](#FAQ))
 
 1. Go to [BotFather](https://telegram.me/BotFather), send `/newbot`, and follow the steps to create a bot.
-2. Paste the bot token given by BotFater to the config file (`telegram -> bot -> token`)
+2. Paste the bot token given by BotFater to the config file (`telegram -> bot -> tokens`)
 3. Go to your file channel (created in the previous step), add your bot to subscriber, and promote it to admin, with permission to send/edit/delete messages.
+
+#### [Optional] Add additional bot accounts
+
+1. Follow the same step as above to create other bots.]
+2. Append the bot token to the config file (`telegram -> bot -> tokens`)
+
 
 ## Config fields explanation
 
 - telegram
 
   - account/bot:
-    - session_file: The file path to store the session data. If you want to use multiple accounts, you can set different session files for each account.
-  - login_timeout: Time to wait before login attempt aborts (in milliseconds).
+    - session_file: The location to store the session data.
 
 - tgfs
 
