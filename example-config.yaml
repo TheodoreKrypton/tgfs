@@ -1,13 +1,16 @@
+# Any fields in [brackets] are mandatory and should be replaced with your actual values before running the application.
+
 telegram:
-  api_id: your_api_id (mandatory, refer to README)
-  api_hash: your_api_hash (mandatory, refer to README)
+  api_id: [your_api_id (mandatory, refer to README)]
+  api_hash: [your_api_hash (mandatory, refer to README)]
   account:
-    session_file: ~/.tgfs/account.session
+    session_file: account.session
   bot:
-    token: your_bot_token (mandatory, apply from @BotFather)
-    session_file: ~/.tgfs/bot.session
-  login_timeout: 300000
-  private_file_channel: your_channel_id (mandatory, refer to README)
+    session_file: bot.session
+    tokens:
+        - [your_bot_token (mandatory, apply from @BotFather)]
+        # Add more bot tokens if needed, each on a new line
+  private_file_channel: [your_channel_id (mandatory, refer to README)]
   public_file_channel: 0
 
 tgfs:

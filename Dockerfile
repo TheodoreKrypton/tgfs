@@ -1,4 +1,4 @@
-FROM python:3.11-slim as builder
+FROM python:3.13-slim as builder
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ RUN poetry config virtualenvs.create false
 RUN poetry install --only=main --no-root
 
 # Final stage
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 WORKDIR /app
 
@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages from builder stage
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
@@ -44,6 +44,8 @@ USER tgfs
 
 # Expose WebDAV port
 EXPOSE 1900
+
+ENV DATA_DIR=/home/tgfs/.tgfs
 
 # Run the application
 CMD ["python", "main.py"]

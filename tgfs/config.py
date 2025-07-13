@@ -6,6 +6,9 @@ import yaml
 from telethon.tl.types import PeerChannel
 
 
+DATA_DIR = os.environ.get("TGFS_DATA_DIR", os.path.expanduser("~/.tgfs"))
+
+
 @dataclass
 class WebDAVConfig:
     host: str
@@ -52,7 +55,7 @@ class TGFSConfig:
 
 
 def expand_path(path: str) -> str:
-    return os.path.expanduser(path).replace("/", os.path.sep)
+    return os.path.expanduser(os.path.join(DATA_DIR, path)).replace("/", os.path.sep)
 
 
 @dataclass
@@ -64,7 +67,7 @@ class BotConfig:
     @classmethod
     def from_dict(cls, data: dict) -> "BotConfig":
         return cls(
-            token=data["token"],
+            token=data.get("token", ""),
             tokens=data.get("tokens", []),
             session_file=expand_path(data["session_file"]),
         )
@@ -113,7 +116,7 @@ class Config:
         )
 
 
-__config_file_path = ""
+__config_file_path = expand_path(os.path.join(DATA_DIR, "config.yaml"))
 __config: Config | None = None
 
 

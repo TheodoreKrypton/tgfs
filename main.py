@@ -22,8 +22,6 @@ async def create_client(config: Config):
 
 
 async def main():
-    set_config_file("config.yaml")
-
     config = get_config()
 
     client = await create_client(config)
