@@ -1,15 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: 'export',
+  output: "export",
   trailingSlash: true,
-  basePath: '/tgfs',
-  assetPrefix: '/tgfs',
+  basePath: "/tgfs",
+  assetPrefix: "/tgfs",
   images: {
-    unoptimized: true,
-    loader: 'custom',
-    loaderFile: './image-loader.js'
-  }
+    loader: "custom",
+    loaderFile: "image-loader.js",
+  },
 };
 
 export default nextConfig;
