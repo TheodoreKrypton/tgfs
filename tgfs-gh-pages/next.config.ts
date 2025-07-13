@@ -6,7 +6,9 @@ const nextConfig: NextConfig = {
   basePath: '/tgfs',
   assetPrefix: '/tgfs',
   images: {
-    unoptimized: true
+    unoptimized: true,
+    loader: 'custom',
+    loaderFile: './image-loader.js'
   }
 };
 
