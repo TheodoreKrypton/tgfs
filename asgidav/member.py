@@ -38,6 +38,10 @@ class Member(ABC):
         pass
 
     @abstractmethod
+    async def content_length(self) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
     async def display_name(self) -> str:
         raise NotImplementedError
 

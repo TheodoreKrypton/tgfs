@@ -18,6 +18,15 @@ async def _get_member(path: str, client: Client) -> Optional[Member]:
     return None
 
 
-def create_webdav_app(client):
+def create_webdav_app(client, config=None):
     fs_cache.set("/", Folder("/", client))
-    return create_app(lambda path: _get_member(path, client))
+    
+    auth_callback = None
+    if config and config.tgfs.users:
+        def authenticate(username: str, password: str) -> bool:
+            if username in config.tgfs.users:
+                return config.tgfs.users[username].password == password
+            return False
+        auth_callback = authenticate
+    
+    return create_app(lambda path: _get_member(path, client), auth_callback)

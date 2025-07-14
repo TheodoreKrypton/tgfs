@@ -1,10 +1,12 @@
 import asyncio
+import base64
 import uuid
 from collections.abc import Awaitable
 from contextvars import ContextVar
 from typing import Any, Callable, Optional
+from http import HTTPStatus
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse
 
@@ -12,11 +14,6 @@ from .folder import Folder
 from .member import Member
 from .reqres import PropfindRequest, propfind
 from .resource import Resource
-
-NO_CONTENT = Response(status_code=204)
-CREATED = Response(status_code=201)
-NOT_FOUND = Response(status_code=404)
-CONFLICT = Response(status_code=409)
 
 
 def split_path(path: str) -> tuple[str, str]:
@@ -27,12 +24,31 @@ def split_path(path: str) -> tuple[str, str]:
     return parts[0], parts[1]
 
 
-def create_app(get_member: Callable[[str], Awaitable[Optional[Member]]]) -> FastAPI:
+def create_app(
+    get_member: Callable[[str], Awaitable[Optional[Member]]],
+    auth_callback: Optional[Callable[[str, str], bool]] = None,
+) -> FastAPI:
     async def root() -> Folder:
         res = await get_member("/")
         if not res or not isinstance(res, Folder):
             raise ValueError("/ is not a Folder")
         return res
+
+    common_headers = {
+        "DAV": "1, 2",
+        "WWW-Authenticate": 'Basic realm="WebDAV"',
+        "MS-Author-Via": "DAV",
+    }
+
+    NotFound = HTTPException(status_code=HTTPStatus.NOT_FOUND)
+    Created = Response(status_code=HTTPStatus.CREATED, headers=common_headers)
+    NoContent = Response(status_code=HTTPStatus.NO_CONTENT, headers=common_headers)
+
+    class Conflict(HTTPException):
+        status_code = HTTPStatus.CONFLICT
+
+        def __init__(self, detail: str):
+            super().__init__(status_code=self.status_code, detail=detail)
 
     app = FastAPI()
 
@@ -53,15 +69,46 @@ def create_app(get_member: Callable[[str], Awaitable[Optional[Member]]]) -> Fast
         uuid_context.set(str(uuid.uuid4()))
         return await call_next(request)
 
+    @app.middleware("http")
+    async def auth_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
+        if auth_callback and request.method not in ["OPTIONS"]:
+            auth_header = request.headers.get("Authorization")
+
+            UNAUTHORIZED = HTTPException(
+                status_code=HTTPStatus.UNAUTHORIZED,
+                detail="Unauthorized",
+                headers=common_headers
+                | {
+                    "Content-Type": "text/html",
+                    "WWW-Authenticate": 'Basic realm="TGFS WebDAV Server"',
+                },
+            )
+
+            if not auth_header:
+                raise UNAUTHORIZED
+            elif auth_header.startswith("Basic "):
+                # Handle Basic authentication
+                try:
+                    credentials = base64.b64decode(auth_header[6:]).decode("utf-8")
+                    username, password = credentials.split(":", 1)
+                    if not auth_callback(username, password):
+                        raise UNAUTHORIZED
+                except (ValueError, UnicodeDecodeError):
+                    raise UNAUTHORIZED
+            else:
+                raise UNAUTHORIZED
+
+        return await call_next(request)
+
     @app.options("/{path:path}")
     async def options():
         return Response(
-            status_code=200,
-            headers={
+            status_code=HTTPStatus.OK,
+            headers=common_headers
+            | {
                 "Allow": "GET, HEAD, POST, PUT, DELETE, TRACE, OPTIONS, PROPFIND, PROPPATCH, COPY, MOVE, LOCK, UNLOCK, MKCOL",
                 "Content-Length": "0",
-                "DAV": "1",
-                "MS-Author-Via": "DAV",
+                "Cache-Control": "no-cache",
             },
         )
 
@@ -72,38 +119,57 @@ def create_app(get_member: Callable[[str], Awaitable[Optional[Member]]]) -> Fast
             resp = await propfind((member,), r.depth, r.props)
             return Response(
                 resp,
-                media_type="application/xml",
+                status_code=HTTPStatus.MULTI_STATUS,
+                media_type="application/xml; charset=utf-8",
+                headers=common_headers
+                | {
+                    "Content-Type": "application/xml; charset=utf-8",
+                },
             )
 
-        return Response(status_code=404)
+        raise NotFound
 
     @app.head("/{path:path}")
     async def head(request: Request, path: str):
         if member := await get_member(path):
             if isinstance(member, Folder):
                 return Response(
-                    status_code=200,
-                    headers={
+                    status_code=HTTPStatus.OK,
+                    headers=common_headers
+                    | {
                         "Content-Type": "httpd/unix-directory",
                         "Last-Modified": str(await member.last_modified()),
+                        "Accept-Ranges": "none",
                     },
                 )
+
+            content_length, content_type, last_modified = await asyncio.gather(
+                member.content_length(),
+                member.content_type(),
+                member.last_modified(),
+            )
+
             return Response(
-                status_code=200,
-                headers={
-                    "Content-Type": await member.content_type(),
-                    "Last-Modified": str(await member.last_modified()),
+                status_code=HTTPStatus.OK,
+                headers=common_headers
+                | {
+                    "Content-Type": content_type,
+                    "Content-Length": str(content_length),
+                    "Last-Modified": str(last_modified),
                 },
             )
 
-        return Response(status_code=404)
+        raise NotFound
 
     @app.get("/{path:path}")
     async def get(request: Request, path: str):
         begin, end = 0, -1
+        is_range_request = False
+
         if "Range" in request.headers:
             range_header = request.headers["Range"]
             if range_header.startswith("bytes="):
+                is_range_request = True
                 range_value = range_header[len("bytes=") :]
                 if "-" in range_value:
                     begin_str, end_str = range_value.split("-", 1)
@@ -116,64 +182,81 @@ def create_app(get_member: Callable[[str], Awaitable[Optional[Member]]]) -> Fast
 
         if member := await get_member(path):
             if isinstance(member, Resource):
-                content, media_type, last_modified = await asyncio.gather(
-                    member.get_content(begin, end),
-                    member.content_type(),
-                    member.last_modified(),
+                content, media_type, last_modified, content_length = (
+                    await asyncio.gather(
+                        member.get_content(begin, end),
+                        member.content_type(),
+                        member.last_modified(),
+                        member.content_length(),
+                    )
                 )
+
+                headers = {
+                    "Last-Modified": str(last_modified),
+                    "Accept-Ranges": "bytes",
+                    "Content-Length": str(
+                        content_length
+                        if not is_range_request
+                        else (end - begin + 1 if end != -1 else content_length - begin)
+                    ),
+                }
+
+                if is_range_request:
+                    actual_end = end if end != -1 else content_length - 1
+                    headers["Content-Range"] = (
+                        f"bytes {begin}-{actual_end}/{content_length}"
+                    )
+                    status_code = HTTPStatus.PARTIAL_CONTENT
+                else:
+                    status_code = HTTPStatus.OK
+
                 return StreamingResponse(
                     content=content,
+                    status_code=status_code,
                     media_type=media_type,
-                    headers={
-                        "Last-Modified": str(last_modified),
-                    },
+                    headers=headers,
                 )
             raise ValueError("Expected a Resource, got a Folder")
-        return Response(status_code=404)
+        raise NotFound
 
     @app.put("/{path:path}")
     async def put(request: Request, path: str):
+        content_length = request.headers.get("Content-Length", "0")
+        size = int(content_length)
+
         if not (member := await get_member(path)):
             member = await (await root()).create_empty_resource(path)
 
-        size = int(request.headers["Content-Length"])
+        if isinstance(member, Resource):
+            if size > 0:
+                await member.overwrite(request.stream(), size=size)
 
-        if isinstance(member, Resource) and size > 0:
-            await member.overwrite(request.stream(), size=size)
+            return Created
 
-        return CREATED
+        raise Conflict("Cannot PUT to a directory")
 
     @app.delete("/{path:path}")
     async def delete(request: Request, path: str):
         if member := await get_member(path):
             await member.remove()
-            return NO_CONTENT
-        return NOT_FOUND
+            return NoContent
+        raise NotFound
 
     @app.api_route("/{path:path}", methods=["MKCOL"])
     async def mkcol(request: Request, path: str):
         parent_path, folder_name = split_path(path)
         if parent := await get_member(parent_path):
             if not isinstance(parent, Folder):
-                return Response(
-                    status_code=409,
-                    content=f"Parent {parent_path} is not a folder.",
-                )
+                raise Conflict(f"Parent {parent_path} is not a folder.")
             if member := await parent.member(folder_name):
-                return (
-                    CREATED
-                    if isinstance(member, Folder)
-                    else Response(
-                        status_code=409,
-                        content=f"Resource {path} is a file.",
-                    )
-                )
+                if isinstance(member, Folder):
+                    return Created
+
+                raise Conflict(f"Resource {path} is a file.")
+
             await parent.create_folder(folder_name)
-            return CREATED
+            return Created
         else:
-            return Response(
-                status_code=409,
-                content=f"Parent folder {parent_path} does not exist.",
-            )
+            raise Conflict(f"Parent folder {parent_path} does not exist.")
 
     return app

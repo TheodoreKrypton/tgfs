@@ -14,6 +14,9 @@ class Folder(Member):
     async def content_type(self) -> str:
         return "httpd/unix-directory"
 
+    async def content_length(self) -> int:
+        return 0
+
     @abstractmethod
     async def member_names(self) -> Tuple[str, ...]:
         raise NotImplementedError

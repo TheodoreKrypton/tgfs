@@ -88,4 +88,8 @@ class TDLibApi:
 
     @property
     def bot(self) -> ITDLibClient:
+        return self.bots[0]
+
+    @property
+    def next_bot(self) -> ITDLibClient:
         return next(self.__bots_cycle)

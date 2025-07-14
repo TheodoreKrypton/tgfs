@@ -51,7 +51,7 @@ class Folder(_Folder):
             sub_folder = await self.member(names[0])
             if not isinstance(sub_folder, Folder):
                 raise ValueError(f"{self._sub_path(names[0])} is not a folder")
-            return sub_folder.create_empty_resource(names[1])
+            return await sub_folder.create_empty_resource(names[1])
 
         if names[0] == "":
             raise ValueError("the requested path is a folder")

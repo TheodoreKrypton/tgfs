@@ -26,6 +26,7 @@ docker run -d --name tgfs \
 Tested WebDAV Clients:
 
 - [Cyberduck](https://cyberduck.io/)
+- [WinSCP](https://winscp.net/eng/index.php)
 
 ## Set up config file
 

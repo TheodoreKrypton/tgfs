@@ -58,7 +58,7 @@ class MessageBroker:
             ids: Set[int] = reduce(
                 lambda full, req: full.union(req.ids), requests, set()
             )
-            messages = await self.tdlib.bot.get_messages(
+            messages = await self.tdlib.next_bot.get_messages(
                 GetMessagesReq(chat_id=self.private_channel_id, message_ids=tuple(ids))
             )
 

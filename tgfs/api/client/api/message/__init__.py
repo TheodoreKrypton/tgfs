@@ -33,7 +33,7 @@ class MessageApi(MessageBroker):
     async def send_text(self, message: str) -> int:
         self.__try_acquire("MessageApi.send_text")
         return (
-            await self.tdlib.bot.send_text(
+            await self.tdlib.next_bot.send_text(
                 SendTextReq(chat_id=self.private_channel_id, text=message)
             )
         ).message_id
@@ -42,7 +42,7 @@ class MessageApi(MessageBroker):
         self.__try_acquire("MessageApi.edit_message_text")
         try:
             return (
-                await self.tdlib.bot.edit_message_text(
+                await self.tdlib.next_bot.edit_message_text(
                     EditMessageTextReq(
                         chat_id=self.private_channel_id,
                         message_id=message_id,
@@ -68,7 +68,7 @@ class MessageApi(MessageBroker):
 
     async def pin_message(self, message_id: int):
         self.__try_acquire("MessageApi.pin_message")
-        return await self.tdlib.bot.pin_message(
+        return await self.tdlib.next_bot.pin_message(
             PinMessageReq(chat_id=self.private_channel_id, message_id=message_id)
         )
 
@@ -85,7 +85,7 @@ class MessageApi(MessageBroker):
     async def download_file(
         self, message_id: int, begin: int, end: int
     ) -> DownloadFileResp:
-        return await self.tdlib.bot.download_file(
+        return await self.tdlib.next_bot.download_file(
             DownloadFileReq(
                 chat_id=self.private_channel_id,
                 message_id=message_id,

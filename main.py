@@ -26,7 +26,7 @@ async def main():
 
     client = await create_client(config)
 
-    app = create_webdav_app(client)
+    app = create_webdav_app(client, config)
 
     server_config = UvicornConfig(
         app,
