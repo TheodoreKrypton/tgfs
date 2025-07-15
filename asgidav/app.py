@@ -54,6 +54,19 @@ def create_app(
         "MS-Author-Via": "DAV",
     }
 
+    ALLOWED_METHODS = [
+        "GET",
+        "HEAD",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS",
+        "PROPFIND",
+        "COPY",
+        "MOVE",
+        "MKCOL",
+    ]
+
     NOT_FOUND = HTTPException(status_code=HTTPStatus.NOT_FOUND)
     CREATED = Response(status_code=HTTPStatus.CREATED, headers=common_headers)
     NO_CONTENT = Response(status_code=HTTPStatus.NO_CONTENT, headers=common_headers)
@@ -74,9 +87,9 @@ def create_app(
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Adjust this to your needs
+        allow_origins=["*"],
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=ALLOWED_METHODS,
         allow_headers=["*"],
     )
 
@@ -120,13 +133,13 @@ def create_app(
 
         return await call_next(request)
 
-    @app.options("/{path:path}")
+    @app.options(path="/{path:path}")
     async def options():
         return Response(
             status_code=HTTPStatus.OK,
             headers=common_headers
             | {
-                "Allow": "GET, HEAD, POST, PUT, DELETE, TRACE, OPTIONS, PROPFIND, PROPPATCH, COPY, MOVE, LOCK, UNLOCK, MKCOL",
+                "Allow": ", ".join(ALLOWED_METHODS),
                 "Content-Length": "0",
                 "Cache-Control": "no-cache",
             },
