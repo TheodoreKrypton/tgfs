@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 from getpass import getpass
@@ -319,30 +320,13 @@ async def login_as_account(config: Config) -> TelegramClient:
     return client
 
 
-async def login_as_bot(config: Config) -> TelegramClient:
-    api_id = config.telegram.api_id
-    api_hash = config.telegram.api_hash
-
-    session = Session(config.telegram.bot.session_file)
-    if sess := session.get():
-        client = TelegramClient(sess, api_id, api_hash)
-    else:
-        client = TelegramClient(StringSession(), api_id, api_hash)
-        await client.start(bot_token=config.telegram.bot.token)  # type: ignore
-        session.save(client.session.save())  # type: ignore
-
-    await client.connect()
-    return client
-
-
 async def login_as_bots(config: Config) -> List[TelegramClient]:
     api_id = config.telegram.api_id
     api_hash = config.telegram.api_hash
 
     bot_tokens = config.telegram.bot.tokens or [config.telegram.bot.token]
 
-    clients = []
-    for token in bot_tokens:
+    async def login(token: str) -> TelegramClient:
         bot_id, _ = token.split(":")
 
         session = Session(
@@ -363,5 +347,6 @@ async def login_as_bots(config: Config) -> List[TelegramClient]:
         else:
             logger.warning("logged in as account, but no username found")
 
-        clients.append(client)
-    return clients
+        return client
+
+    return await asyncio.gather(*(login(token) for token in bot_tokens))

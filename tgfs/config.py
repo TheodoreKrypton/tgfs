@@ -5,7 +5,6 @@ from typing import List
 import yaml
 from telethon.tl.types import PeerChannel
 
-
 DATA_DIR = os.environ.get("TGFS_DATA_DIR", os.path.expanduser("~/.tgfs"))
 
 

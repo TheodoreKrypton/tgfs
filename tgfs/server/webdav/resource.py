@@ -60,3 +60,12 @@ class Resource(_Resource):
     async def remove(self) -> None:
         fs_cache.reset_parent(self.path)
         await self.__ops.rm_file(self.path)
+
+    async def copy_to(self, destination: str) -> None:
+        fs_cache.reset_parent(destination)
+        await self.__ops.cp_file(self.path, destination)
+
+    async def move_to(self, destination: str) -> None:
+        fs_cache.reset_parent(self.path)
+        fs_cache.reset_parent(destination)
+        await self.__ops.mv_file(self.path, destination)

@@ -74,3 +74,12 @@ class Folder(_Folder):
     async def remove(self) -> None:
         fs_cache.reset_parent(self.path)
         await self.__ops.rm_dir(self.path.rstrip("/"), True)
+
+    async def copy_to(self, destination: str) -> None:
+        fs_cache.reset_parent(destination)
+        await self.__ops.cp_dir(self.path.rstrip("/"), destination.rstrip("/"))
+
+    async def move_to(self, destination: str) -> None:
+        fs_cache.reset_parent(self.path)
+        fs_cache.reset_parent(destination)
+        await self.__ops.mv_dir(self.path.rstrip("/"), destination.rstrip("/"))

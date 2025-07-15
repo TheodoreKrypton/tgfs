@@ -3,10 +3,11 @@ import base64
 import uuid
 from collections.abc import Awaitable
 from contextvars import ContextVar
-from typing import Any, Callable, Optional
 from http import HTTPStatus
+from typing import Any, Callable, Optional
+from urllib.parse import unquote, urlparse
 
-from fastapi import FastAPI, Request, Response, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse
 
@@ -22,6 +23,19 @@ def split_path(path: str) -> tuple[str, str]:
     if len(parts) == 1:
         return "/", parts[0]
     return parts[0], parts[1]
+
+
+def extract_path_from_destination(destination: str) -> str:
+    # If it's a full URI, extract the path component
+    if destination.startswith(("http://", "https://")):
+        parsed = urlparse(destination)
+        path = parsed.path
+    else:
+        # Already a path
+        path = destination
+
+    # URL decode the path
+    return unquote(path)
 
 
 def create_app(
@@ -40,12 +54,18 @@ def create_app(
         "MS-Author-Via": "DAV",
     }
 
-    NotFound = HTTPException(status_code=HTTPStatus.NOT_FOUND)
-    Created = Response(status_code=HTTPStatus.CREATED, headers=common_headers)
-    NoContent = Response(status_code=HTTPStatus.NO_CONTENT, headers=common_headers)
+    NOT_FOUND = HTTPException(status_code=HTTPStatus.NOT_FOUND)
+    CREATED = Response(status_code=HTTPStatus.CREATED, headers=common_headers)
+    NO_CONTENT = Response(status_code=HTTPStatus.NO_CONTENT, headers=common_headers)
 
-    class Conflict(HTTPException):
+    class CONFLICT(HTTPException):
         status_code = HTTPStatus.CONFLICT
+
+        def __init__(self, detail: str):
+            super().__init__(status_code=self.status_code, detail=detail)
+
+    class BAD_REQUEST(HTTPException):
+        status_code = HTTPStatus.BAD_REQUEST
 
         def __init__(self, detail: str):
             super().__init__(status_code=self.status_code, detail=detail)
@@ -86,7 +106,7 @@ def create_app(
 
             if not auth_header:
                 raise UNAUTHORIZED
-            elif auth_header.startswith("Basic "):
+            if auth_header.startswith("Basic "):
                 # Handle Basic authentication
                 try:
                     credentials = base64.b64decode(auth_header[6:]).decode("utf-8")
@@ -127,7 +147,7 @@ def create_app(
                 },
             )
 
-        raise NotFound
+        raise NOT_FOUND
 
     @app.head("/{path:path}")
     async def head(request: Request, path: str):
@@ -159,7 +179,7 @@ def create_app(
                 },
             )
 
-        raise NotFound
+        raise NOT_FOUND
 
     @app.get("/{path:path}")
     async def get(request: Request, path: str):
@@ -217,7 +237,7 @@ def create_app(
                     headers=headers,
                 )
             raise ValueError("Expected a Resource, got a Folder")
-        raise NotFound
+        raise NOT_FOUND
 
     @app.put("/{path:path}")
     async def put(request: Request, path: str):
@@ -231,32 +251,59 @@ def create_app(
             if size > 0:
                 await member.overwrite(request.stream(), size=size)
 
-            return Created
+            return CREATED
 
-        raise Conflict("Cannot PUT to a directory")
+        raise CONFLICT("Cannot PUT to a directory")
 
     @app.delete("/{path:path}")
     async def delete(request: Request, path: str):
         if member := await get_member(path):
             await member.remove()
-            return NoContent
-        raise NotFound
+            return NO_CONTENT
+        raise NOT_FOUND
 
     @app.api_route("/{path:path}", methods=["MKCOL"])
     async def mkcol(request: Request, path: str):
         parent_path, folder_name = split_path(path)
         if parent := await get_member(parent_path):
             if not isinstance(parent, Folder):
-                raise Conflict(f"Parent {parent_path} is not a folder.")
+                raise CONFLICT(f"Parent {parent_path} is not a folder.")
             if member := await parent.member(folder_name):
                 if isinstance(member, Folder):
-                    return Created
+                    return CREATED
 
-                raise Conflict(f"Resource {path} is a file.")
+                raise CONFLICT(f"Resource {path} is a file.")
 
             await parent.create_folder(folder_name)
-            return Created
-        else:
-            raise Conflict(f"Parent folder {parent_path} does not exist.")
+            return CREATED
+        raise CONFLICT(f"Parent folder {parent_path} does not exist.")
+
+    @app.api_route("/{path:path}", methods=["COPY"])
+    async def copy(request: Request, path: str):
+        destination = request.headers.get("Destination")
+        if not destination:
+            raise BAD_REQUEST("Destination header is required for COPY.")
+
+        if member := await get_member(path):
+            # Extract and decode the path from the destination URI
+            dest_path = extract_path_from_destination(destination)
+            await member.copy_to(dest_path)
+            return CREATED
+
+        raise NOT_FOUND
+
+    @app.api_route("/{path:path}", methods=["MOVE"])
+    async def move(request: Request, path: str):
+        destination = request.headers.get("Destination")
+        if not destination:
+            raise BAD_REQUEST("Destination header is required for MOVE.")
+
+        if member := await get_member(path):
+            # Extract and decode the path from the destination URI
+            dest_path = extract_path_from_destination(destination)
+            await member.move_to(dest_path)
+            return CREATED
+
+        raise NOT_FOUND
 
     return app

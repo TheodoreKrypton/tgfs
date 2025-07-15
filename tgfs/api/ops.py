@@ -77,7 +77,7 @@ class Ops:
         d2 = self.cd(dirname_to)
 
         res = await self.__client.dir_api.create(
-            basename_to or basename_to, d2, dir_to_copy
+            basename_to or basename_from, d2, dir_to_copy
         )
 
         return dir_to_copy, res

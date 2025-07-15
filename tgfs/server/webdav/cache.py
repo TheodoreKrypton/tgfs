@@ -1,5 +1,5 @@
-from typing import Dict, Optional, List
 from collections import defaultdict
+from typing import Dict, List, Optional
 
 from asgidav.member import Member
 

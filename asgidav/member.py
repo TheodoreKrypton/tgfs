@@ -58,6 +58,14 @@ class Member(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    async def copy_to(self, destination: str) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def move_to(self, destination: str) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     async def get_properties(self) -> Properties:
         getlastmodified, creationdate, displayname, getcontenttype = (
             await asyncio.gather(
@@ -68,15 +76,13 @@ class Member(ABC):
             )
         )
 
-        res: Properties = Properties(
+        return Properties(
             getlastmodified=self.unixdate2rfc1123(getlastmodified),
             creationdate=self.unixdate2iso8601(creationdate),
             displayname=displayname,
             resourcetype=self.resource_type.value,
             getcontenttype=getcontenttype,
         )
-
-        return res
 
     @classmethod
     def unixdate2iso8601(cls, t: float):
