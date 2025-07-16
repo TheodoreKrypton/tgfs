@@ -28,9 +28,9 @@ class PropfindRequest:
 
     @classmethod
     async def from_request(cls, request: Request):
-        try:
-            depth = int(request.headers["Depth"])
+        depth = int(request.headers["Depth"])
 
+        try:
             body = await request.body()
             root = et.fromstring(body)
 
@@ -47,10 +47,8 @@ class PropfindRequest:
                 return cls(
                     depth=depth, props=tuple(requested_props.intersection(cls.props))
                 )
-
+        except (et.XMLSyntaxError,):
             return cls(depth=depth)
-        except Exception:
-            return cls(depth=999)
 
 
 def _tag(name: str) -> str:

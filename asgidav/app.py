@@ -1,11 +1,13 @@
 import asyncio
 import base64
+import time
 import uuid
 from collections.abc import Awaitable
 from contextvars import ContextVar
 from http import HTTPStatus
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, TypedDict
 from urllib.parse import unquote, urlparse
+import jwt
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,8 +40,15 @@ def extract_path_from_destination(destination: str) -> str:
     return unquote(path)
 
 
+class JWTConfig(TypedDict):
+    secret: str
+    algorithm: str
+    life: int
+
+
 def create_app(
     get_member: Callable[[str], Awaitable[Optional[Member]]],
+    jwt_config: JWTConfig,
     auth_callback: Optional[Callable[[str, str], bool]] = None,
 ) -> FastAPI:
     async def root() -> Folder:
@@ -54,9 +63,31 @@ def create_app(
         "MS-Author-Via": "DAV",
     }
 
+    ALLOWED_METHODS = [
+        "GET",
+        "HEAD",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS",
+        "PROPFIND",
+        "COPY",
+        "MOVE",
+        "MKCOL",
+    ]
+
     NOT_FOUND = HTTPException(status_code=HTTPStatus.NOT_FOUND)
     CREATED = Response(status_code=HTTPStatus.CREATED, headers=common_headers)
     NO_CONTENT = Response(status_code=HTTPStatus.NO_CONTENT, headers=common_headers)
+    UNAUTHORIZED = HTTPException(
+        status_code=HTTPStatus.UNAUTHORIZED,
+        detail="Unauthorized",
+        headers=common_headers
+        | {
+            "Content-Type": "text/html",
+            "WWW-Authenticate": 'Basic realm="TGFS WebDAV Server"',
+        },
+    )
 
     class CONFLICT(HTTPException):
         status_code = HTTPStatus.CONFLICT
@@ -74,9 +105,9 @@ def create_app(
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Adjust this to your needs
+        allow_origins=["*"],
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=ALLOWED_METHODS,
         allow_headers=["*"],
     )
 
@@ -91,22 +122,30 @@ def create_app(
 
     @app.middleware("http")
     async def auth_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
-        if auth_callback and request.method not in ["OPTIONS"]:
+        if (
+            auth_callback
+            and request.method not in ["OPTIONS"]
+            and request.url.path != "/login"
+        ):
             auth_header = request.headers.get("Authorization")
-
-            UNAUTHORIZED = HTTPException(
-                status_code=HTTPStatus.UNAUTHORIZED,
-                detail="Unauthorized",
-                headers=common_headers
-                | {
-                    "Content-Type": "text/html",
-                    "WWW-Authenticate": 'Basic realm="TGFS WebDAV Server"',
-                },
-            )
 
             if not auth_header:
                 raise UNAUTHORIZED
-            if auth_header.startswith("Basic "):
+
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:]
+                try:
+                    if not jwt.decode(
+                        token,
+                        key=jwt_config["secret"],
+                        algorithms=[jwt_config["algorithm"]],
+                        options={"verify_exp": True},
+                    ):
+                        raise UNAUTHORIZED
+                except Exception as e:
+                    raise UNAUTHORIZED from e
+
+            elif auth_header.startswith("Basic "):
                 # Handle Basic authentication
                 try:
                     credentials = base64.b64decode(auth_header[6:]).decode("utf-8")
@@ -120,13 +159,37 @@ def create_app(
 
         return await call_next(request)
 
-    @app.options("/{path:path}")
+    class LoginRequest(TypedDict):
+        username: str
+        password: str
+
+    @app.post(path="/login")
+    async def login(request: Request):
+        data: LoginRequest = await request.json()
+        username = data["username"] if auth_callback else "anonymous"
+
+        if auth_callback and not auth_callback(username, data["password"]):
+            raise UNAUTHORIZED
+
+        jwt_token = jwt.encode(
+            {
+                "username": username,
+                "exp": int(time.time()) + jwt_config["life"],
+            },
+            key=jwt_config["secret"],
+            algorithm=jwt_config["algorithm"],
+        )
+        return {
+            "token": jwt_token,
+        }
+
+    @app.options(path="/{path:path}")
     async def options():
         return Response(
             status_code=HTTPStatus.OK,
             headers=common_headers
             | {
-                "Allow": "GET, HEAD, POST, PUT, DELETE, TRACE, OPTIONS, PROPFIND, PROPPATCH, COPY, MOVE, LOCK, UNLOCK, MKCOL",
+                "Allow": ", ".join(ALLOWED_METHODS),
                 "Content-Length": "0",
                 "Cache-Control": "no-cache",
             },

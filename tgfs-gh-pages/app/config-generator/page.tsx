@@ -1,6 +1,6 @@
 "use client";
 
-import { Add, ContentCopy, Download } from "@mui/icons-material";
+import { Add, ContentCopy, Download, Refresh } from "@mui/icons-material";
 import {
   Alert,
   AlertTitle,
@@ -13,12 +13,14 @@ import {
   Typography,
 } from "@mui/material";
 import yaml from "js-yaml";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { BotTokenField } from "./components/BotTokenField";
 import { ConfigTextField } from "./components/ConfigTextField";
 import { FieldRow } from "./components/FieldRow";
 import { FormSection } from "./components/FormSection";
-import { PasswordField } from "./components/PasswordField";
+import { UserField } from "./components/UserField";
 
 interface ConfigData {
   telegram: {
@@ -36,12 +38,16 @@ interface ConfigData {
   };
   tgfs: {
     users: {
-      [key: string]: {
-        password: string;
-      };
-    };
+      username: string;
+      password: string;
+    }[];
     download: {
       chunk_size_kb: number;
+    };
+    jwt: {
+      secret: string;
+      algorithm: string;
+      life: number;
     };
   };
   webdav: {
@@ -57,12 +63,23 @@ type ConfigUpdatePaths = {
   "telegram.api_hash": string;
   "telegram.private_file_channel": string;
   "telegram.bot.tokens": string[];
-  "tgfs.users": { [key: string]: { password: string } };
-  "tgfs.users.user.password": string;
+  "tgfs.users": { username: string; password: string }[];
   "tgfs.download.chunk_size_kb": number;
   "webdav.host": string;
   "webdav.port": number;
   "webdav.path": string;
+  "tgfs.jwt.secret": string;
+  "tgfs.jwt.algorithm": string;
+  "tgfs.jwt.life": number;
+};
+
+const generateRandomSecret = (): string => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
+  let result = '';
+  for (let i = 0; i < 64; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 };
 
 export default function ConfigGenerator() {
@@ -81,13 +98,19 @@ export default function ConfigGenerator() {
       public_file_channel: 0,
     },
     tgfs: {
-      users: {
-        user: {
+      users: [
+        {
+          username: "user",
           password: "password",
         },
-      },
+      ],
       download: {
         chunk_size_kb: 1024,
+      },
+      jwt: {
+        secret: "",
+        algorithm: "HS256",
+        life: 604800,
       },
     },
     webdav: {
@@ -97,7 +120,7 @@ export default function ConfigGenerator() {
     },
   });
 
-  const updateConfig = <K extends keyof ConfigUpdatePaths>(
+  const updateConfig = useCallback(<K extends keyof ConfigUpdatePaths>(
     path: K,
     value: ConfigUpdatePaths[K]
   ): void => {
@@ -112,9 +135,7 @@ export default function ConfigGenerator() {
     } else if (path === "telegram.bot.tokens") {
       newConfig.telegram.bot.tokens = value as string[];
     } else if (path === "tgfs.users") {
-      newConfig.tgfs.users = value as { [key: string]: { password: string } };
-    } else if (path === "tgfs.users.user.password") {
-      newConfig.tgfs.users.user.password = value as string;
+      newConfig.tgfs.users = value as { username: string; password: string }[];
     } else if (path === "tgfs.download.chunk_size_kb") {
       newConfig.tgfs.download.chunk_size_kb = value as number;
     } else if (path === "webdav.host") {
@@ -123,10 +144,23 @@ export default function ConfigGenerator() {
       newConfig.webdav.port = value as number;
     } else if (path === "webdav.path") {
       newConfig.webdav.path = value as string;
+    } else if (path === "tgfs.jwt.secret") {
+      newConfig.tgfs.jwt.secret = value as string;
+    } else if (path === "tgfs.jwt.algorithm") {
+      newConfig.tgfs.jwt.algorithm = value as string;
+    } else if (path === "tgfs.jwt.life") {
+      newConfig.tgfs.jwt.life = value as number;
     }
 
     setConfig(newConfig);
-  };
+  }, [config]);
+
+  // Generate JWT secret on client side only to avoid hydration mismatch
+  useEffect(() => {
+    if (config.tgfs.jwt.secret === "") {
+      updateConfig("tgfs.jwt.secret", generateRandomSecret());
+    }
+  }, [config.tgfs.jwt.secret, updateConfig]);
 
   const addBotToken = () => {
     const newTokens = [...config.telegram.bot.tokens, ""];
@@ -145,7 +179,18 @@ export default function ConfigGenerator() {
   };
 
   const generateYaml = () => {
-    return yaml.dump(config, { indent: 2 });
+    // Convert users array to object format for YAML output
+    const configForYaml = {
+      ...config,
+      tgfs: {
+        ...config.tgfs,
+        users: config.tgfs.users.reduce((acc, user) => {
+          acc[user.username] = { password: user.password };
+          return acc;
+        }, {} as { [key: string]: { password: string } })
+      }
+    };
+    return yaml.dump(configForYaml, { indent: 2 });
   };
 
   const downloadConfig = () => {
@@ -164,6 +209,26 @@ export default function ConfigGenerator() {
   const copyToClipboard = () => {
     const yamlContent = generateYaml();
     navigator.clipboard.writeText(yamlContent);
+  };
+
+  const regenerateJwtSecret = () => {
+    updateConfig("tgfs.jwt.secret", generateRandomSecret());
+  };
+
+  const addUser = () => {
+    const newUsers = [...config.tgfs.users, { username: "", password: "" }];
+    updateConfig("tgfs.users", newUsers);
+  };
+
+  const removeUser = (index: number) => {
+    const newUsers = config.tgfs.users.filter((_, i) => i !== index);
+    updateConfig("tgfs.users", newUsers);
+  };
+
+  const updateUser = (index: number, field: 'username' | 'password', value: string) => {
+    const newUsers = [...config.tgfs.users];
+    newUsers[index][field] = value;
+    updateConfig("tgfs.users", newUsers);
   };
 
   return (
@@ -222,10 +287,10 @@ export default function ConfigGenerator() {
                   }
                   required
                 />
-                <PasswordField
+                <ConfigTextField
                   label="API Hash"
                   value={config.telegram.api_hash}
-                  onChange={(value) => updateConfig("telegram.api_hash", value)}
+                  onChange={(e) => updateConfig("telegram.api_hash", e.target.value)}
                   required
                 />
               </FieldRow>
@@ -288,37 +353,53 @@ export default function ConfigGenerator() {
             </FormSection>
 
             <FormSection title="TGFS Configuration">
-              <FieldRow>
+              <Box>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Users
+                </Typography>
+                {config.tgfs.users.map((user, index) => (
+                  <UserField
+                    key={index}
+                    username={user.username}
+                    password={user.password}
+                    onUsernameChange={(username) => updateUser(index, 'username', username)}
+                    onPasswordChange={(password) => updateUser(index, 'password', password)}
+                    onDelete={index > 0 ? () => removeUser(index) : undefined}
+                    canDelete={index > 0}
+                  />
+                ))}
+                <Button
+                  startIcon={<Add />}
+                  onClick={addUser}
+                  variant="outlined"
+                  size="small"
+                  sx={{ mt: 1, width: "fit-content" }}
+                >
+                  Add Another User
+                </Button>
+              </Box>
+              
+              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+                JWT Configuration
+              </Typography>
+              
+              <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
                 <ConfigTextField
-                  label="Username"
-                  value={Object.keys(config.tgfs.users)[0]}
-                  onChange={(e) => {
-                    const newUsers = {
-                      [e.target.value]: config.tgfs.users.user,
-                    };
-                    updateConfig("tgfs.users", newUsers);
-                  }}
+                  label="JWT Secret"
+                  value={config.tgfs.jwt.secret}
+                  onChange={(e) => updateConfig("tgfs.jwt.secret", e.target.value)}
+                  sx={{ flex: 1 }}
                 />
-                <PasswordField
-                  label="Password"
-                  value={config.tgfs.users.user.password}
-                  onChange={(value) =>
-                    updateConfig("tgfs.users.user.password", value)
-                  }
-                />
-                <ConfigTextField
-                  label="Download Chunk Size (KB)"
-                  type="number"
-                  value={config.tgfs.download.chunk_size_kb}
-                  onChange={(e) =>
-                    updateConfig(
-                      "tgfs.download.chunk_size_kb",
-                      parseInt(e.target.value)
-                    )
-                  }
-                  width={200}
-                />
-              </FieldRow>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<Refresh />}
+                  onClick={regenerateJwtSecret}
+                  sx={{ minWidth: "120px" }}
+                >
+                  Regenerate
+                </Button>
+              </Box>
             </FormSection>
 
             <FormSection title="WebDAV Server">
@@ -376,20 +457,19 @@ export default function ConfigGenerator() {
             </Box>
 
             <Card variant="outlined">
-              <CardContent>
-                <Typography
-                  variant="body2"
-                  component="pre"
-                  sx={{
+              <CardContent sx={{ p: 0 }}>
+                <SyntaxHighlighter
+                  language="yaml"
+                  style={vscDarkPlus}
+                  customStyle={{
                     fontSize: "0.75rem",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
+                    margin: 0,
                     maxHeight: "400px",
                     overflow: "auto",
                   }}
                 >
                   {generateYaml()}
-                </Typography>
+                </SyntaxHighlighter>
               </CardContent>
             </Card>
           </Paper>

@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Self
 
 import yaml
 from telethon.tl.types import PeerChannel
@@ -15,7 +15,7 @@ class WebDAVConfig:
     path: str
 
     @classmethod
-    def from_dict(cls, data: dict) -> "WebDAVConfig":
+    def from_dict(cls, data: dict) -> Self:
         return cls(host=data["host"], port=data["port"], path=data["path"])
 
 
@@ -24,7 +24,7 @@ class DownloadConfig:
     chunk_size_kb: int
 
     @classmethod
-    def from_dict(cls, data: dict) -> "DownloadConfig":
+    def from_dict(cls, data: dict) -> Self:
         return cls(chunk_size_kb=data["chunk_size_kb"])
 
 
@@ -33,23 +33,38 @@ class UserConfig:
     password: str
 
     @classmethod
-    def from_dict(cls, data: dict) -> "UserConfig":
+    def from_dict(cls, data: dict) -> Self:
         return cls(password=data["password"])
+
+
+@dataclass
+class JWTConfig:
+    secret: str
+    algorithm: str
+    life: int
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Self:
+        return cls(
+            secret=data["secret"], algorithm=data["algorithm"], life=data["life"]
+        )
 
 
 @dataclass
 class TGFSConfig:
     users: dict[str, UserConfig]
     download: DownloadConfig
+    jwt: JWTConfig
 
     @classmethod
-    def from_dict(cls, data: dict) -> "TGFSConfig":
+    def from_dict(cls, data: dict) -> Self:
         return cls(
             users={
                 username: UserConfig.from_dict(user)
                 for username, user in data["users"].items()
             },
-            download=DownloadConfig(**data["download"]),
+            download=DownloadConfig.from_dict(data["download"]),
+            jwt=JWTConfig.from_dict(data["jwt"]),
         )
 
 
