@@ -133,7 +133,7 @@ export default function TelegramMiniApp() {
               Logout
             </Button>
           </Box>
-          <FileExplorer webdavClient={webdavClient} onAuthError={handle401Error} />
+          <FileExplorer webdavClient={webdavClient} />
         </Container>
       ) : (
         <Container maxWidth="sm" sx={{ py: 4, minHeight: '100vh', display: 'flex', alignItems: 'center' }}>

@@ -25,9 +25,10 @@ export default class WebDAVClient {
     });
   }
 
-  private handleError(error: any): never {
+  private handleError(error: unknown): never {
     // Check if error is 401 unauthorized
-    if (error.status === 401 || error.response?.status === 401) {
+    const errorObj = error as { status?: number; response?: { status?: number } };
+    if (errorObj.status === 401 || errorObj.response?.status === 401) {
       if (this.onAuthError) {
         this.onAuthError();
       }

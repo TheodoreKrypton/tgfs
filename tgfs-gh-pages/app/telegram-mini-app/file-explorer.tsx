@@ -33,15 +33,14 @@ import {
 } from "@mui/material";
 import { SimpleTreeView } from "@mui/x-tree-view/SimpleTreeView";
 import { TreeItem } from "@mui/x-tree-view/TreeItem";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import WebDAVClient, { WebDAVItem } from "./webdav-client";
 
 interface FileExplorerProps {
   webdavClient: WebDAVClient;
-  onAuthError?: () => void;
 }
 
-export default function FileExplorer({ webdavClient, onAuthError }: FileExplorerProps) {
+export default function FileExplorer({ webdavClient }: FileExplorerProps) {
   const [currentPath, setCurrentPath] = useState("/");
   const [items, setItems] = useState<WebDAVItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +61,7 @@ export default function FileExplorer({ webdavClient, onAuthError }: FileExplorer
     severity: "success",
   });
 
-  const loadDirectory = async (path: string) => {
+  const loadDirectory = useCallback(async (path: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -74,13 +73,13 @@ export default function FileExplorer({ webdavClient, onAuthError }: FileExplorer
     } finally {
       setLoading(false);
     }
-  };
+  }, [webdavClient]);
 
   useEffect(() => {
     if (webdavClient) {
-      loadDirectory(currentPath);
+      loadDirectory("/");
     }
-  }, [webdavClient]);
+  }, [webdavClient, loadDirectory]);
 
   const handleItemClick = (item: WebDAVItem) => {
     if (item.isDirectory) {
