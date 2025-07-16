@@ -23,10 +23,19 @@ docker run -d --name tgfs \
   wheatcarrier/tgfs
 ```
 
-Tested WebDAV Clients:
+## Client
 
+You can use any WebDAV client to access the server.
+
+Tested WebDAV Clients:
 - [Cyberduck](https://cyberduck.io/)
 - [WinSCP](https://winscp.net/eng/index.php)
+
+### Official Telegram miniapp
+
+You can also use the [official tgfs Telegram miniapp](https://t.me/tgfsprdbot/manager) to access the server.<br>
+It is a pure frontend application, source code is available in [here](https://github.com/TheodoreKrypton/tgfs/tree/master/tgfs-gh-pages/app/telegram-mini-app), and it is deployed on [GitHub Pages](https://theodorekrypton.github.io/tgfs/telegram-mini-app).<br>
+You can deploy your own version if you are worried about privacy.
 
 ## Set up config file
 

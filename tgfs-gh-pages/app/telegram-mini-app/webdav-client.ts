@@ -11,13 +11,29 @@ export interface WebDAVItem {
 
 export default class WebDAVClient {
   private client: WebDAVClientType;
+  private jwtToken: string;
+  private onAuthError?: () => void;
 
-  constructor(baseUrl: string, username: string = "", password: string = "") {
+  constructor(baseUrl: string, jwtToken: string = "", onAuthError?: () => void) {
+    this.jwtToken = jwtToken;
+    this.onAuthError = onAuthError;
     this.client = createClient(baseUrl, {
-      authType: username ? AuthType.Password : AuthType.None,
-      username,
-      password,
+      authType: AuthType.None,
+      headers: jwtToken ? {
+        'Authorization': `Bearer ${jwtToken}`
+      } : {},
     });
+  }
+
+  private handleError(error: any): never {
+    // Check if error is 401 unauthorized
+    if (error.status === 401 || error.response?.status === 401) {
+      if (this.onAuthError) {
+        this.onAuthError();
+      }
+      throw new Error('Authentication failed');
+    }
+    throw error;
   }
 
   async connect(): Promise<void> {
@@ -25,10 +41,7 @@ export default class WebDAVClient {
       // Test connection by getting root directory info
       await this.client.stat('/');
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Connection failed: ${error.message}`);
-      }
-      throw new Error("Failed to connect to WebDAV server");
+      this.handleError(error);
     }
   }
 
@@ -45,10 +58,7 @@ export default class WebDAVClient {
         contentType: item.mime,
       }));
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to list directory: ${error.message}`);
-      }
-      throw new Error("Failed to list directory");
+      this.handleError(error);
     }
   }
 
@@ -57,10 +67,7 @@ export default class WebDAVClient {
       const arrayBuffer = await this.client.getFileContents(path, { format: 'binary' });
       return new Blob([arrayBuffer as ArrayBuffer]);
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to download file: ${error.message}`);
-      }
-      throw new Error("Failed to download file");
+      this.handleError(error);
     }
   }
 
@@ -69,10 +76,7 @@ export default class WebDAVClient {
       const arrayBuffer = await file.arrayBuffer();
       await this.client.putFileContents(path, arrayBuffer);
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to upload file: ${error.message}`);
-      }
-      throw new Error("Failed to upload file");
+      this.handleError(error);
     }
   }
 
@@ -80,10 +84,7 @@ export default class WebDAVClient {
     try {
       await this.client.createDirectory(path);
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to create directory: ${error.message}`);
-      }
-      throw new Error("Failed to create directory");
+      this.handleError(error);
     }
   }
 
@@ -91,10 +92,7 @@ export default class WebDAVClient {
     try {
       await this.client.deleteFile(path);
     } catch (error) {
-      if (error instanceof Error) {
-        throw new Error(`Failed to delete item: ${error.message}`);
-      }
-      throw new Error("Failed to delete item");
+      this.handleError(error);
     }
   }
 

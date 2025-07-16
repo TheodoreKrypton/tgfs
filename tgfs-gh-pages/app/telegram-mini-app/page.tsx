@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Container, Paper, TextField, Button, Typography, Box, Switch, FormControlLabel, Alert, CircularProgress, ThemeProvider, CssBaseline } from '@mui/material';
 import { FolderOpen, Login, Wifi, WifiOff } from '@mui/icons-material';
+import Cookies from 'js-cookie';
 import WebDAVClient from './webdav-client';
 import FileExplorer from './file-explorer';
 import { telegramTheme } from './telegram-theme';
@@ -28,6 +29,32 @@ export default function TelegramMiniApp() {
     anonymous: false
   });
 
+  const handle401Error = () => {
+    // Clear tokens and redirect to login
+    Cookies.remove('jwt_token');
+    Cookies.remove('server_address');
+    Cookies.remove('server_port');
+    
+    setIsLoggedIn(false);
+    setWebdavClient(null);
+    setError('Session expired. Please login again.');
+  };
+
+  // Check for existing JWT token on component mount
+  useEffect(() => {
+    const token = Cookies.get('jwt_token');
+    const savedServerAddress = Cookies.get('server_address');
+    const savedPort = Cookies.get('server_port');
+    
+    if (token && savedServerAddress && savedPort) {
+      const baseUrl = `http://${savedServerAddress}:${savedPort}`;
+      const client = new WebDAVClient(baseUrl, token, handle401Error);
+      setWebdavClient(client);
+      setIsLoggedIn(true);
+      setFormData(prev => ({ ...prev, serverAddress: savedServerAddress, port: savedPort }));
+    }
+  }, []);
+
   const handleInputChange = (field: keyof LoginFormData) => (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -39,23 +66,49 @@ export default function TelegramMiniApp() {
 
     try {
       const baseUrl = `http://${formData.serverAddress}:${formData.port}`;
-      const client = new WebDAVClient(
-        baseUrl,
-        formData.anonymous ? '' : formData.username,
-        formData.anonymous ? '' : formData.password
-      );
+      
+      // Send login request to get JWT token
+      const response = await fetch(`${baseUrl}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.anonymous ? '' : formData.username,
+          password: formData.anonymous ? '' : formData.password,
+        }),
+      });
 
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+
+      const data = await response.json();
+      const token = data.token;
+
+      // Store JWT token and server info in cookies
+      Cookies.set('jwt_token', token, { expires: 7 }); // 7 days expiry
+      Cookies.set('server_address', formData.serverAddress, { expires: 7 });
+      Cookies.set('server_port', formData.port, { expires: 7 });
+
+      // Create WebDAV client with JWT token
+      const client = new WebDAVClient(baseUrl, token, handle401Error);
       await client.connect();
       setWebdavClient(client);
       setIsLoggedIn(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Connection failed');
+      setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleLogout = () => {
+    // Clear JWT token and server info from cookies
+    Cookies.remove('jwt_token');
+    Cookies.remove('server_address');
+    Cookies.remove('server_port');
+    
     setIsLoggedIn(false);
     setWebdavClient(null);
     setError(null);
@@ -80,7 +133,7 @@ export default function TelegramMiniApp() {
               Logout
             </Button>
           </Box>
-          <FileExplorer webdavClient={webdavClient} />
+          <FileExplorer webdavClient={webdavClient} onAuthError={handle401Error} />
         </Container>
       ) : (
         <Container maxWidth="sm" sx={{ py: 4, minHeight: '100vh', display: 'flex', alignItems: 'center' }}>

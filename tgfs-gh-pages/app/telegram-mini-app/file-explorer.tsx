@@ -38,9 +38,10 @@ import WebDAVClient, { WebDAVItem } from "./webdav-client";
 
 interface FileExplorerProps {
   webdavClient: WebDAVClient;
+  onAuthError?: () => void;
 }
 
-export default function FileExplorer({ webdavClient }: FileExplorerProps) {
+export default function FileExplorer({ webdavClient, onAuthError }: FileExplorerProps) {
   const [currentPath, setCurrentPath] = useState("/");
   const [items, setItems] = useState<WebDAVItem[]>([]);
   const [loading, setLoading] = useState(true);

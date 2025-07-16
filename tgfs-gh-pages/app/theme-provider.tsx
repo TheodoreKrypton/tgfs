@@ -1,7 +1,7 @@
 'use client';
 
 import { createTheme, ThemeProvider as MuiThemeProvider, CssBaseline } from '@mui/material';
-import { ReactNode } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 
 const darkTheme = createTheme({
   palette: {
@@ -45,6 +45,17 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Don't render MUI components until hydration is complete
+  if (!isMounted) {
+    return <div suppressHydrationWarning>{children}</div>;
+  }
+
   return (
     <MuiThemeProvider theme={darkTheme}>
       <CssBaseline />

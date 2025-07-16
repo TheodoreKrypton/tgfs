@@ -19,16 +19,13 @@ tgfs:
       password: password
   download:
     chunk_size_kb: 1024
+  jwt:
+    secret: [your_jwt_secret (mandatory)]
+    algorithm: HS256
+    life: 604800
 
 webdav:
   host: 0.0.0.0
   port: 1900
   path: /
 
-manager:
-  host: 0.0.0.0
-  port: 1901
-  path: /
-  bot:
-    token: your_bot_token (optional, apply from @BotFather)
-    chat_id: your_chat_id (optional, the chat id between you and your bot. The bot will not reply/send anything to other chats.)

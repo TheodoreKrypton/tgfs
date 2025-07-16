@@ -1,6 +1,6 @@
 import { Box, IconButton } from '@mui/material';
 import { Delete } from '@mui/icons-material';
-import { PasswordField } from './PasswordField';
+import { ConfigTextField } from './ConfigTextField';
 
 interface BotTokenFieldProps {
   index: number;
@@ -17,10 +17,10 @@ export function BotTokenField({
 }: BotTokenFieldProps) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
-      <PasswordField
+      <ConfigTextField
         label={`Bot Token ${index + 1}`}
         value={value}
-        onChange={onChange}
+        onChange={(e) => onChange(e.target.value)}
         helperText=""
         required={index === 0}
         width={400}
