@@ -17,6 +17,7 @@ from .folder import Folder
 from .member import Member
 from .reqres import PropfindRequest, propfind
 from .resource import Resource
+from .utils import calc_content_length
 
 
 def split_path(path: str) -> tuple[str, str]:
@@ -124,7 +125,7 @@ def create_app(
     async def auth_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
         if (
             auth_callback
-            and request.method not in ["OPTIONS"]
+            and request.method not in {"OPTIONS"}
             and request.url.path != "/login"
         ):
             auth_header = request.headers.get("Authorization")
@@ -280,7 +281,7 @@ def create_app(
                     "Content-Length": str(
                         content_length
                         if not is_range_request
-                        else (end - begin + 1 if end != -1 else content_length - begin)
+                        else calc_content_length(content_length, begin, end)
                     ),
                 }
 

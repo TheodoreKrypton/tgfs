@@ -26,12 +26,9 @@ from tgfs.api.types import (
 )
 from tgfs.errors.base import TechnicalError
 from tgfs.errors.telegram import FileSizeTooLarge
+from tgfs.utils.others import is_big_file
 
 logger = logging.getLogger(__name__)
-
-
-def is_big_file(size: int) -> bool:
-    return size >= 10 * 1024 * 1024  # 10 MB threshold
 
 
 @dataclass

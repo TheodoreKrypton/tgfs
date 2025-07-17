@@ -1,3 +1,6 @@
+import asyncio
+from typing import Iterator
+
 from pyrate_limiter import Duration, InMemoryBucket, Limiter, Rate
 from telethon.errors import MessageNotModifiedError, RPCError
 
@@ -15,7 +18,9 @@ from tgfs.api.types import (
 )
 from tgfs.config import get_config
 from tgfs.errors.telegram import MessageNotFound
-from tgfs.utils.others import exclude_none
+from tgfs.utils.others import exclude_none, is_big_file
+
+from .chained_async_iterator import ChainedAsyncIterator
 
 rate = Rate(20, Duration.SECOND)
 bucket = InMemoryBucket([rate])
@@ -82,9 +87,49 @@ class MessageApi(MessageBroker):
             )
         )
 
+    @classmethod
+    def split_download_tasks(
+        cls, begin: int, end: int, n: int
+    ) -> Iterator[tuple[int, int]]:
+        length = end - begin + 1
+        length_per_chunk = length // n
+
+        for i in range(n - 1):
+            b = begin + i * length_per_chunk
+            e = b + length_per_chunk - 1
+            yield b, e
+
+        yield begin + (n - 1) * length_per_chunk, end
+
+    @staticmethod
+    def size(begin: int, end: int) -> int:
+        return begin - end + 1
+
+    async def download_file_parallel(self, message_id: int, begin: int, end: int):
+        tasks = [
+            self.tdlib.next_bot.download_file(
+                DownloadFileReq(
+                    chat_id=self.private_channel_id,
+                    message_id=message_id,
+                    chunk_size=get_config().tgfs.download.chunk_size_kb,
+                    begin=b,
+                    end=e,
+                )
+            )
+            for b, e in self.split_download_tasks(begin, end, len(self.tdlib.bots))
+        ]
+
+        res = [t.chunks for t in await asyncio.gather(*tasks)]
+        return DownloadFileResp(
+            chunks=ChainedAsyncIterator(*res), size=self.size(begin, end)
+        )
+
     async def download_file(
         self, message_id: int, begin: int, end: int
     ) -> DownloadFileResp:
+        if end > 0 and is_big_file(self.size(begin, end)):
+            return await self.download_file_parallel(message_id, begin, end)
+
         return await self.tdlib.next_bot.download_file(
             DownloadFileReq(
                 chat_id=self.private_channel_id,
