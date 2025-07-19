@@ -12,6 +12,7 @@ from telethon.errors import SessionPasswordNeededError
 from telethon.helpers import TotalList
 from telethon.sessions import StringSession
 from telethon.tl.types import InputDocumentFileLocation
+from telethon.tl.types.auth import SentCode
 
 from tgfs.api.interface import ITDLibClient
 from tgfs.api.types import (
@@ -291,31 +292,30 @@ async def login_as_account(config: Config) -> TelegramClient:
     if sess := session.get():
         client = TelegramClient(sess, api_id, api_hash)
         await client.connect()
+    else:
+        client = TelegramClient(StringSession(), api_id, api_hash)
+        await client.connect()
 
-        if (me := await client.get_me()) and isinstance(me, tlt.User):
-            logger.info(f"logged in as account @{me.username}")
-        else:
-            logger.warning("logged in as account, but no username found")
+        phone_number = input("Phone number (with country code): ")
+        sms_req = await client.send_code_request(phone_number, force_sms=False)
+        code = input("Enter the code you received: ")
 
-        return client
+        try:
+            await client.sign_in(
+                phone=phone_number, code=code, phone_code_hash=sms_req.phone_code_hash
+            )
+        except SessionPasswordNeededError:
+            password = getpass("Enter the 2FA password: ")
+            await client.sign_in(password=password)
+        except Exception as e:
+            logger.error(f"Failed to sign in: {e}")
+            raise
+        session.save(client.session.save())  # type: ignore
 
-    phone_number = input("Phone Number: ")
-    client = TelegramClient(StringSession(), api_id, api_hash)
-    await client.start()  # type: ignore
-    await client.connect()
-
-    sms_req = await client.send_code_request(phone_number, force_sms=False)
-    code = input("Login code: ")
-
-    try:
-        await client.sign_in(
-            phone_number, code=code, phone_code_hash=sms_req.phone_code_hash
-        )
-    except SessionPasswordNeededError:
-        password = getpass("Enter the 2FA password: ")
-        await client.sign_in(password=password)
-
-    session.save(client.session.save())  # type: ignore
+    if (me := await client.get_me()) and isinstance(me, tlt.User):
+        logger.info(f"logged in as @{me.username}")
+    else:
+        logger.warning("logged in as account, but no username found")
 
     return client
 
@@ -335,17 +335,17 @@ async def login_as_bots(config: Config) -> List[TelegramClient]:
 
         if sess := session.get():
             client = TelegramClient(sess, api_id, api_hash)
+            await client.connect()
         else:
             client = TelegramClient(StringSession(), api_id, api_hash)
+            await client.connect()
             await client.start(bot_token=token)  # type: ignore
             session.save_multibot(client.session.save())  # type: ignore
 
-        await client.connect()
-
         if (me := await client.get_me()) and isinstance(me, tlt.User):
-            logger.info(f"logged in as account @{me.username}")
+            logger.info(f"logged in as @{me.username}")
         else:
-            logger.warning("logged in as account, but no username found")
+            logger.warning("logged in as bot, but no username found")
 
         return client
 

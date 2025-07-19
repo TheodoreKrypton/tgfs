@@ -16,6 +16,15 @@ You must prepare a directory (defaulted to .tgfs) to store the app data, and pla
 
 Refer to the [Set up config file](#set-up-config-file) section for creating the `config.yaml` file.
 
+For the first time, you should run the command below to be prompted to enter phone number, verification code, etc. for the session file generation.
+```bash
+docker run -it \
+  -v .tgfs:/home/tgfs/.tgfs \  # Volume to store app data. config.yaml is in this directory.
+  -p 1900:1900 \
+  wheatcarrier/tgfs
+```
+
+After the session file is generated, you can run the following command to start the tgfs server in detached mode.
 ```bash
 docker run -d --name tgfs \
   -v .tgfs:/home/tgfs/.tgfs \  # Volume to store app data. config.yaml is in this directory.
