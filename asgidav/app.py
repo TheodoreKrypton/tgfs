@@ -8,6 +8,7 @@ from http import HTTPStatus
 from typing import Any, Callable, Optional, TypedDict
 from urllib.parse import unquote, urlparse
 import jwt
+import logging
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,6 +19,9 @@ from .member import Member
 from .reqres import PropfindRequest, propfind
 from .resource import Resource
 from .utils import calc_content_length
+
+
+logger = logging.getLogger(__name__)
 
 
 def split_path(path: str) -> tuple[str, str]:
@@ -80,9 +84,9 @@ def create_app(
     NOT_FOUND = HTTPException(status_code=HTTPStatus.NOT_FOUND)
     CREATED = Response(status_code=HTTPStatus.CREATED, headers=common_headers)
     NO_CONTENT = Response(status_code=HTTPStatus.NO_CONTENT, headers=common_headers)
-    UNAUTHORIZED = HTTPException(
-        status_code=HTTPStatus.UNAUTHORIZED,
-        detail="Unauthorized",
+    UNAUTHORIZED = Response(
+        status_code=HTTPStatus.UNAUTHORIZED.value,
+        content="Unauthorized",
         headers=common_headers
         | {
             "Content-Type": "text/html",
@@ -131,7 +135,7 @@ def create_app(
             auth_header = request.headers.get("Authorization")
 
             if not auth_header:
-                raise UNAUTHORIZED
+                return UNAUTHORIZED
 
             if auth_header.startswith("Bearer "):
                 token = auth_header[7:]
@@ -142,9 +146,10 @@ def create_app(
                         algorithms=[jwt_config["algorithm"]],
                         options={"verify_exp": True},
                     ):
-                        raise UNAUTHORIZED
+                        return UNAUTHORIZED
                 except Exception as e:
-                    raise UNAUTHORIZED from e
+                    logger.error(e)
+                    return UNAUTHORIZED
 
             elif auth_header.startswith("Basic "):
                 # Handle Basic authentication
@@ -152,11 +157,11 @@ def create_app(
                     credentials = base64.b64decode(auth_header[6:]).decode("utf-8")
                     username, password = credentials.split(":", 1)
                     if not auth_callback(username, password):
-                        raise UNAUTHORIZED
+                        return UNAUTHORIZED
                 except (ValueError, UnicodeDecodeError):
-                    raise UNAUTHORIZED
+                    return UNAUTHORIZED
             else:
-                raise UNAUTHORIZED
+                return UNAUTHORIZED
 
         return await call_next(request)
 
@@ -170,7 +175,7 @@ def create_app(
         username = data["username"] if auth_callback else "anonymous"
 
         if auth_callback and not auth_callback(username, data["password"]):
-            raise UNAUTHORIZED
+            return UNAUTHORIZED
 
         jwt_token = jwt.encode(
             {

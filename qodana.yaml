@@ -1,5 +1,5 @@
 #-------------------------------------------------------------------------------#
-#               Qodana analysis is configured by qodana.yaml file               #
+#               Qodana analysis is configured by qodana.yaml file_content               #
 #             https://www.jetbrains.com/help/qodana/qodana-yaml.html            #
 #-------------------------------------------------------------------------------#
 version: "1.0"
