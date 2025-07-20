@@ -1,5 +1,5 @@
-from tgfs.errors.base import BusinessError
-from tgfs.errors.error_code import ErrorCode
+from .base import BusinessError
+from .error_code import ErrorCode
 
 
 class MetadataNotFound(BusinessError):

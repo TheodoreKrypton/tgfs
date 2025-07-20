@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass, field
-from typing import List, Self
+from typing import List, Self, Optional, Literal
 
 import yaml
 from telethon.tl.types import PeerChannel
@@ -48,6 +48,39 @@ class JWTConfig:
         return cls(
             secret=data["secret"], algorithm=data["algorithm"], life=data["life"]
         )
+
+
+@dataclass
+class GithubRepoConfig:
+    repo: str
+    commit: str
+    access_token: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Self:
+        return cls(
+            repo=data["repo"],
+            commit=data["commit"],
+            access_token=data["access_token"],
+        )
+
+
+@dataclass
+class MetadataConfig:
+    type: Literal["pinned_message", "github_repo"]
+    github: Optional[GithubRepoConfig]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Self:
+        if data["type"] == "pinned_message":
+            return cls(type="pinned_message", github=None)
+        elif data["type"] == "github":
+            return cls(
+                type="github_repo",
+                github=GithubRepoConfig.from_dict(data["github_repo"]),
+            )
+        else:
+            raise ValueError(f"Unknown metadata type: {data['type']}")
 
 
 @dataclass
