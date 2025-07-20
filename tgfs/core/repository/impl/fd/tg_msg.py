@@ -2,10 +2,14 @@ import json
 import logging
 from typing import Optional
 
-from tgfs.core.api import MessageApi
-from tgfs.core.repository.interface import IFDRepository, FDRepositoryResp
-from tgfs.core.model import TGFSFileRef, TGFSFileDesc
 from tgfs.errors import MessageNotFound
+from tgfs.core.api import MessageApi
+from tgfs.core.model import TGFSFileRef, TGFSFileDesc
+from tgfs.core.repository.interface import (
+    IFDRepository,
+    FDRepositoryResp,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -17,15 +21,15 @@ class TGMsgFDRepository(IFDRepository):
     async def save(
         self, fd: TGFSFileDesc, fr: Optional[TGFSFileRef] = None
     ) -> FDRepositoryResp:
-        # If file referer is None, create a new file descriptor message.
+        # If file_content referer is None, create a new file_content descriptor message.
         if fr is None:
             return FDRepositoryResp(
                 message_id=await self.__message_api.send_text(fd.to_json()),
                 fd=fd,
             )
 
-        # If file referer is provided, try to update the existing file descriptor.
-        # But if the message is not found (probably got deleted manually), a new file descriptor will be created.
+        # If file_content referer is provided, try to update the existing file_content descriptor.
+        # But if the message is not found (probably got deleted manually), a new file_content descriptor will be created.
         try:
             return FDRepositoryResp(
                 message_id=await self.__message_api.edit_message_text(
@@ -47,7 +51,7 @@ class TGMsgFDRepository(IFDRepository):
             )
             return empty
 
-        fd = TGFSFileDesc.from_dict(json.loads(message.text))
+        fd = TGFSFileDesc.from_dict(json.loads(message.text), name=fr.name)
 
         versions = fd.get_versions(exclude_empty=True)
         file_messages = await self.__message_api.get_messages(

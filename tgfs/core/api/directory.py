@@ -1,8 +1,8 @@
 from typing import List, Optional
 
 from tgfs.errors import DirectoryIsNotEmpty, FileOrDirectoryDoesNotExist
-from tgfs.core.api import MetaDataApi
 from tgfs.core.model import TGFSDirectory, TGFSFileRef
+from .metadata import MetaDataApi
 
 
 class DirectoryApi:

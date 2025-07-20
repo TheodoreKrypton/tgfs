@@ -1,6 +1,6 @@
-from typing import AsyncIterator, Optional
+from typing import Optional
 
-from tgfs.reqres import FileMessageEmpty, GeneralFileMessage
+from tgfs.reqres import FileMessageEmpty, GeneralFileMessage, FileContent
 from tgfs.errors import FileOrDirectoryDoesNotExist
 from tgfs.core.model import TGFSDirectory, TGFSFileRef, TGFSFileVersion, TGFSFileDesc
 from .file_desc import FileDescApi
@@ -75,11 +75,11 @@ class FileApi:
 
     async def retrieve(
         self, fr: TGFSFileRef, as_name: str, begin: int, end: int
-    ) -> AsyncIterator[bytes]:
+    ) -> FileContent:
         fd = await self.desc(fr)
         if isinstance(fd, FileMessageEmpty):
 
-            async def empty_file() -> AsyncIterator[bytes]:
+            async def empty_file() -> FileContent:
                 yield b""
 
             return empty_file()
@@ -90,7 +90,7 @@ class FileApi:
 
     async def retrieve_version(
         self, version: TGFSFileVersion, as_name: str, begin: int, end: int
-    ) -> AsyncIterator[bytes]:
+    ) -> FileContent:
         return await self.__file_desc_api.download_file_at_version(
             as_name, version, begin, end
         )

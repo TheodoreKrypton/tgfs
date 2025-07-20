@@ -6,7 +6,6 @@ from .directory import TGFSDirectory
 @dataclass
 class TGFSMetadata:
     dir: TGFSDirectory
-    message_id: int = -1
 
     @staticmethod
     def from_dict(data: dict) -> "TGFSMetadata":

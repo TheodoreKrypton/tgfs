@@ -1,39 +1,41 @@
 import json
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 from tgfs.reqres import FileMessageFromBuffer, FileTags
 from tgfs.errors import MetadataNotFound
 from tgfs.core.api import MessageApi
 from tgfs.core.model import TGFSMetadata
-from tgfs.core.repository.impl.file import FileRepository
-from tgfs.core.repository.interface import IMetaDataRepository
+from tgfs.core.repository.interface import IMetaDataRepository, IFileContentRepository
 
 
 class TGMsgMetadataRepository(IMetaDataRepository):
     METADATA_FILE_NAME = "metadata.json"
 
-    def __init__(self, message_api: MessageApi, file_repo: FileRepository):
+    def __init__(self, message_api: MessageApi, fc_repo: IFileContentRepository):
         self.__message_api = message_api
-        self.__file_repo = file_repo
+        self.__fc_repo = fc_repo
 
-    async def save(self, metadata: TGFSMetadata) -> int:
+        self.__message_id: Optional[int] = None
+
+    async def save(self, metadata: TGFSMetadata) -> None:
         buffer = json.dumps(metadata.to_dict()).encode()
-        if metadata.message_id:
-            return await self.__file_repo.update(
-                metadata.message_id,
+        if self.__message_id is not None:
+            await self.__fc_repo.update(
+                self.__message_id,
                 buffer,
                 self.METADATA_FILE_NAME,
             )
-        resp = await self.__file_repo.save(
-            FileMessageFromBuffer(
-                name=self.METADATA_FILE_NAME,
-                caption="",
-                tags=FileTags(),
-                buffer=buffer,
+        else:
+            resp = await self.__fc_repo.save(
+                FileMessageFromBuffer(
+                    name=self.METADATA_FILE_NAME,
+                    caption="",
+                    tags=FileTags(),
+                    buffer=buffer,
+                )
             )
-        )
-        await self.__message_api.pin_message(message_id=resp.message_id)
-        return resp.message_id
+            await self.__message_api.pin_message(message_id=resp.message_id)
+            self.__message_id = resp.message_id
 
     @staticmethod
     async def __read_all(async_iter: AsyncIterator[bytes]) -> bytes:
@@ -50,7 +52,7 @@ class TGMsgMetadataRepository(IMetaDataRepository):
         metadata = TGFSMetadata.from_dict(
             json.loads(
                 await self.__read_all(
-                    await self.__file_repo.download_file(
+                    await self.__fc_repo.get(
                         self.METADATA_FILE_NAME,
                         pinned_message.message_id,
                         begin=0,
@@ -60,5 +62,5 @@ class TGMsgMetadataRepository(IMetaDataRepository):
             )
         )
 
-        metadata.message_id = pinned_message.message_id
+        self.__message_id = pinned_message.message_id
         return metadata

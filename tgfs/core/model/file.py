@@ -89,12 +89,11 @@ class TGFSFileDesc:
     def to_dict(self) -> dict:
         return dict(
             type="F",
-            name=self.name,
             versions=[v.to_dict() for v in self.get_versions(sort=True)],
         )
 
     @staticmethod
-    def from_dict(data: TGFSFileDescSerialized) -> "TGFSFileDesc":
+    def from_dict(data: TGFSFileDescSerialized, name: str) -> "TGFSFileDesc":
         versions = {
             v["id"]: TGFSFileVersion.from_dict(v) for v in data["versions"] if v
         }
@@ -105,7 +104,7 @@ class TGFSFileDesc:
         else:
             latest_version_id = INVALID_VERSION_ID
         return TGFSFileDesc(
-            name=data["name"],
+            name=name,
             latest_version_id=latest_version_id,
             versions=versions,
         )

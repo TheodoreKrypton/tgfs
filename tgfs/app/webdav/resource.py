@@ -2,6 +2,8 @@ import asyncio
 from typing import AsyncIterator, Optional
 
 from asgidav.resource import Resource as _Resource
+
+from tgfs.reqres import FileContent
 from tgfs.core import Client, Ops
 from tgfs.core.model import TGFSFileRef, TGFSFileDesc
 from tgfs.errors import TechnicalError
@@ -20,7 +22,7 @@ class Resource(_Resource):
 
         if not isinstance(fr, TGFSFileRef):
             raise TechnicalError(
-                "Resource must be a file, not a directory or other type"
+                "Resource must be a file_content, not a directory or other type"
             )
 
         self.__fr: TGFSFileRef = fr
@@ -48,10 +50,10 @@ class Resource(_Resource):
     async def display_name(self) -> str:
         return self.__fr.name
 
-    async def get_content(self, begin: int = 0, end: int = -1) -> AsyncIterator[bytes]:
+    async def get_content(self, begin: int = 0, end: int = -1) -> FileContent:
         return await self.__ops.download(self.path, "unnamed", begin, end)
 
-    async def overwrite(self, content: AsyncIterator[bytes], size: int) -> None:
+    async def overwrite(self, content: FileContent, size: int) -> None:
         fs_cache.reset(self.path)
         await self.__ops.upload_from_stream(content, size, self.path)
 

@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass, field
-from typing import List, Self, Optional, Literal
+from typing import List, Self, Optional
+from enum import Enum
 
 import yaml
 from telethon.tl.types import PeerChannel
@@ -65,19 +66,24 @@ class GithubRepoConfig:
         )
 
 
+class MetadataType(Enum):
+    PINNED_MESSAGE = "pinned_message"
+    GITHUB_REPO = "github_repo"
+
+
 @dataclass
 class MetadataConfig:
-    type: Literal["pinned_message", "github_repo"]
-    github: Optional[GithubRepoConfig]
+    type: MetadataType
+    github_repo: Optional[GithubRepoConfig]
 
     @classmethod
-    def from_dict(cls, data: dict) -> Self:
-        if data["type"] == "pinned_message":
-            return cls(type="pinned_message", github=None)
-        elif data["type"] == "github":
+    def from_dict(cls, data: dict | None) -> Self:
+        if data is None or data["type"] == MetadataType.PINNED_MESSAGE.value:
+            return cls(type=MetadataType.PINNED_MESSAGE, github_repo=None)
+        elif data["type"] == MetadataType.GITHUB_REPO.value:
             return cls(
-                type="github_repo",
-                github=GithubRepoConfig.from_dict(data["github_repo"]),
+                type=MetadataType.GITHUB_REPO,
+                github_repo=GithubRepoConfig.from_dict(data["github_repo"]),
             )
         else:
             raise ValueError(f"Unknown metadata type: {data['type']}")
@@ -88,6 +94,7 @@ class TGFSConfig:
     users: dict[str, UserConfig]
     download: DownloadConfig
     jwt: JWTConfig
+    metadata: MetadataConfig
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
@@ -98,6 +105,7 @@ class TGFSConfig:
             },
             download=DownloadConfig.from_dict(data["download"]),
             jwt=JWTConfig.from_dict(data["jwt"]),
+            metadata=MetadataConfig.from_dict(data.get("metadata")),
         )
 
 

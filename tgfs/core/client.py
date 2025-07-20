@@ -3,14 +3,21 @@ from typing import List
 from telethon import TelegramClient
 
 from tgfs.core.api import DirectoryApi, FileApi, FileDescApi, MessageApi, MetaDataApi
-from tgfs.core.repository import (
-    FileRepository,
+from tgfs.core.repository.interface import (
+    IMetaDataRepository,
+)
+from tgfs.core.repository.impl import (
+    TGMsgFileContentRepository,
     TGMsgFDRepository,
     TGMsgMetadataRepository,
+    GithubRepoMetadataRepository,
 )
-
+from tgfs.config import get_config, MetadataType
 from tgfs.telegram.impl.telethon import TelethonAPI
 from tgfs.telegram.interface import TDLibApi
+
+
+config = get_config()
 
 
 class Client:
@@ -29,11 +36,22 @@ class Client:
                 account=TelethonAPI(account), bots=[TelethonAPI(bot) for bot in bots]
             )
         )
-        file_repo = FileRepository(message_api)
-        fd_repo = TGMsgFDRepository(message_api)
-        metadata_repo = TGMsgMetadataRepository(message_api, file_repo)
 
-        fd_api = FileDescApi(fd_repo, file_repo)
+        fc_repo = TGMsgFileContentRepository(message_api)
+        fd_repo = TGMsgFDRepository(message_api)
+
+        if config.tgfs.metadata.type == MetadataType.PINNED_MESSAGE:
+            metadata_repo: IMetaDataRepository = TGMsgMetadataRepository(
+                message_api, fc_repo
+            )
+        else:
+            if (github_repo_config := config.tgfs.metadata.github_repo) is None:
+                raise ValueError(
+                    f"configuration tgfs -> metadata -> github is required."
+                )
+            metadata_repo = GithubRepoMetadataRepository(github_repo_config)
+
+        fd_api = FileDescApi(fd_repo, fc_repo)
 
         metadata_api = MetaDataApi(metadata_repo)
         await metadata_api.init()

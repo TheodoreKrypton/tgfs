@@ -1,6 +1,5 @@
 import hashlib
 import logging
-from typing import AsyncIterator
 
 from tgfs.reqres import (
     FileMessageEmpty,
@@ -11,10 +10,12 @@ from tgfs.reqres import (
     GeneralFileMessage,
     EditMessageMediaReq,
     SentFileMessage,
+    FileContent,
 )
 from tgfs.errors import TechnicalError
 from tgfs.core.api import MessageApi
 from tgfs.core.model import EMPTY_FILE_VERSION
+from tgfs.core.repository.interface import IFileContentRepository
 
 from .file_uploader import create_uploader
 
@@ -22,7 +23,7 @@ from .file_uploader import create_uploader
 logger = logging.getLogger(__name__)
 
 
-class FileRepository:
+class TGMsgFileContentRepository(IFileContentRepository):
     def __init__(self, message_api: MessageApi):
         self.__message_api = message_api
 
@@ -31,7 +32,7 @@ class FileRepository:
         file_msg: FileMessageFromPath | FileMessageFromBuffer | FileMessageEmpty,
     ) -> str:
         if isinstance(file_msg, FileMessageEmpty):
-            raise TechnicalError("Cannot compute SHA256 for an empty file")
+            raise TechnicalError("Cannot compute SHA256 for an empty file_content")
 
         if isinstance(file_msg, FileMessageFromPath):
             sha256 = hashlib.sha256()
@@ -47,7 +48,9 @@ class FileRepository:
             sha256 = hashlib.sha256(file_msg.buffer)
             return sha256.hexdigest()
 
-        raise TechnicalError("Unsupported file message type for SHA256 computation")
+        raise TechnicalError(
+            "Unsupported file_content message type for SHA256 computation"
+        )
 
     @staticmethod
     def __get_file_caption(file_msg: GeneralFileMessage) -> str:
@@ -117,9 +120,9 @@ class FileRepository:
         await uploader.upload(file_msg, self.__report, file_msg.name)
         return message_id
 
-    async def download_file(
+    async def get(
         self, name: str, message_id: int, begin: int, end: int
-    ) -> AsyncIterator[bytes]:
-        logger.info(f"Downloading file {name} with message ID {message_id}")
+    ) -> FileContent:
+        logger.info(f"Downloading file_content {name} with message ID {message_id}")
         resp = await self.__message_api.download_file(message_id, begin, end)
         return resp.chunks

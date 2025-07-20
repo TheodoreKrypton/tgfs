@@ -8,17 +8,21 @@ from telethon.tl.types import PeerChannel
 class Message:
     message_id: int
 
+
 @dataclass
 class SentFileMessage(Message):
     size: int
+
 
 @dataclass
 class Chat:
     chat_id: PeerChannel
 
+
 @dataclass
 class GetMessagesReq(Chat):
     message_ids: Tuple[int, ...]
+
 
 @dataclass
 class Document:
@@ -27,32 +31,40 @@ class Document:
     access_hash: int
     file_reference: bytes
 
+
 @dataclass
 class MessageResp(Message):
     text: str
     document: Optional[Document]
 
+
 GetMessagesResp = list[Optional[MessageResp]]
 GetMessagesRespNoNone = list[MessageResp]
+
 
 @dataclass
 class SearchMessageReq(Chat):
     search: str
 
+
 GetPinnedMessageReq = Chat
 SendMessageResp = Message
+
 
 @dataclass
 class SendTextReq(Chat):
     text: str
 
+
 @dataclass
 class EditMessageTextReq(SendTextReq, Message):
     pass
 
+
 @dataclass
 class PinMessageReq(Chat, Message):
     pass
+
 
 @dataclass
 class SaveFilePartReq:
@@ -60,13 +72,16 @@ class SaveFilePartReq:
     bytes: bytes
     file_part: int
 
+
 @dataclass
 class SaveBigFilePartReq(SaveFilePartReq):
     file_total_parts: int
 
+
 @dataclass
 class SaveFilePartResp:
     success: bool
+
 
 @dataclass
 class UploadedFile:
@@ -74,14 +89,17 @@ class UploadedFile:
     parts: int
     name: str
 
+
 @dataclass
 class FileAttr:
     name: str
     caption: str
 
+
 @dataclass
 class SendFileReq(Chat, FileAttr):
     file: UploadedFile
+
 
 @dataclass
 class EditMessageMediaReq(Chat, Message):
@@ -94,14 +112,20 @@ class DownloadFileReq(Chat, Message):
     begin: int
     end: int
 
+
+FileContent = AsyncIterator[bytes]
+
+
 @dataclass
 class DownloadFileResp:
-    chunks: AsyncIterator[bytes]
+    chunks: FileContent
     size: int
+
 
 @dataclass
 class FileTags:
     sha256: Optional[str] = None
+
 
 @dataclass
 class FileMessage:
@@ -109,22 +133,27 @@ class FileMessage:
     caption: str
     tags: FileTags
 
+
 @dataclass
 class FileMessageEmpty(FileMessage):
     pass
+
 
 @dataclass
 class FileMessageFromPath(FileMessage):
     path: str
 
+
 @dataclass
 class FileMessageFromBuffer(FileMessage):
     buffer: bytes
 
+
 @dataclass
 class FileMessageFromStream(FileMessage):
-    stream: AsyncIterator[bytes]
+    stream: FileContent
     size: int
+
 
 GeneralFileMessage = Union[
     FileMessageEmpty, FileMessageFromPath, FileMessageFromBuffer, FileMessageFromStream
