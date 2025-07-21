@@ -91,9 +91,15 @@ You can use the [config generator](https://theodorekrypton.github.io/tgfs/config
 
 - tgfs
 
-  - users: the users authenticated by tgfs, used by both webdav authentication and monitor
+  - users: The users authenticated by tgfs, used by both webdav authentication and monitor
   - download
     - chunk_size_kb: The chunk size in KB when downloading files. Bigger chunk size means less requests.
+  - metadata: Metadata maintains the tree structure of the directories and files. There are two ways to store metadata:
+    - pinned_message (default): The metadata is stored as a json file pinned in the file channel. Every directory operation updates/reupload the json file.
+    - github_repo: The metadata is stored in a GitHub repository configured in the following `github_repo` section. Every directory operation is mapped to the github repository. Merits of this method include:
+      - The tree structure is versioned naturally, so you can roll back to a previous version if something goes wrong.
+      - Directory operations are faster (possibly?) because the metadata is not re-uploaded every time.
+      - Multiple clients can access / mutates the same metadata without conflicts.
 
 - webdav
   - host: The host of the WebDAV server listening on.
