@@ -1,24 +1,29 @@
 import json
 from typing import AsyncIterator, Optional
 
-from tgfs.reqres import FileMessageFromBuffer, FileTags
-from tgfs.errors import MetadataNotFound
 from tgfs.core.api import MessageApi
 from tgfs.core.model import TGFSMetadata
-from tgfs.core.repository.interface import IMetaDataRepository, IFileContentRepository
+from tgfs.core.repository.interface import IFileContentRepository, IMetaDataRepository
+from tgfs.errors import MetadataNotFound, MetadataNotInitialized
+from tgfs.reqres import FileMessageFromBuffer, FileTags
 
 
 class TGMsgMetadataRepository(IMetaDataRepository):
     METADATA_FILE_NAME = "metadata.json"
 
     def __init__(self, message_api: MessageApi, fc_repo: IFileContentRepository):
+        super().__init__()
+
         self.__message_api = message_api
         self.__fc_repo = fc_repo
 
         self.__message_id: Optional[int] = None
 
-    async def save(self, metadata: TGFSMetadata) -> None:
-        buffer = json.dumps(metadata.to_dict()).encode()
+    async def push(self) -> None:
+        if not self.metadata:
+            raise MetadataNotInitialized()
+
+        buffer = json.dumps(self.metadata.to_dict()).encode()
         if self.__message_id is not None:
             await self.__fc_repo.update(
                 self.__message_id,

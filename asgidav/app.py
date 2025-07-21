@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import logging
 import time
 import uuid
 from collections.abc import Awaitable
@@ -7,9 +8,8 @@ from contextvars import ContextVar
 from http import HTTPStatus
 from typing import Any, Callable, Optional, TypedDict
 from urllib.parse import unquote, urlparse
-import jwt
-import logging
 
+import jwt
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import StreamingResponse
@@ -19,7 +19,6 @@ from .member import Member
 from .reqres import PropfindRequest, propfind
 from .resource import Resource
 from .utils import calc_content_length
-
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,8 @@
 from typing import List, Optional
 
-from tgfs.errors import DirectoryIsNotEmpty, FileOrDirectoryDoesNotExist
 from tgfs.core.model import TGFSDirectory, TGFSFileRef
+from tgfs.errors import DirectoryIsNotEmpty, FileOrDirectoryDoesNotExist
+
 from .metadata import MetaDataApi
 
 
@@ -20,7 +21,7 @@ class DirectoryApi:
         dir_to_copy: Optional[TGFSDirectory] = None,
     ) -> TGFSDirectory:
         new_dir = under.create_dir(name, dir_to_copy)
-        await self.__metadata_api.update()
+        await self.__metadata_api.push()
         return new_dir
 
     @staticmethod
@@ -40,4 +41,4 @@ class DirectoryApi:
 
     async def rm_dangerously(self, directory: TGFSDirectory) -> None:
         directory.delete()
-        await self.__metadata_api.update()
+        await self.__metadata_api.push()

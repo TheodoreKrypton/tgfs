@@ -9,8 +9,9 @@ from tgfs.reqres import (
     FileMessageFromStream,
     FileTags,
 )
-from .model import TGFSDirectory, TGFSFileRef, TGFSFileDesc
+
 from .client import Client
+from .model import TGFSDirectory, TGFSFileDesc, TGFSFileRef
 
 
 class Ops:

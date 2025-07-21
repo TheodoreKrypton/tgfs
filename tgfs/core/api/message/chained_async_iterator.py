@@ -1,4 +1,4 @@
-from typing import AsyncIterable, AsyncIterator, Self, Tuple
+from typing import AsyncIterable, AsyncIterator, Tuple
 
 
 class ChainedAsyncIterator(AsyncIterator[bytes]):

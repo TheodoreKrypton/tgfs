@@ -3,9 +3,9 @@ from dataclasses import dataclass
 from functools import reduce
 from typing import List, Optional, Set
 
-from tgfs.telegram.interface import TDLibApi
-from tgfs.reqres import GetMessagesReq, GetMessagesResp, MessageResp
 from tgfs.config import get_config
+from tgfs.reqres import GetMessagesReq, GetMessagesResp, MessageResp
+from tgfs.telegram.interface import TDLibApi
 
 DELAY = 0.5
 

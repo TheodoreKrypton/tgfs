@@ -10,19 +10,19 @@ from telethon.helpers import generate_random_long
 from telethon.tl.types import PeerChannel
 from telethon.utils import get_appropriated_part_size
 
-from tgfs.telegram.interface import ITDLibClient, TDLibApi
+from tgfs.errors import FileSizeTooLarge, TechnicalError
 from tgfs.reqres import (
+    FileMessageFromBuffer,
+    FileMessageFromPath,
+    FileMessageFromStream,
+    GeneralFileMessage,
     SaveBigFilePartReq,
     SaveFilePartReq,
     SendFileReq,
     SendMessageResp,
     UploadedFile,
-    FileMessageFromBuffer,
-    FileMessageFromPath,
-    FileMessageFromStream,
-    GeneralFileMessage,
 )
-from tgfs.errors import TechnicalError, FileSizeTooLarge
+from tgfs.telegram.interface import ITDLibClient, TDLibApi
 from tgfs.utils.others import is_big_file
 
 logger = logging.getLogger(__name__)

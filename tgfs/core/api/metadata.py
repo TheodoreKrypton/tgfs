@@ -1,31 +1,19 @@
-from typing import Optional
-
-from tgfs.errors import MetadataNotInitialized
-from tgfs.core.repository.interface import IMetaDataRepository
 from tgfs.core.model import TGFSDirectory, TGFSMetadata
+from tgfs.core.repository.interface import IMetaDataRepository
 
 
 class MetaDataApi:
     def __init__(self, metadata_repo: IMetaDataRepository):
         self.__metadata_repo = metadata_repo
-        self.__metadata: Optional[TGFSMetadata] = None
 
     async def init(self) -> None:
-        self.__metadata = await self.__metadata_repo.get()
-
-        if not self.__metadata:
-            self.reset()
-            await self.update()
+        await self.__metadata_repo.init()
 
     def reset(self) -> None:
-        self.__metadata = TGFSMetadata(dir=TGFSDirectory.root_dir())
+        self.__metadata_repo.metadata = TGFSMetadata(dir=TGFSDirectory.root_dir())
 
-    async def update(self) -> None:
-        if not self.__metadata:
-            raise MetadataNotInitialized
-        await self.__metadata_repo.save(self.__metadata)
+    async def push(self) -> None:
+        await self.__metadata_repo.push()
 
     def get_root_directory(self) -> TGFSDirectory:
-        if not self.__metadata:
-            raise MetadataNotInitialized
-        return self.__metadata.dir
+        return self.__metadata_repo.root()

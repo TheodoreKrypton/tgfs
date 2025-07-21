@@ -1,9 +1,10 @@
-from dataclasses import dataclass
 from abc import ABCMeta, abstractmethod
+from dataclasses import dataclass
 from typing import Optional
 
-from tgfs.core.model import TGFSFileRef, TGFSFileDesc, TGFSMetadata
-from tgfs.reqres import GeneralFileMessage, SentFileMessage, FileContent
+from tgfs.core.model import TGFSDirectory, TGFSFileDesc, TGFSFileRef, TGFSMetadata
+from tgfs.errors import MetadataNotInitialized
+from tgfs.reqres import FileContent, GeneralFileMessage, SentFileMessage
 
 
 @dataclass
@@ -41,10 +42,21 @@ class IFDRepository(metaclass=ABCMeta):
 
 
 class IMetaDataRepository(metaclass=ABCMeta):
+    def __init__(self):
+        self.metadata: Optional[TGFSMetadata] = None
+
+    async def init(self):
+        self.metadata = await self.get()
+
     @abstractmethod
-    async def save(self, metadata: TGFSMetadata) -> None:
+    async def push(self) -> None:
         pass
 
     @abstractmethod
     async def get(self) -> TGFSMetadata:
         pass
+
+    def root(self) -> TGFSDirectory:
+        if not self.metadata:
+            raise MetadataNotInitialized
+        return self.metadata.dir

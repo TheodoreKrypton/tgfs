@@ -2,14 +2,13 @@ import json
 import logging
 from typing import Optional
 
-from tgfs.errors import MessageNotFound
 from tgfs.core.api import MessageApi
-from tgfs.core.model import TGFSFileRef, TGFSFileDesc
+from tgfs.core.model import TGFSFileDesc, TGFSFileRef
 from tgfs.core.repository.interface import (
-    IFDRepository,
     FDRepositoryResp,
+    IFDRepository,
 )
-
+from tgfs.errors import MessageNotFound
 
 logger = logging.getLogger(__name__)
 
