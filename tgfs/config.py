@@ -1,7 +1,7 @@
 import os
 from dataclasses import dataclass, field
-from typing import List, Self, Optional
 from enum import Enum
+from typing import List, Optional, Self
 
 import yaml
 from telethon.tl.types import PeerChannel
@@ -80,13 +80,12 @@ class MetadataConfig:
     def from_dict(cls, data: dict | None) -> Self:
         if data is None or data["type"] == MetadataType.PINNED_MESSAGE.value:
             return cls(type=MetadataType.PINNED_MESSAGE, github_repo=None)
-        elif data["type"] == MetadataType.GITHUB_REPO.value:
+        if data["type"] == MetadataType.GITHUB_REPO.value:
             return cls(
                 type=MetadataType.GITHUB_REPO,
                 github_repo=GithubRepoConfig.from_dict(data["github_repo"]),
             )
-        else:
-            raise ValueError(f"Unknown metadata type: {data['type']}")
+        raise ValueError(f"Unknown metadata type: {data['type']}")
 
 
 @dataclass

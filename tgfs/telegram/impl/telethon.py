@@ -13,7 +13,8 @@ from telethon.helpers import TotalList
 from telethon.sessions import StringSession
 from telethon.tl.types import InputDocumentFileLocation
 
-from tgfs.telegram.interface import ITDLibClient
+from tgfs.config import Config
+from tgfs.errors import TechnicalError, UnDownloadableMessage
 from tgfs.reqres import (
     Document,
     DownloadFileReq,
@@ -35,8 +36,7 @@ from tgfs.reqres import (
     SendMessageResp,
     SendTextReq,
 )
-from tgfs.config import Config
-from tgfs.errors import TechnicalError, UnDownloadableMessage
+from tgfs.telegram.interface import ITDLibClient
 from tgfs.utils.others import exclude_none
 
 logger = logging.getLogger(__name__)

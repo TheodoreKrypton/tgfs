@@ -2,20 +2,18 @@ from typing import List
 
 from telethon import TelegramClient
 
+from tgfs.config import MetadataType, get_config
 from tgfs.core.api import DirectoryApi, FileApi, FileDescApi, MessageApi, MetaDataApi
+from tgfs.core.repository.impl import (
+    TGMsgFDRepository,
+    TGMsgFileContentRepository,
+    TGMsgMetadataRepository,
+)
 from tgfs.core.repository.interface import (
     IMetaDataRepository,
 )
-from tgfs.core.repository.impl import (
-    TGMsgFileContentRepository,
-    TGMsgFDRepository,
-    TGMsgMetadataRepository,
-    GithubRepoMetadataRepository,
-)
-from tgfs.config import get_config, MetadataType
 from tgfs.telegram.impl.telethon import TelethonAPI
 from tgfs.telegram.interface import TDLibApi
-
 
 config = get_config()
 
@@ -47,8 +45,12 @@ class Client:
         else:
             if (github_repo_config := config.tgfs.metadata.github_repo) is None:
                 raise ValueError(
-                    f"configuration tgfs -> metadata -> github is required."
+                    "configuration tgfs -> metadata -> github is required."
                 )
+            from tgfs.core.repository.impl.metadata.github_repo import (
+                GithubRepoMetadataRepository,
+            )
+
             metadata_repo = GithubRepoMetadataRepository(github_repo_config)
 
         fd_api = FileDescApi(fd_repo, fc_repo)

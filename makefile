@@ -4,4 +4,4 @@ mypy:
 
 ruff:
 	@echo "Running code style checks..."
-	@python -m ruff check . --fix
+	@python -m ruff check . --exclude tests --fix

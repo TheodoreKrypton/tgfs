@@ -1,24 +1,23 @@
 import hashlib
 import logging
 
+from tgfs.core.api import MessageApi
+from tgfs.core.model import EMPTY_FILE_VERSION
+from tgfs.core.repository.interface import IFileContentRepository
+from tgfs.errors import TechnicalError
 from tgfs.reqres import (
+    EditMessageMediaReq,
+    FileContent,
     FileMessageEmpty,
     FileMessageFromBuffer,
     FileMessageFromPath,
     FileMessageFromStream,
     FileTags,
     GeneralFileMessage,
-    EditMessageMediaReq,
     SentFileMessage,
-    FileContent,
 )
-from tgfs.errors import TechnicalError
-from tgfs.core.api import MessageApi
-from tgfs.core.model import EMPTY_FILE_VERSION
-from tgfs.core.repository.interface import IFileContentRepository
 
 from .file_uploader import create_uploader
-
 
 logger = logging.getLogger(__name__)
 
