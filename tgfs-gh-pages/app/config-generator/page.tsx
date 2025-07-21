@@ -9,13 +9,17 @@ import {
   Card,
   CardContent,
   Container,
+  FormControl,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Typography,
 } from "@mui/material";
 import yaml from "js-yaml";
-import { useState, useEffect, useCallback } from "react";
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useCallback, useEffect, useState } from "react";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { BotTokenField } from "./components/BotTokenField";
 import { ConfigTextField } from "./components/ConfigTextField";
 import { FieldRow } from "./components/FieldRow";
@@ -49,6 +53,14 @@ interface ConfigData {
       algorithm: string;
       life: number;
     };
+    metadata: {
+      type: "pinned_message" | "github_repo";
+      github_repo?: {
+        repo: string;
+        commit: string;
+        access_token: string;
+      };
+    };
   };
   webdav: {
     host: string;
@@ -71,11 +83,16 @@ type ConfigUpdatePaths = {
   "tgfs.jwt.secret": string;
   "tgfs.jwt.algorithm": string;
   "tgfs.jwt.life": number;
+  "tgfs.metadata.type": "pinned_message" | "github_repo";
+  "tgfs.metadata.github_repo.repo": string;
+  "tgfs.metadata.github_repo.commit": string;
+  "tgfs.metadata.github_repo.access_token": string;
 };
 
 const generateRandomSecret = (): string => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?';
-  let result = '';
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?";
+  let result = "";
   for (let i = 0; i < 64; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
@@ -112,6 +129,14 @@ export default function ConfigGenerator() {
         algorithm: "HS256",
         life: 604800,
       },
+      metadata: {
+        type: "pinned_message",
+        github_repo: {
+          repo: "",
+          commit: "master",
+          access_token: "",
+        },
+      },
     },
     webdav: {
       host: "0.0.0.0",
@@ -120,40 +145,77 @@ export default function ConfigGenerator() {
     },
   });
 
-  const updateConfig = useCallback(<K extends keyof ConfigUpdatePaths>(
-    path: K,
-    value: ConfigUpdatePaths[K]
-  ): void => {
-    const newConfig = { ...config };
+  const updateConfig = useCallback(
+    <K extends keyof ConfigUpdatePaths>(
+      path: K,
+      value: ConfigUpdatePaths[K]
+    ): void => {
+      const newConfig = { ...config };
 
-    if (path === "telegram.api_id") {
-      newConfig.telegram.api_id = value as string;
-    } else if (path === "telegram.api_hash") {
-      newConfig.telegram.api_hash = value as string;
-    } else if (path === "telegram.private_file_channel") {
-      newConfig.telegram.private_file_channel = value as string;
-    } else if (path === "telegram.bot.tokens") {
-      newConfig.telegram.bot.tokens = value as string[];
-    } else if (path === "tgfs.users") {
-      newConfig.tgfs.users = value as { username: string; password: string }[];
-    } else if (path === "tgfs.download.chunk_size_kb") {
-      newConfig.tgfs.download.chunk_size_kb = value as number;
-    } else if (path === "webdav.host") {
-      newConfig.webdav.host = value as string;
-    } else if (path === "webdav.port") {
-      newConfig.webdav.port = value as number;
-    } else if (path === "webdav.path") {
-      newConfig.webdav.path = value as string;
-    } else if (path === "tgfs.jwt.secret") {
-      newConfig.tgfs.jwt.secret = value as string;
-    } else if (path === "tgfs.jwt.algorithm") {
-      newConfig.tgfs.jwt.algorithm = value as string;
-    } else if (path === "tgfs.jwt.life") {
-      newConfig.tgfs.jwt.life = value as number;
-    }
+      if (path === "telegram.api_id") {
+        newConfig.telegram.api_id = value as string;
+      } else if (path === "telegram.api_hash") {
+        newConfig.telegram.api_hash = value as string;
+      } else if (path === "telegram.private_file_channel") {
+        newConfig.telegram.private_file_channel = value as string;
+      } else if (path === "telegram.bot.tokens") {
+        newConfig.telegram.bot.tokens = value as string[];
+      } else if (path === "tgfs.users") {
+        newConfig.tgfs.users = value as {
+          username: string;
+          password: string;
+        }[];
+      } else if (path === "tgfs.download.chunk_size_kb") {
+        newConfig.tgfs.download.chunk_size_kb = value as number;
+      } else if (path === "webdav.host") {
+        newConfig.webdav.host = value as string;
+      } else if (path === "webdav.port") {
+        newConfig.webdav.port = value as number;
+      } else if (path === "webdav.path") {
+        newConfig.webdav.path = value as string;
+      } else if (path === "tgfs.jwt.secret") {
+        newConfig.tgfs.jwt.secret = value as string;
+      } else if (path === "tgfs.jwt.algorithm") {
+        newConfig.tgfs.jwt.algorithm = value as string;
+      } else if (path === "tgfs.jwt.life") {
+        newConfig.tgfs.jwt.life = value as number;
+      } else if (path === "tgfs.metadata.type") {
+        newConfig.tgfs.metadata.type = value as
+          | "pinned_message"
+          | "github_repo";
+      } else if (path === "tgfs.metadata.github_repo.repo") {
+        if (!newConfig.tgfs.metadata.github_repo) {
+          newConfig.tgfs.metadata.github_repo = {
+            repo: "",
+            commit: "master",
+            access_token: "",
+          };
+        }
+        newConfig.tgfs.metadata.github_repo.repo = value as string;
+      } else if (path === "tgfs.metadata.github_repo.commit") {
+        if (!newConfig.tgfs.metadata.github_repo) {
+          newConfig.tgfs.metadata.github_repo = {
+            repo: "",
+            commit: "master",
+            access_token: "",
+          };
+        }
+        newConfig.tgfs.metadata.github_repo.commit = value as string;
+      } else if (path === "tgfs.metadata.github_repo.access_token") {
+        if (!newConfig.tgfs.metadata.github_repo) {
+          newConfig.tgfs.metadata.github_repo = {
+            repo: "",
+            commit: "master",
+            access_token: "",
+          };
+        }
+        newConfig.tgfs.metadata.github_repo.access_token = value as string;
+      }
 
-    setConfig(newConfig);
-  }, [config]);
+      setConfig(newConfig);
+    },
+    [config]
+  );
 
   // Generate JWT secret on client side only to avoid hydration mismatch
   useEffect(() => {
@@ -180,6 +242,14 @@ export default function ConfigGenerator() {
 
   const generateYaml = () => {
     // Convert users array to object format for YAML output
+    const metadata =
+      config.tgfs.metadata.type === "github_repo"
+        ? {
+            type: config.tgfs.metadata.type,
+            github_repo: config.tgfs.metadata.github_repo,
+          }
+        : { type: config.tgfs.metadata.type };
+
     const configForYaml = {
       ...config,
       tgfs: {
@@ -187,8 +257,9 @@ export default function ConfigGenerator() {
         users: config.tgfs.users.reduce((acc, user) => {
           acc[user.username] = { password: user.password };
           return acc;
-        }, {} as { [key: string]: { password: string } })
-      }
+        }, {} as { [key: string]: { password: string } }),
+        metadata,
+      },
     };
     return yaml.dump(configForYaml, { indent: 2 });
   };
@@ -225,7 +296,11 @@ export default function ConfigGenerator() {
     updateConfig("tgfs.users", newUsers);
   };
 
-  const updateUser = (index: number, field: 'username' | 'password', value: string) => {
+  const updateUser = (
+    index: number,
+    field: "username" | "password",
+    value: string
+  ) => {
     const newUsers = [...config.tgfs.users];
     newUsers[index][field] = value;
     updateConfig("tgfs.users", newUsers);
@@ -290,7 +365,9 @@ export default function ConfigGenerator() {
                 <ConfigTextField
                   label="API Hash"
                   value={config.telegram.api_hash}
-                  onChange={(e) => updateConfig("telegram.api_hash", e.target.value)}
+                  onChange={(e) =>
+                    updateConfig("telegram.api_hash", e.target.value)
+                  }
                   required
                 />
               </FieldRow>
@@ -352,7 +429,7 @@ export default function ConfigGenerator() {
               </Box>
             </FormSection>
 
-            <FormSection title="TGFS Configuration">
+            <FormSection title="TGFS">
               <Box>
                 <Typography variant="h6" sx={{ mb: 2 }}>
                   Users
@@ -362,8 +439,12 @@ export default function ConfigGenerator() {
                     key={index}
                     username={user.username}
                     password={user.password}
-                    onUsernameChange={(username) => updateUser(index, 'username', username)}
-                    onPasswordChange={(password) => updateUser(index, 'password', password)}
+                    onUsernameChange={(username) =>
+                      updateUser(index, "username", username)
+                    }
+                    onPasswordChange={(password) =>
+                      updateUser(index, "password", password)
+                    }
                     onDelete={index > 0 ? () => removeUser(index) : undefined}
                     canDelete={index > 0}
                   />
@@ -378,16 +459,18 @@ export default function ConfigGenerator() {
                   Add Another User
                 </Button>
               </Box>
-              
+
               <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                JWT Configuration
+                JWT
               </Typography>
-              
+
               <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
                 <ConfigTextField
                   label="JWT Secret"
                   value={config.tgfs.jwt.secret}
-                  onChange={(e) => updateConfig("tgfs.jwt.secret", e.target.value)}
+                  onChange={(e) =>
+                    updateConfig("tgfs.jwt.secret", e.target.value)
+                  }
                   sx={{ flex: 1 }}
                 />
                 <Button
@@ -400,6 +483,101 @@ export default function ConfigGenerator() {
                   Regenerate
                 </Button>
               </Box>
+
+              <Typography variant="h6" sx={{ mt: 2, mb: 2 }}>
+                Metadata
+              </Typography>
+
+              <FormControl size="small" sx={{ mb: 2 }}>
+                <InputLabel>Metadata Type</InputLabel>
+                <Select
+                  value={config.tgfs.metadata.type}
+                  label="Metadata Type"
+                  onChange={(e) =>
+                    updateConfig(
+                      "tgfs.metadata.type",
+                      e.target.value as "pinned_message" | "github_repo"
+                    )
+                  }
+                >
+                  <MenuItem value="pinned_message">Pinned Message</MenuItem>
+                  <MenuItem value="github_repo">GitHub Repository</MenuItem>
+                </Select>
+              </FormControl>
+
+              {config.tgfs.metadata.type === "github_repo" && (
+                <Box sx={{ pl: 2, borderLeft: "3px solid #e0e0e0", ml: 1 }}>
+                  <Typography
+                    variant="subtitle1"
+                    sx={{ mb: 2, fontWeight: 500 }}
+                  >
+                    GitHub Repository Settings
+                  </Typography>
+
+                  <ConfigTextField
+                    label="Repository"
+                    value={config.tgfs.metadata.github_repo?.repo || ""}
+                    onChange={(e) =>
+                      updateConfig(
+                        "tgfs.metadata.github_repo.repo",
+                        e.target.value
+                      )
+                    }
+                    helperText="Format: username/repository-name"
+                    required
+                    sx={{ mb: 2 }}
+                  />
+
+                  <FieldRow>
+                    <ConfigTextField
+                      label="Commit/Branch"
+                      value={
+                        config.tgfs.metadata.github_repo?.commit || "master"
+                      }
+                      onChange={(e) =>
+                        updateConfig(
+                          "tgfs.metadata.github_repo.commit",
+                          e.target.value
+                        )
+                      }
+                      width={200}
+                    />
+                    <ConfigTextField
+                      label="Access Token"
+                      value={
+                        config.tgfs.metadata.github_repo?.access_token || ""
+                      }
+                      onChange={(e) =>
+                        updateConfig(
+                          "tgfs.metadata.github_repo.access_token",
+                          e.target.value
+                        )
+                      }
+                      required
+                      sx={{ flex: 1 }}
+                    />
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 2,
+                        mb: 2,
+                      }}
+                    >
+                      <Button
+                        variant="outlined"
+                        component="a"
+                        href="https://github.com/settings/personal-access-tokens/new"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        sx={{ textTransform: "none" }}
+                      >
+                        Get Access Token
+                      </Button>
+                    </Box>
+                  </FieldRow>
+                </Box>
+              )}
             </FormSection>
 
             <FormSection title="WebDAV Server">
