@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Iterable, Optional
+from typing import Iterable, List, Optional, Self
 
 from tgfs.errors import FileOrDirectoryAlreadyExists, FileOrDirectoryDoesNotExist
 
@@ -84,10 +84,10 @@ class TGFSDirectory:
         return child
 
     @classmethod
-    def root_dir(cls) -> "TGFSDirectory":
+    def root_dir(cls) -> Self:
         return cls(name="root", parent=None)
 
-    def find_dirs(self, names: Iterable[str] = tuple()) -> list["TGFSDirectory"]:
+    def find_dirs(self, names: Iterable[str] = tuple()) -> List["TGFSDirectory"]:
         if not names:
             return self.children
         return [child for child in self.children if child.name in frozenset(names)]
@@ -98,7 +98,7 @@ class TGFSDirectory:
             raise FileOrDirectoryDoesNotExist(name)
         return dirs[0]
 
-    def find_files(self, names: Iterable[str] = tuple()) -> list[TGFSFileRef]:
+    def find_files(self, names: Iterable[str] = tuple()) -> List[TGFSFileRef]:
         if not names:
             return self.files
         return [file for file in self.files if file.name in frozenset(names)]

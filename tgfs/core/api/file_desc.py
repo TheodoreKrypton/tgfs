@@ -1,9 +1,12 @@
-from typing import AsyncIterator, Optional
+from typing import Optional
 
-from tgfs.core.repository.interface import IFileContentRepository
-from tgfs.reqres import FileMessageEmpty, GeneralFileMessage, FileContent
-from tgfs.core.repository.interface import IFDRepository, FDRepositoryResp
-from tgfs.core.model import TGFSFileRef, TGFSFileDesc, TGFSFileVersion
+from tgfs.core.model import TGFSFileDesc, TGFSFileRef, TGFSFileVersion
+from tgfs.core.repository.interface import (
+    FDRepositoryResp,
+    IFDRepository,
+    IFileContentRepository,
+)
+from tgfs.reqres import FileContent, FileMessageEmpty, GeneralFileMessage
 
 
 class FileDescApi:

@@ -1,8 +1,9 @@
 from typing import Optional
 
-from tgfs.reqres import FileMessageEmpty, GeneralFileMessage, FileContent
+from tgfs.core.model import TGFSDirectory, TGFSFileDesc, TGFSFileRef, TGFSFileVersion
 from tgfs.errors import FileOrDirectoryDoesNotExist
-from tgfs.core.model import TGFSDirectory, TGFSFileRef, TGFSFileVersion, TGFSFileDesc
+from tgfs.reqres import FileContent, FileMessageEmpty, GeneralFileMessage
+
 from .file_desc import FileDescApi
 from .metadata import MetaDataApi
 
@@ -16,7 +17,7 @@ class FileApi:
         self, where: TGFSDirectory, fr: TGFSFileRef, name: Optional[str] = None
     ) -> TGFSFileRef:
         copied_fr = where.create_file_ref(name or fr.name, fr.message_id)
-        await self.__metadata_api.update()
+        await self.__metadata_api.push()
         return copied_fr
 
     async def __create(
@@ -24,7 +25,7 @@ class FileApi:
     ) -> TGFSFileDesc:
         resp = await self.__file_desc_api.create_file_desc(file_msg)
         where.create_file_ref(file_msg.name, file_message_id=resp.message_id)
-        await self.__metadata_api.update()
+        await self.__metadata_api.push()
         return resp.fd
 
     async def __update_file_ref_message_id_if_necessary(
@@ -36,7 +37,7 @@ class FileApi:
         """
         if fr.message_id != message_id:
             fr.message_id = message_id
-            await self.__metadata_api.update()
+            await self.__metadata_api.push()
 
     async def __update(
         self, fr: TGFSFileRef, file_msg: GeneralFileMessage, version_id: Optional[str]
@@ -53,7 +54,7 @@ class FileApi:
     async def rm(self, fr: TGFSFileRef, version_id: Optional[str] = None) -> None:
         if not version_id:
             fr.delete()
-            await self.__metadata_api.update()
+            await self.__metadata_api.push()
         else:
             resp = await self.__file_desc_api.delete_file_version(fr, version_id)
             await self.__update_file_ref_message_id_if_necessary(fr, resp.message_id)

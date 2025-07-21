@@ -1,12 +1,11 @@
 import asyncio
-from typing import AsyncIterator, Optional
+from typing import Optional
 
 from asgidav.resource import Resource as _Resource
-
-from tgfs.reqres import FileContent
 from tgfs.core import Client, Ops
-from tgfs.core.model import TGFSFileRef, TGFSFileDesc
+from tgfs.core.model import TGFSFileDesc, TGFSFileRef
 from tgfs.errors import TechnicalError
+from tgfs.reqres import FileContent
 
 from .cache import fs_cache
 
