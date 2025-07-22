@@ -8,6 +8,9 @@ from contextvars import ContextVar
 from http import HTTPStatus
 from typing import Any, Callable, Optional, TypedDict
 from urllib.parse import unquote, urlparse
+from fastapi import Response
+from fastapi import Request
+from fastapi.responses import StreamingResponse
 
 import jwt
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -21,33 +24,6 @@ from .resource import Resource
 from .utils import calc_content_length
 
 logger = logging.getLogger(__name__)
-
-async def fake_lock(request):
-    return Response(
-        status_code=200,
-        headers={
-            "Content-Type": "application/xml",
-            "Lock-Token": "<opaquelocktoken:dummy-lock-id>"
-        },
-        content="""
-        <D:prop xmlns:D="DAV:">
-            <D:lockdiscovery>
-                <D:activelock>
-                    <D:locktype><D:write/></D:locktype>
-                    <D:lockscope><D:exclusive/></D:lockscope>
-                    <D:depth>Infinity</D:depth>
-                    <D:owner><D:href>http://localhost/</D:href></D:owner>
-                    <D:timeout>Second-3600</D:timeout>
-                    <D:locktoken><D:href>opaquelocktoken:dummy-lock-id</D:href></D:locktoken>
-                </D:activelock>
-            </D:lockdiscovery>
-        </D:prop>
-        """.strip()
-    )
-
-async def fake_unlock(request):
-    return Response(status_code=204)
-
 
 def split_path(path: str) -> tuple[str, str]:
     path = path.strip("/")
@@ -119,14 +95,6 @@ def create_app(
             super().__init__(status_code=self.status_code, detail=detail)
 
     app = FastAPI()
-
-    @app.api_route("/{full_path:path}", methods=["LOCK"])
-    async def lock_handler(full_path: str, request: Request):
-        return await fake_lock(request)
-
-    @app.api_route("/{full_path:path}", methods=["UNLOCK"])
-    async def unlock_handler(full_path: str, request: Request):
-        return await fake_unlock(request)
 
     app.add_middleware(
         CORSMiddleware,
@@ -244,11 +212,12 @@ def create_app(
                 },
             )
         raise NOT_FOUND
-
     @app.get("/{path:path}")
     async def get(request: Request, path: str):
+        logger.info(f"📥 Executing GET for: {path}")
         begin, end = 0, -1
         is_range_request = False
+
         if "Range" in request.headers:
             range_header = request.headers["Range"]
             if range_header.startswith("bytes="):
@@ -262,6 +231,10 @@ def create_app(
                         end = int(end_str.strip())
                 else:
                     begin = int(range_value)
+
+        # 🔍 Logging des Requests
+        logger.info(f"🔍 GET {path}, is_range={is_range_request}, begin={begin}, end={end}")
+
         if member := await get_member(path):
             if isinstance(member, Resource):
                 content, media_type, last_modified, content_length = await asyncio.gather(
@@ -270,27 +243,37 @@ def create_app(
                     member.last_modified(),
                     member.content_length(),
                 )
+
+         
+                logger.info(f"📦 Resource type={type(content)}, media_type={media_type}, length={content_length}")
+
                 headers = {
                     "Last-Modified": str(last_modified),
                     "Accept-Ranges": "bytes",
                     "Content-Length": str(
                         content_length if not is_range_request else calc_content_length(content_length, begin, end)
                     ),
+                    "Content-Disposition": f'attachment; filename="{path.split("/")[-1]}"'
                 }
+
                 if is_range_request:
                     actual_end = end if end != -1 else content_length - 1
                     headers["Content-Range"] = f"bytes {begin}-{actual_end}/{content_length}"
                     status_code = HTTPStatus.PARTIAL_CONTENT
                 else:
                     status_code = HTTPStatus.OK
+
                 return StreamingResponse(
                     content=content,
                     status_code=status_code,
                     media_type=media_type,
                     headers=headers,
                 )
+
             raise ValueError("Expected a Resource, got a Folder")
+
         raise NOT_FOUND
+
 
     @app.put("/{path:path}")
     async def put(request: Request, path: str):
@@ -346,5 +329,32 @@ def create_app(
             await member.move_to(dest_path)
             return CREATED
         raise NOT_FOUND
+    @app.api_route("/{full_path:path}", methods=["LOCK"])
 
+    async def lock_handler(full_path: str):
+        return Response(
+            status_code=200,
+            headers={
+                "Content-Type": "application/xml",
+                "Lock-Token": "<opaquelocktoken:dummy-lock-id>"
+            },
+            content="""
+            <D:prop xmlns:D="DAV:">
+                <D:lockdiscovery>
+                    <D:activelock>
+                        <D:locktype><D:write/></D:locktype>
+                        <D:lockscope><D:exclusive/></D:lockscope>
+                        <D:depth>Infinity</D:depth>
+                        <D:owner><D:href>/</D:href></D:owner>
+                        <D:timeout>Second-3600</D:timeout>
+                        <D:locktoken><D:href>opaquelocktoken:dummy-lock-id</D:href></D:locktoken>
+                    </D:activelock>
+                </D:lockdiscovery>
+            </D:prop>
+            """.strip()
+        )
+
+    @app.api_route("/{full_path:path}", methods=["UNLOCK"])
+    async def unlock_handler(full_path: str):
+        return Response(status_code=204)
     return app
