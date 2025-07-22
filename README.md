@@ -115,3 +115,26 @@ Frequently sending messages may get your account banned, so using a bot is the b
 **Q: Why do I need an account API then?**
 
 The functionality of bot API is limited. For example, a bot can neither read history messages, nor send files exceeding 50MB. The account API is used when a bot cannot do the job.
+
+## Development
+
+Install the dependencies:
+```bash
+poetry install
+```
+
+Run the app:
+```bash
+poetry run python main.py
+```
+
+Typecheck && lint:
+```bash
+make mypy
+make ruff
+```
+
+Before committing and pushing, run the following command to install git hooks:
+```bash
+pre-commit install
+```
