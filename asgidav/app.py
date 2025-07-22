@@ -22,6 +22,32 @@ from .utils import calc_content_length
 
 logger = logging.getLogger(__name__)
 
+async def fake_lock(request):
+    return Response(
+        status_code=200,
+        headers={
+            "Content-Type": "application/xml",
+            "Lock-Token": "<opaquelocktoken:dummy-lock-id>"
+        },
+        content="""
+        <D:prop xmlns:D="DAV:">
+            <D:lockdiscovery>
+                <D:activelock>
+                    <D:locktype><D:write/></D:locktype>
+                    <D:lockscope><D:exclusive/></D:lockscope>
+                    <D:depth>Infinity</D:depth>
+                    <D:owner><D:href>http://localhost/</D:href></D:owner>
+                    <D:timeout>Second-3600</D:timeout>
+                    <D:locktoken><D:href>opaquelocktoken:dummy-lock-id</D:href></D:locktoken>
+                </D:activelock>
+            </D:lockdiscovery>
+        </D:prop>
+        """.strip()
+    )
+
+async def fake_unlock(request):
+    return Response(status_code=204)
+
 
 def split_path(path: str) -> tuple[str, str]:
     path = path.strip("/")
@@ -32,15 +58,11 @@ def split_path(path: str) -> tuple[str, str]:
 
 
 def extract_path_from_destination(destination: str) -> str:
-    # If it's a full URI, extract the path component
     if destination.startswith(("http://", "https://")):
         parsed = urlparse(destination)
         path = parsed.path
     else:
-        # Already a path
         path = destination
-
-    # URL decode the path
     return unquote(path)
 
 
@@ -68,16 +90,8 @@ def create_app(
     }
 
     ALLOWED_METHODS = [
-        "GET",
-        "HEAD",
-        "POST",
-        "PUT",
-        "DELETE",
-        "OPTIONS",
-        "PROPFIND",
-        "COPY",
-        "MOVE",
-        "MKCOL",
+        "GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS",
+        "PROPFIND", "COPY", "MOVE", "MKCOL", "LOCK", "UNLOCK",
     ]
 
     NOT_FOUND = HTTPException(status_code=HTTPStatus.NOT_FOUND)
@@ -86,8 +100,7 @@ def create_app(
     UNAUTHORIZED = Response(
         status_code=HTTPStatus.UNAUTHORIZED.value,
         content="Unauthorized",
-        headers=common_headers
-        | {
+        headers=common_headers | {
             "Content-Type": "text/html",
             "WWW-Authenticate": 'Basic realm="TGFS WebDAV Server"',
         },
@@ -107,6 +120,14 @@ def create_app(
 
     app = FastAPI()
 
+    @app.api_route("/{full_path:path}", methods=["LOCK"])
+    async def lock_handler(full_path: str, request: Request):
+        return await fake_lock(request)
+
+    @app.api_route("/{full_path:path}", methods=["UNLOCK"])
+    async def unlock_handler(full_path: str, request: Request):
+        return await fake_unlock(request)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -118,24 +139,16 @@ def create_app(
     uuid_context = ContextVar("uuid", default="")
 
     @app.middleware("http")
-    async def add_uuid_middleware(
-        request: Request, call_next: Callable[[Any], Any]
-    ) -> Any:
+    async def add_uuid_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
         uuid_context.set(str(uuid.uuid4()))
         return await call_next(request)
 
     @app.middleware("http")
     async def auth_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
-        if (
-            auth_callback
-            and request.method not in {"OPTIONS"}
-            and request.url.path != "/login"
-        ):
+        if auth_callback and request.method not in {"OPTIONS"} and request.url.path != "/login":
             auth_header = request.headers.get("Authorization")
-
             if not auth_header:
                 return UNAUTHORIZED
-
             if auth_header.startswith("Bearer "):
                 token = auth_header[7:]
                 try:
@@ -149,9 +162,7 @@ def create_app(
                 except Exception as e:
                     logger.error(e)
                     return UNAUTHORIZED
-
             elif auth_header.startswith("Basic "):
-                # Handle Basic authentication
                 try:
                     credentials = base64.b64decode(auth_header[6:]).decode("utf-8")
                     username, password = credentials.split(":", 1)
@@ -161,7 +172,6 @@ def create_app(
                     return UNAUTHORIZED
             else:
                 return UNAUTHORIZED
-
         return await call_next(request)
 
     class LoginRequest(TypedDict):
@@ -172,10 +182,8 @@ def create_app(
     async def login(request: Request):
         data: LoginRequest = await request.json()
         username = data["username"] if auth_callback else "anonymous"
-
         if auth_callback and not auth_callback(username, data["password"]):
             return UNAUTHORIZED
-
         jwt_token = jwt.encode(
             {
                 "username": username,
@@ -184,16 +192,13 @@ def create_app(
             key=jwt_config["secret"],
             algorithm=jwt_config["algorithm"],
         )
-        return {
-            "token": jwt_token,
-        }
+        return {"token": jwt_token}
 
     @app.options(path="/{path:path}")
     async def options():
         return Response(
             status_code=HTTPStatus.OK,
-            headers=common_headers
-            | {
+            headers=common_headers | {
                 "Allow": ", ".join(ALLOWED_METHODS),
                 "Content-Length": "0",
                 "Cache-Control": "no-cache",
@@ -209,12 +214,8 @@ def create_app(
                 resp,
                 status_code=HTTPStatus.MULTI_STATUS,
                 media_type="application/xml; charset=utf-8",
-                headers=common_headers
-                | {
-                    "Content-Type": "application/xml; charset=utf-8",
-                },
+                headers=common_headers | {"Content-Type": "application/xml; charset=utf-8"},
             )
-
         raise NOT_FOUND
 
     @app.head("/{path:path}")
@@ -223,42 +224,36 @@ def create_app(
             if isinstance(member, Folder):
                 return Response(
                     status_code=HTTPStatus.OK,
-                    headers=common_headers
-                    | {
+                    headers=common_headers | {
                         "Content-Type": "httpd/unix-directory",
                         "Last-Modified": str(await member.last_modified()),
                         "Accept-Ranges": "none",
                     },
                 )
-
             content_length, content_type, last_modified = await asyncio.gather(
                 member.content_length(),
                 member.content_type(),
                 member.last_modified(),
             )
-
             return Response(
                 status_code=HTTPStatus.OK,
-                headers=common_headers
-                | {
+                headers=common_headers | {
                     "Content-Type": content_type,
                     "Content-Length": str(content_length),
                     "Last-Modified": str(last_modified),
                 },
             )
-
         raise NOT_FOUND
 
     @app.get("/{path:path}")
     async def get(request: Request, path: str):
         begin, end = 0, -1
         is_range_request = False
-
         if "Range" in request.headers:
             range_header = request.headers["Range"]
             if range_header.startswith("bytes="):
                 is_range_request = True
-                range_value = range_header[len("bytes=") :]
+                range_value = range_header[len("bytes="):]
                 if "-" in range_value:
                     begin_str, end_str = range_value.split("-", 1)
                     if begin_str:
@@ -267,37 +262,27 @@ def create_app(
                         end = int(end_str.strip())
                 else:
                     begin = int(range_value)
-
         if member := await get_member(path):
             if isinstance(member, Resource):
-                content, media_type, last_modified, content_length = (
-                    await asyncio.gather(
-                        member.get_content(begin, end),
-                        member.content_type(),
-                        member.last_modified(),
-                        member.content_length(),
-                    )
+                content, media_type, last_modified, content_length = await asyncio.gather(
+                    member.get_content(begin, end),
+                    member.content_type(),
+                    member.last_modified(),
+                    member.content_length(),
                 )
-
                 headers = {
                     "Last-Modified": str(last_modified),
                     "Accept-Ranges": "bytes",
                     "Content-Length": str(
-                        content_length
-                        if not is_range_request
-                        else calc_content_length(content_length, begin, end)
+                        content_length if not is_range_request else calc_content_length(content_length, begin, end)
                     ),
                 }
-
                 if is_range_request:
                     actual_end = end if end != -1 else content_length - 1
-                    headers["Content-Range"] = (
-                        f"bytes {begin}-{actual_end}/{content_length}"
-                    )
+                    headers["Content-Range"] = f"bytes {begin}-{actual_end}/{content_length}"
                     status_code = HTTPStatus.PARTIAL_CONTENT
                 else:
                     status_code = HTTPStatus.OK
-
                 return StreamingResponse(
                     content=content,
                     status_code=status_code,
@@ -311,16 +296,12 @@ def create_app(
     async def put(request: Request, path: str):
         content_length = request.headers.get("Content-Length", "0")
         size = int(content_length)
-
         if not (member := await get_member(path)):
             member = await (await root()).create_empty_resource(path)
-
         if isinstance(member, Resource):
             if size > 0:
                 await member.overwrite(request.stream(), size=size)
-
             return CREATED
-
         raise CONFLICT("Cannot PUT to a directory")
 
     @app.delete("/{path:path}")
@@ -339,9 +320,7 @@ def create_app(
             if member := await parent.member(folder_name):
                 if isinstance(member, Folder):
                     return CREATED
-
                 raise CONFLICT(f"Resource {path} is a file.")
-
             await parent.create_folder(folder_name)
             return CREATED
         raise CONFLICT(f"Parent folder {parent_path} does not exist.")
@@ -351,13 +330,10 @@ def create_app(
         destination = request.headers.get("Destination")
         if not destination:
             raise BAD_REQUEST("Destination header is required for COPY.")
-
         if member := await get_member(path):
-            # Extract and decode the path from the destination URI
             dest_path = extract_path_from_destination(destination)
             await member.copy_to(dest_path)
             return CREATED
-
         raise NOT_FOUND
 
     @app.api_route("/{path:path}", methods=["MOVE"])
@@ -365,13 +341,10 @@ def create_app(
         destination = request.headers.get("Destination")
         if not destination:
             raise BAD_REQUEST("Destination header is required for MOVE.")
-
         if member := await get_member(path):
-            # Extract and decode the path from the destination URI
             dest_path = extract_path_from_destination(destination)
             await member.move_to(dest_path)
             return CREATED
-
         raise NOT_FOUND
 
     return app
