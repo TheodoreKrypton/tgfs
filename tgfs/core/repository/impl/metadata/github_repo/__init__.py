@@ -64,6 +64,8 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
                     )
             elif content.type == "file":
                 try:
+                    if content.name == ".gitkeep":
+                        continue
                     file_name, message_id = content.name.rsplit(".", 1)
                     TGFSDirectory.create_file_ref(
                         parent_dir, file_name, int(message_id)
