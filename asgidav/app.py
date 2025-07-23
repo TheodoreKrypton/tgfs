@@ -23,6 +23,7 @@ from .utils import calc_content_length
 logger = logging.getLogger(__name__)
 LOCK_TOKEN = "opaquelocktoken:dummy-lock-id"
 
+
 def split_path(path: str) -> tuple[str, str]:
     path = path.strip("/")
     parts = path.rsplit("/", 1)
@@ -64,8 +65,18 @@ def create_app(
     }
 
     ALLOWED_METHODS = [
-        "GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS",
-        "PROPFIND", "COPY", "MOVE", "MKCOL", "LOCK", "UNLOCK",
+        "GET",
+        "HEAD",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS",
+        "PROPFIND",
+        "COPY",
+        "MOVE",
+        "MKCOL",
+        "LOCK",
+        "UNLOCK",
     ]
 
     NOT_FOUND = HTTPException(status_code=HTTPStatus.NOT_FOUND)
@@ -74,7 +85,8 @@ def create_app(
     UNAUTHORIZED = Response(
         status_code=HTTPStatus.UNAUTHORIZED.value,
         content="Unauthorized",
-        headers=common_headers | {
+        headers=common_headers
+        | {
             "Content-Type": "text/html",
             "WWW-Authenticate": 'Basic realm="TGFS WebDAV Server"',
         },
@@ -105,13 +117,19 @@ def create_app(
     uuid_context = ContextVar("uuid", default="")
 
     @app.middleware("http")
-    async def add_uuid_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
+    async def add_uuid_middleware(
+        request: Request, call_next: Callable[[Any], Any]
+    ) -> Any:
         uuid_context.set(str(uuid.uuid4()))
         return await call_next(request)
 
     @app.middleware("http")
     async def auth_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
-        if auth_callback and request.method not in {"OPTIONS"} and request.url.path != "/login":
+        if (
+            auth_callback
+            and request.method not in {"OPTIONS"}
+            and request.url.path != "/login"
+        ):
             auth_header = request.headers.get("Authorization")
             if not auth_header:
                 return UNAUTHORIZED
@@ -164,7 +182,8 @@ def create_app(
     async def options():
         return Response(
             status_code=HTTPStatus.OK,
-            headers=common_headers | {
+            headers=common_headers
+            | {
                 "Allow": ", ".join(ALLOWED_METHODS),
                 "Content-Length": "0",
                 "Cache-Control": "no-cache",
@@ -180,7 +199,8 @@ def create_app(
                 resp,
                 status_code=HTTPStatus.MULTI_STATUS,
                 media_type="application/xml; charset=utf-8",
-                headers=common_headers | {"Content-Type": "application/xml; charset=utf-8"},
+                headers=common_headers
+                | {"Content-Type": "application/xml; charset=utf-8"},
             )
         raise NOT_FOUND
 
@@ -190,7 +210,8 @@ def create_app(
             if isinstance(member, Folder):
                 return Response(
                     status_code=HTTPStatus.OK,
-                    headers=common_headers | {
+                    headers=common_headers
+                    | {
                         "Content-Type": "httpd/unix-directory",
                         "Last-Modified": str(await member.last_modified()),
                         "Accept-Ranges": "none",
@@ -203,13 +224,15 @@ def create_app(
             )
             return Response(
                 status_code=HTTPStatus.OK,
-                headers=common_headers | {
+                headers=common_headers
+                | {
                     "Content-Type": content_type,
                     "Content-Length": str(content_length),
                     "Last-Modified": str(last_modified),
                 },
             )
         raise NOT_FOUND
+
     @app.get("/{path:path}")
     async def get(request: Request, path: str):
         begin, end = 0, -1
@@ -219,7 +242,7 @@ def create_app(
             range_header = request.headers["Range"]
             if range_header.startswith("bytes="):
                 is_range_request = True
-                range_value = range_header[len("bytes="):]
+                range_value = range_header[len("bytes=") :]
                 if "-" in range_value:
                     begin_str, end_str = range_value.split("-", 1)
                     if begin_str:
@@ -231,27 +254,31 @@ def create_app(
 
         if member := await get_member(path):
             if isinstance(member, Resource):
-                content, media_type, last_modified, content_length = await asyncio.gather(
-                    member.get_content(begin, end),
-                    member.content_type(),
-                    member.last_modified(),
-                    member.content_length(),
+                content, media_type, last_modified, content_length = (
+                    await asyncio.gather(
+                        member.get_content(begin, end),
+                        member.content_type(),
+                        member.last_modified(),
+                        member.content_length(),
+                    )
                 )
-
-         
 
                 headers = {
                     "Last-Modified": str(last_modified),
                     "Accept-Ranges": "bytes",
                     "Content-Length": str(
-                        content_length if not is_range_request else calc_content_length(content_length, begin, end)
+                        content_length
+                        if not is_range_request
+                        else calc_content_length(content_length, begin, end)
                     ),
-                    "Content-Disposition": f'attachment; filename="{path.split("/")[-1]}"'
+                    "Content-Disposition": f'attachment; filename="{path.split("/")[-1]}"',
                 }
 
                 if is_range_request:
                     actual_end = end if end != -1 else content_length - 1
-                    headers["Content-Range"] = f"bytes {begin}-{actual_end}/{content_length}"
+                    headers["Content-Range"] = (
+                        f"bytes {begin}-{actual_end}/{content_length}"
+                    )
                     status_code = HTTPStatus.PARTIAL_CONTENT
                 else:
                     status_code = HTTPStatus.OK
@@ -266,7 +293,6 @@ def create_app(
             raise ValueError("Expected a Resource, got a Folder")
 
         raise NOT_FOUND
-
 
     @app.put("/{path:path}")
     async def put(request: Request, path: str):
@@ -329,7 +355,7 @@ def create_app(
             status_code=200,
             headers={
                 "Content-Type": "application/xml",
-                "Lock-Token": f"<{LOCK_TOKEN}>"
+                "Lock-Token": f"<{LOCK_TOKEN}>",
             },
             content="""
             <D:prop xmlns:D="DAV:">
@@ -344,10 +370,11 @@ def create_app(
                     </D:activelock>
                 </D:lockdiscovery>
             </D:prop>
-            """.strip()
+            """.strip(),
         )
 
     @app.api_route("/{full_path:path}", methods=["UNLOCK"])
     async def unlock_handler(full_path: str):
         return Response(status_code=204)
+
     return app
