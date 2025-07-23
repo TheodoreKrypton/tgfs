@@ -8,9 +8,6 @@ from contextvars import ContextVar
 from http import HTTPStatus
 from typing import Any, Callable, Optional, TypedDict
 from urllib.parse import unquote, urlparse
-from fastapi import Response
-from fastapi import Request
-from fastapi.responses import StreamingResponse
 
 import jwt
 from fastapi import FastAPI, HTTPException, Request, Response
@@ -24,6 +21,7 @@ from .resource import Resource
 from .utils import calc_content_length
 
 logger = logging.getLogger(__name__)
+LOCK_TOKEN = "opaquelocktoken:dummy-lock-id"
 
 def split_path(path: str) -> tuple[str, str]:
     path = path.strip("/")
@@ -214,7 +212,6 @@ def create_app(
         raise NOT_FOUND
     @app.get("/{path:path}")
     async def get(request: Request, path: str):
-        logger.info(f"📥 Executing GET for: {path}")
         begin, end = 0, -1
         is_range_request = False
 
@@ -232,9 +229,6 @@ def create_app(
                 else:
                     begin = int(range_value)
 
-        # 🔍 Logging des Requests
-        logger.info(f"🔍 GET {path}, is_range={is_range_request}, begin={begin}, end={end}")
-
         if member := await get_member(path):
             if isinstance(member, Resource):
                 content, media_type, last_modified, content_length = await asyncio.gather(
@@ -245,7 +239,6 @@ def create_app(
                 )
 
          
-                logger.info(f"📦 Resource type={type(content)}, media_type={media_type}, length={content_length}")
 
                 headers = {
                     "Last-Modified": str(last_modified),
@@ -329,14 +322,14 @@ def create_app(
             await member.move_to(dest_path)
             return CREATED
         raise NOT_FOUND
-    @app.api_route("/{full_path:path}", methods=["LOCK"])
 
+    @app.api_route("/{full_path:path}", methods=["LOCK"])
     async def lock_handler(full_path: str):
         return Response(
             status_code=200,
             headers={
                 "Content-Type": "application/xml",
-                "Lock-Token": "<opaquelocktoken:dummy-lock-id>"
+                "Lock-Token": f"<{LOCK_TOKEN}>"
             },
             content="""
             <D:prop xmlns:D="DAV:">
@@ -347,7 +340,7 @@ def create_app(
                         <D:depth>Infinity</D:depth>
                         <D:owner><D:href>/</D:href></D:owner>
                         <D:timeout>Second-3600</D:timeout>
-                        <D:locktoken><D:href>opaquelocktoken:dummy-lock-id</D:href></D:locktoken>
+                        <D:locktoken><D:href>{LOCK_TOKEN}</D:href></D:locktoken>
                     </D:activelock>
                 </D:lockdiscovery>
             </D:prop>
