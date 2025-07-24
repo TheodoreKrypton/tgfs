@@ -350,7 +350,7 @@ def create_app(
 
     @app.api_route("/{full_path:path}", methods=["LOCK"])
     async def lock_handler(full_path: str):
-        LOCK_TOKEN = "opaquelocktoken:dummy-lock-id"
+        LOCK_TOKEN = "opaquelocktoken:dummy-lock-id"  # noqa: S105
 
         return Response(
             status_code=200,
