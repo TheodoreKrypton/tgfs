@@ -21,6 +21,7 @@ from .resource import Resource
 from .utils import calc_content_length
 
 logger = logging.getLogger(__name__)
+LOCK_TOKEN = "opaquelocktoken:dummy-lock-id"
 
 
 def split_path(path: str) -> tuple[str, str]:
@@ -32,15 +33,11 @@ def split_path(path: str) -> tuple[str, str]:
 
 
 def extract_path_from_destination(destination: str) -> str:
-    # If it's a full URI, extract the path component
     if destination.startswith(("http://", "https://")):
         parsed = urlparse(destination)
         path = parsed.path
     else:
-        # Already a path
         path = destination
-
-    # URL decode the path
     return unquote(path)
 
 
@@ -78,6 +75,8 @@ def create_app(
         "COPY",
         "MOVE",
         "MKCOL",
+        "LOCK",
+        "UNLOCK",
     ]
 
     NOT_FOUND = HTTPException(status_code=HTTPStatus.NOT_FOUND)
@@ -132,10 +131,8 @@ def create_app(
             and request.url.path != "/login"
         ):
             auth_header = request.headers.get("Authorization")
-
             if not auth_header:
                 return UNAUTHORIZED
-
             if auth_header.startswith("Bearer "):
                 token = auth_header[7:]
                 try:
@@ -149,9 +146,7 @@ def create_app(
                 except Exception as e:
                     logger.error(e)
                     return UNAUTHORIZED
-
             elif auth_header.startswith("Basic "):
-                # Handle Basic authentication
                 try:
                     credentials = base64.b64decode(auth_header[6:]).decode("utf-8")
                     username, password = credentials.split(":", 1)
@@ -161,7 +156,6 @@ def create_app(
                     return UNAUTHORIZED
             else:
                 return UNAUTHORIZED
-
         return await call_next(request)
 
     class LoginRequest(TypedDict):
@@ -172,10 +166,8 @@ def create_app(
     async def login(request: Request):
         data: LoginRequest = await request.json()
         username = data["username"] if auth_callback else "anonymous"
-
         if auth_callback and not auth_callback(username, data["password"]):
             return UNAUTHORIZED
-
         jwt_token = jwt.encode(
             {
                 "username": username,
@@ -184,9 +176,7 @@ def create_app(
             key=jwt_config["secret"],
             algorithm=jwt_config["algorithm"],
         )
-        return {
-            "token": jwt_token,
-        }
+        return {"token": jwt_token}
 
     @app.options(path="/{path:path}")
     async def options():
@@ -210,11 +200,8 @@ def create_app(
                 status_code=HTTPStatus.MULTI_STATUS,
                 media_type="application/xml; charset=utf-8",
                 headers=common_headers
-                | {
-                    "Content-Type": "application/xml; charset=utf-8",
-                },
+                | {"Content-Type": "application/xml; charset=utf-8"},
             )
-
         raise NOT_FOUND
 
     @app.head("/{path:path}")
@@ -230,13 +217,11 @@ def create_app(
                         "Accept-Ranges": "none",
                     },
                 )
-
             content_length, content_type, last_modified = await asyncio.gather(
                 member.content_length(),
                 member.content_type(),
                 member.last_modified(),
             )
-
             return Response(
                 status_code=HTTPStatus.OK,
                 headers=common_headers
@@ -246,7 +231,6 @@ def create_app(
                     "Last-Modified": str(last_modified),
                 },
             )
-
         raise NOT_FOUND
 
     @app.get("/{path:path}")
@@ -287,6 +271,7 @@ def create_app(
                         if not is_range_request
                         else calc_content_length(content_length, begin, end)
                     ),
+                    "Content-Disposition": f'attachment; filename="{path.split("/")[-1]}"',
                 }
 
                 if is_range_request:
@@ -304,23 +289,21 @@ def create_app(
                     media_type=media_type,
                     headers=headers,
                 )
+
             raise ValueError("Expected a Resource, got a Folder")
+
         raise NOT_FOUND
 
     @app.put("/{path:path}")
     async def put(request: Request, path: str):
         content_length = request.headers.get("Content-Length", "0")
         size = int(content_length)
-
         if not (member := await get_member(path)):
             member = await (await root()).create_empty_resource(path)
-
         if isinstance(member, Resource):
             if size > 0:
                 await member.overwrite(request.stream(), size=size)
-
             return CREATED
-
         raise CONFLICT("Cannot PUT to a directory")
 
     @app.delete("/{path:path}")
@@ -339,9 +322,7 @@ def create_app(
             if member := await parent.member(folder_name):
                 if isinstance(member, Folder):
                     return CREATED
-
                 raise CONFLICT(f"Resource {path} is a file.")
-
             await parent.create_folder(folder_name)
             return CREATED
         raise CONFLICT(f"Parent folder {parent_path} does not exist.")
@@ -351,13 +332,10 @@ def create_app(
         destination = request.headers.get("Destination")
         if not destination:
             raise BAD_REQUEST("Destination header is required for COPY.")
-
         if member := await get_member(path):
-            # Extract and decode the path from the destination URI
             dest_path = extract_path_from_destination(destination)
             await member.copy_to(dest_path)
             return CREATED
-
         raise NOT_FOUND
 
     @app.api_route("/{path:path}", methods=["MOVE"])
@@ -365,13 +343,38 @@ def create_app(
         destination = request.headers.get("Destination")
         if not destination:
             raise BAD_REQUEST("Destination header is required for MOVE.")
-
         if member := await get_member(path):
-            # Extract and decode the path from the destination URI
             dest_path = extract_path_from_destination(destination)
             await member.move_to(dest_path)
             return CREATED
-
         raise NOT_FOUND
+
+    @app.api_route("/{full_path:path}", methods=["LOCK"])
+    async def lock_handler(full_path: str):
+        return Response(
+            status_code=200,
+            headers={
+                "Content-Type": "application/xml",
+                "Lock-Token": f"<{LOCK_TOKEN}>",
+            },
+            content=f"""
+            <D:prop xmlns:D="DAV:">
+                <D:lockdiscovery>
+                    <D:activelock>
+                        <D:locktype><D:write/></D:locktype>
+                        <D:lockscope><D:exclusive/></D:lockscope>
+                        <D:depth>Infinity</D:depth>
+                        <D:owner><D:href>/</D:href></D:owner>
+                        <D:timeout>Second-3600</D:timeout>
+                        <D:locktoken><D:href>{LOCK_TOKEN}</D:href></D:locktoken>
+                    </D:activelock>
+                </D:lockdiscovery>
+            </D:prop>
+            """.strip(),
+        )
+
+    @app.api_route("/{full_path:path}", methods=["UNLOCK"])
+    async def unlock_handler(full_path: str):
+        return Response(status_code=204)
 
     return app
