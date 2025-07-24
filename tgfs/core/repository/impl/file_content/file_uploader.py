@@ -10,6 +10,7 @@ from telethon.helpers import generate_random_long
 from telethon.tl.types import PeerChannel
 from telethon.utils import get_appropriated_part_size
 
+from tgfs.config import get_config
 from tgfs.errors import FileSizeTooLarge, TechnicalError
 from tgfs.reqres import (
     FileMessageFromBuffer,
@@ -26,6 +27,7 @@ from tgfs.telegram.interface import ITDLibClient, TDLibApi
 from tgfs.utils.others import is_big_file
 
 logger = logging.getLogger(__name__)
+config = get_config()
 
 
 @dataclass
@@ -52,7 +54,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         on_complete: Optional[OnComplete],
         workers=WorkersConfig(),
     ):
-        self._client = client
+        self.client = client
         self._file_size = file_size
         self.__chunk_size = get_appropriated_part_size(self._file_size) * 1024
 
@@ -101,7 +103,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         for attempt in range(max_retries):
             try:
                 if self.__is_big:
-                    rsp = await self._client.save_big_file_part(
+                    rsp = await self.client.save_big_file_part(
                         SaveBigFilePartReq(
                             file_id=self._file_id,
                             bytes=chunk.content,
@@ -110,7 +112,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
                         )
                     )
                 else:
-                    rsp = await self._client.save_file_part(
+                    rsp = await self.client.save_file_part(
                         SaveFilePartReq(
                             file_id=self._file_id,
                             bytes=chunk.content,
@@ -180,7 +182,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
             try:
                 while not self.__done_reading():
                     part_size = await self.__upload_next_part()
-                    logger.info(
+                    logger.debug(
                         f"[Worker {worker_id}] {self.__uploaded_size * 100 / self._file_size}% uploaded. file_id={self._file_id} file_name={self.__file_name}"
                     )
 
@@ -219,7 +221,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         )
 
     async def send(self, chat_id: PeerChannel, caption: str = "") -> SendMessageResp:
-        logger.info(
+        logger.debug(
             f"Sending file {self.__file_name} ({self._file_id}) to chat {chat_id}"
         )
 
@@ -231,8 +233,8 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         )
 
         if self.__is_big:
-            return await self._client.send_big_file(req)
-        return await self._client.send_small_file(req)
+            return await self.client.send_big_file(req)
+        return await self.client.send_small_file(req)
 
 
 class UploaderFromPath(IFileUploader[FileMessageFromPath]):
@@ -300,8 +302,21 @@ def create_uploader(
     file_msg: GeneralFileMessage,
     on_complete: Optional[OnComplete] = None,
 ):
+    _2GB = 2 * 1024 * 1024 * 1024  # 2 GB
+    _4GB = 4 * 1024 * 1024 * 1024  # 4 GB
+
     def select_api(size: int) -> ITDLibClient:
-        return tdlib.account if is_big_file(size) else tdlib.bot
+        if size < _2GB:
+            return tdlib.next_bot
+        elif size < _4GB:
+            if not config.telegram.account.used_to_upload_files:
+                raise FileSizeTooLarge(size)
+            logger.warning(
+                f"File size {size} exceeds 2GB, using account API with premium for upload."
+            )
+            return tdlib.account
+        else:
+            raise FileSizeTooLarge(size)
 
     if isinstance(file_msg, FileMessageFromPath):
         file_size = os.path.getsize(file_msg.path)

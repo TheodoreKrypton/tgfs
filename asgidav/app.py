@@ -21,7 +21,6 @@ from .resource import Resource
 from .utils import calc_content_length
 
 logger = logging.getLogger(__name__)
-LOCK_TOKEN = "opaquelocktoken:dummy-lock-id"
 
 
 def split_path(path: str) -> tuple[str, str]:
@@ -64,7 +63,7 @@ def create_app(
         "MS-Author-Via": "DAV",
     }
 
-    ALLOWED_METHODS = [
+    allowed_methods = [
         "GET",
         "HEAD",
         "POST",
@@ -110,7 +109,7 @@ def create_app(
         CORSMiddleware,
         allow_origins=["*"],
         allow_credentials=True,
-        allow_methods=ALLOWED_METHODS,
+        allow_methods=allowed_methods,
         allow_headers=["*"],
     )
 
@@ -184,7 +183,7 @@ def create_app(
             status_code=HTTPStatus.OK,
             headers=common_headers
             | {
-                "Allow": ", ".join(ALLOWED_METHODS),
+                "Allow": ", ".join(allowed_methods),
                 "Content-Length": "0",
                 "Cache-Control": "no-cache",
             },
@@ -351,6 +350,8 @@ def create_app(
 
     @app.api_route("/{full_path:path}", methods=["LOCK"])
     async def lock_handler(full_path: str):
+        LOCK_TOKEN = "opaquelocktoken:dummy-lock-id"  # noqa: S105
+
         return Response(
             status_code=200,
             headers={

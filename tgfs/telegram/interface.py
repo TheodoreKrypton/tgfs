@@ -26,10 +26,6 @@ from tgfs.reqres import (
 
 class ITDLibClient(metaclass=ABCMeta):
     @abstractmethod
-    def get_cached_messages(self, req: GetMessagesReq) -> GetMessagesResp:
-        pass
-
-    @abstractmethod
     async def get_messages(self, req: GetMessagesReq) -> GetMessagesResp:
         pass
 

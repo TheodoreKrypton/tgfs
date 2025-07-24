@@ -87,12 +87,11 @@ You can use the [config generator](https://theodorekrypton.github.io/tgfs/config
 ## Config fields explanation
 
 - telegram
-
   - account/bot:
     - session_file: The location to store the session data.
+    - (only for account) used_to_upload_files: Whether to use the user api to upload files. Switch it on only IF you are a Telegram premium user. This enables uploading files of size up to 4GB.
 
 - tgfs
-
   - users: The users authenticated by tgfs, used by both webdav authentication and monitor
   - download
     - chunk_size_kb: The chunk size in KB when downloading files. Bigger chunk size means less requests.

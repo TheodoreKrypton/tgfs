@@ -107,7 +107,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
         )
 
         async def on_complete():
-            await self.__message_api.tdlib.bot.edit_message_media(
+            await uploader.client.edit_message_media(
                 EditMessageMediaReq(
                     chat_id=self.__message_api.private_channel_id,
                     message_id=message_id,

@@ -5,6 +5,7 @@ telegram:
   api_hash: [your_api_hash (mandatory, refer to README)]
   account:
     session_file: account.session
+    used_to_upload_files: false
   bot:
     session_file: bot.session
     tokens:
