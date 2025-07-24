@@ -10,6 +10,7 @@ from telethon.helpers import generate_random_long
 from telethon.tl.types import PeerChannel
 from telethon.utils import get_appropriated_part_size
 
+from tgfs.config import get_config
 from tgfs.errors import FileSizeTooLarge, TechnicalError
 from tgfs.reqres import (
     FileMessageFromBuffer,
@@ -24,7 +25,6 @@ from tgfs.reqres import (
 )
 from tgfs.telegram.interface import ITDLibClient, TDLibApi
 from tgfs.utils.others import is_big_file
-from tgfs.config import get_config
 
 logger = logging.getLogger(__name__)
 config = get_config()
@@ -303,7 +303,6 @@ def create_uploader(
     on_complete: Optional[OnComplete] = None,
 ):
     def select_api(size: int) -> ITDLibClient:
-        print(config.telegram.account.used_to_upload_files)
         return (
             tdlib.account
             if is_big_file(size) and config.telegram.account.used_to_upload_files

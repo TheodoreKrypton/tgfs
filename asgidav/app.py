@@ -21,7 +21,6 @@ from .resource import Resource
 from .utils import calc_content_length
 
 logger = logging.getLogger(__name__)
-LOCK_TOKEN = "opaquelocktoken:dummy-lock-id"
 
 
 def split_path(path: str) -> tuple[str, str]:
@@ -351,6 +350,8 @@ def create_app(
 
     @app.api_route("/{full_path:path}", methods=["LOCK"])
     async def lock_handler(full_path: str):
+        LOCK_TOKEN = "opaquelocktoken:dummy-lock-id"
+
         return Response(
             status_code=200,
             headers={

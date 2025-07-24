@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar, Optional, Iterable, List, Tuple
+from typing import Generic, Iterable, List, Optional, Tuple, TypeVar
 
 from lru import LRU  # type: ignore
 

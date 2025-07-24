@@ -16,7 +16,6 @@ from tgfs.reqres import (
     GeneralFileMessage,
     SentFileMessage,
 )
-from tgfs.telegram.interface import ITDLibClient
 
 from .file_uploader import create_uploader
 

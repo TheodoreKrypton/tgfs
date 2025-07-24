@@ -1,10 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from itertools import cycle
-from typing import List, Tuple, TypeVar, Iterable, Optional, Generic
-
-from lru import LRU
-
+from typing import List
 
 from tgfs.reqres import (
     DownloadFileReq,
