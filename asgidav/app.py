@@ -357,7 +357,7 @@ def create_app(
                 "Content-Type": "application/xml",
                 "Lock-Token": f"<{LOCK_TOKEN}>",
             },
-            content="""
+            content=f"""
             <D:prop xmlns:D="DAV:">
                 <D:lockdiscovery>
                     <D:activelock>
