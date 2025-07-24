@@ -302,12 +302,21 @@ def create_uploader(
     file_msg: GeneralFileMessage,
     on_complete: Optional[OnComplete] = None,
 ):
+    _2GB = 2 * 1024 * 1024 * 1024  # 2 GB
+    _4GB = 4 * 1024 * 1024 * 1024  # 4 GB
+
     def select_api(size: int) -> ITDLibClient:
-        return (
-            tdlib.account
-            if is_big_file(size) and config.telegram.account.used_to_upload_files
-            else tdlib.next_bot
-        )
+        if size < _2GB:
+            return tdlib.next_bot
+        elif size < _4GB:
+            if not config.telegram.account.used_to_upload_files:
+                raise FileSizeTooLarge(size)
+            logger.warning(
+                f"File size {size} exceeds 2GB, using account API with premium for upload."
+            )
+            return tdlib.account
+        else:
+            raise FileSizeTooLarge(size)
 
     if isinstance(file_msg, FileMessageFromPath):
         file_size = os.path.getsize(file_msg.path)
