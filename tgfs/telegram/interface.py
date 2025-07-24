@@ -1,7 +1,10 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from itertools import cycle
-from typing import List
+from typing import List, Tuple, TypeVar, Iterable, Optional, Generic
+
+from lru import LRU
+
 
 from tgfs.reqres import (
     DownloadFileReq,
@@ -25,10 +28,6 @@ from tgfs.reqres import (
 
 
 class ITDLibClient(metaclass=ABCMeta):
-    @abstractmethod
-    def get_cached_messages(self, req: GetMessagesReq) -> GetMessagesResp:
-        pass
-
     @abstractmethod
     async def get_messages(self, req: GetMessagesReq) -> GetMessagesResp:
         pass

@@ -6,6 +6,7 @@ from typing import List, Optional, Set
 from tgfs.config import get_config
 from tgfs.reqres import GetMessagesReq, GetMessagesResp, MessageResp
 from tgfs.telegram.interface import TDLibApi
+from tgfs.utils.message_cache import message_cache_by_id
 
 DELAY = 0.5
 
@@ -28,12 +29,9 @@ class MessageBroker:
         self.__task: Optional[asyncio.Task] = None
 
     async def get_messages(self, ids: list[int]) -> list[Optional[MessageResp]]:
-        cached_messages = self.tdlib.account.get_cached_messages(
-            GetMessagesReq(chat_id=self.private_channel_id, message_ids=tuple(ids))
-        )
-
-        if all(msg is not None for msg in cached_messages):
-            return cached_messages
+        if cached_messages := message_cache_by_id.gets(ids):
+            if all(msg is not None for msg in cached_messages):
+                return cached_messages
 
         loop = asyncio.get_running_loop()
         future = loop.create_future()

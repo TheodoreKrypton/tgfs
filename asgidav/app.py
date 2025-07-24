@@ -64,7 +64,7 @@ def create_app(
         "MS-Author-Via": "DAV",
     }
 
-    ALLOWED_METHODS = [
+    allowed_methods = [
         "GET",
         "HEAD",
         "POST",
@@ -110,7 +110,7 @@ def create_app(
         CORSMiddleware,
         allow_origins=["*"],
         allow_credentials=True,
-        allow_methods=ALLOWED_METHODS,
+        allow_methods=allowed_methods,
         allow_headers=["*"],
     )
 
@@ -184,7 +184,7 @@ def create_app(
             status_code=HTTPStatus.OK,
             headers=common_headers
             | {
-                "Allow": ", ".join(ALLOWED_METHODS),
+                "Allow": ", ".join(allowed_methods),
                 "Content-Length": "0",
                 "Cache-Control": "no-cache",
             },
