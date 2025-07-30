@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import List, Optional
 
 from tgfs.core.model import (
     TGFSDirectory,

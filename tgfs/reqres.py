@@ -1,5 +1,5 @@
-from dataclasses import dataclass
 import os
+from dataclasses import dataclass
 from typing import AsyncIterator, Optional, Tuple, Union
 
 from telethon.tl.types import PeerChannel
