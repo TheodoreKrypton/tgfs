@@ -1,9 +1,9 @@
-from typing import AsyncIterable, AsyncIterator, Tuple
+from typing import Iterable, AsyncIterable, AsyncIterator
 
 
 class ChainedAsyncIterator(AsyncIterator[bytes]):
-    def __init__(self, *iterators: AsyncIterable[bytes]):
-        self.iterators: Tuple[AsyncIterable[bytes], ...] = iterators
+    def __init__(self, iterators: Iterable[AsyncIterable[bytes]]):
+        self.iterators: Iterable[AsyncIterable[bytes]] = iterators
         self.gen = self.generator()
 
     async def generator(self) -> AsyncIterator[bytes]:

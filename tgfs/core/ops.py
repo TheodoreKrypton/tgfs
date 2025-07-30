@@ -212,7 +212,11 @@ class Ops:
         )
 
     async def download(
-        self, path: str, as_name: str, begin: int, end: int
+        self,
+        path: str,
+        begin: int,
+        end: int,
+        as_name: str,
     ) -> AsyncIterator[bytes]:
         self.__validate_path(path)
         dirname, basename = os.path.dirname(path), os.path.basename(path)
@@ -223,4 +227,9 @@ class Ops:
         if not file_ref:
             raise FileOrDirectoryDoesNotExist(path)
 
-        return await self.__client.file_api.retrieve(file_ref, as_name, begin, end)
+        return await self.__client.file_api.retrieve(
+            file_ref,
+            begin,
+            end,
+            as_name,
+        )

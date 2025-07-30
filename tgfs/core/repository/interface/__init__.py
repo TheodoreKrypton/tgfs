@@ -2,7 +2,13 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
-from tgfs.core.model import TGFSDirectory, TGFSFileDesc, TGFSFileRef, TGFSMetadata
+from tgfs.core.model import (
+    TGFSDirectory,
+    TGFSFileDesc,
+    TGFSFileRef,
+    TGFSMetadata,
+    TGFSFileVersion,
+)
 from tgfs.errors import MetadataNotInitialized
 from tgfs.reqres import FileContent, GeneralFileMessage, SentFileMessage
 
@@ -20,7 +26,11 @@ class IFileContentRepository(metaclass=ABCMeta):
 
     @abstractmethod
     async def get(
-        self, name: str, message_id: int, begin: int, end: int
+        self,
+        fv: TGFSFileVersion,
+        begin: int,
+        end: int,
+        name: str,
     ) -> FileContent:
         pass
 

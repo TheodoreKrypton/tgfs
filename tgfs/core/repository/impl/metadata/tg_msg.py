@@ -2,10 +2,11 @@ import json
 from typing import AsyncIterator, Optional
 
 from tgfs.core.api import MessageApi
-from tgfs.core.model import TGFSMetadata
+from tgfs.core.model import TGFSMetadata, TGFSFileVersion
+from tgfs.core.model.common import FIRST_DAY_OF_EPOCH
 from tgfs.core.repository.interface import IFileContentRepository, IMetaDataRepository
 from tgfs.errors import MetadataNotFound, MetadataNotInitialized
-from tgfs.reqres import FileMessageFromBuffer, FileTags
+from tgfs.reqres import FileMessageFromBuffer, FileTags, SentFileMessage
 
 
 class TGMsgMetadataRepository(IMetaDataRepository):
@@ -51,17 +52,21 @@ class TGMsgMetadataRepository(IMetaDataRepository):
 
     async def get(self) -> TGFSMetadata:
         pinned_message = await self.__message_api.get_pinned_message()
-        if not pinned_message:
+        if not pinned_message or not pinned_message.document:
             raise MetadataNotFound()
+
+        temp_fv = TGFSFileVersion.from_sent_file_message(
+            SentFileMessage(pinned_message.message_id, pinned_message.document.size)
+        )
 
         metadata = TGFSMetadata.from_dict(
             json.loads(
                 await self.__read_all(
                     await self.__fc_repo.get(
-                        self.METADATA_FILE_NAME,
-                        pinned_message.message_id,
+                        temp_fv,
                         begin=0,
                         end=-1,
+                        name=self.METADATA_FILE_NAME,
                     )
                 )
             )

@@ -87,7 +87,6 @@ def create_app(
         headers=common_headers
         | {
             "Content-Type": "text/html",
-            "WWW-Authenticate": 'Basic realm="TGFS WebDAV Server"',
         },
     )
 
@@ -270,7 +269,6 @@ def create_app(
                         if not is_range_request
                         else calc_content_length(content_length, begin, end)
                     ),
-                    "Content-Disposition": f'attachment; filename="{path.split("/")[-1]}"',
                 }
 
                 if is_range_request:

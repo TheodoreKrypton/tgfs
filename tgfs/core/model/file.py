@@ -9,7 +9,7 @@ from tgfs.reqres import SentFileMessage
 from .common import FIRST_DAY_OF_EPOCH, ts, validate_name
 from .serialized import TGFSFileDescSerialized, TGFSFileVersionSerialized
 
-EMPTY_FILE_VERSION = -1
+EMPTY_FILE_MESSAGE = -1
 INVALID_FILE_SIZE = -1
 INVALID_VERSION_ID = ""
 
@@ -18,19 +18,28 @@ INVALID_VERSION_ID = ""
 class TGFSFileVersion:
     id: str
     updated_at: datetime.datetime
-    message_id: int
-    size: int
+    _size: int = INVALID_FILE_SIZE  # total size
+
+    # file can be split into multiple "file messages", each max 1GB
+    message_ids: List[int] = field(default_factory=list)
+    part_sizes: List[int] = field(default_factory=list)  # sizes of each part
 
     @property
     def updated_at_timestamp(self) -> int:
         return ts(self.updated_at)
+
+    @property
+    def size(self) -> int:
+        if self._size == INVALID_FILE_SIZE and self.part_sizes:
+            self._size = sum(self.part_sizes)
+        return self._size
 
     def to_dict(self) -> dict:
         return dict(
             type="FV",
             id=self.id,
             updatedAt=self.updated_at_timestamp,
-            messageId=self.message_id,
+            messageIds=self.message_ids,
             size=self.size,
         )
 
@@ -39,17 +48,16 @@ class TGFSFileVersion:
         return TGFSFileVersion(
             id=str(uuid()),
             updated_at=datetime.datetime.now(),
-            message_id=EMPTY_FILE_VERSION,
-            size=INVALID_FILE_SIZE,
+            message_ids=[],
         )
 
     @staticmethod
-    def from_sent_file_message(message: SentFileMessage) -> "TGFSFileVersion":
+    def from_sent_file_message(*messages: SentFileMessage) -> "TGFSFileVersion":
         return TGFSFileVersion(
             id=str(uuid()),
             updated_at=datetime.datetime.now(),
-            message_id=message.message_id,
-            size=message.size,
+            message_ids=[msg.message_id for msg in messages],
+            part_sizes=[msg.size for msg in messages],
         )
 
     @staticmethod
@@ -58,16 +66,27 @@ class TGFSFileVersion:
             updated_at = datetime.datetime.fromtimestamp(updated_at_ts / 1000)
         else:
             updated_at = FIRST_DAY_OF_EPOCH
+
+        message_ids = data.get("messageIds", [])
+
+        if not message_ids and (message_id := data["messageId"]) != EMPTY_FILE_MESSAGE:
+            # if messageIds is not present, use messageId
+            message_ids = [message_id]
+
         return TGFSFileVersion(
             id=data["id"],
             updated_at=updated_at,
-            message_id=data["messageId"],
-            size=data.get("size", INVALID_FILE_SIZE),
+            message_ids=message_ids,
+            part_sizes=[],  # part sizes are not serialized
         )
 
     def set_invalid(self):
-        self.message_id = EMPTY_FILE_VERSION
-        self.size = INVALID_FILE_SIZE
+        self.message_ids = []
+        self.part_sizes = []
+        self._size = INVALID_FILE_SIZE
+
+    def is_valid(self) -> bool:
+        return bool(self.message_ids)
 
 
 @dataclass
@@ -149,11 +168,11 @@ class TGFSFileDesc:
         self.add_version(version)
         return self.versions[self.latest_version_id]
 
-    def update_version(self, version: TGFSFileVersion):
-        self.versions[version.id] = version
+    def update_version(self, version_id: str, version: TGFSFileVersion):
+        self.versions[version_id] = version
 
     def get_versions(
-        self, sort: bool = False, exclude_empty: bool = False
+        self, sort: bool = False, exclude_invalid: bool = False
     ) -> List[TGFSFileVersion]:
         if not sort:
             res: Iterable[TGFSFileVersion] = self.versions.values()
@@ -164,12 +183,8 @@ class TGFSFileDesc:
                 reverse=True,
             )
 
-        if exclude_empty:
-            res = [
-                v
-                for v in res
-                if v.message_id != EMPTY_FILE_VERSION and v.size != INVALID_FILE_SIZE
-            ]
+        if exclude_invalid:
+            res = [v for v in res if v.is_valid()]
         return list(res)
 
     def delete_version(self, version_id: str) -> None:

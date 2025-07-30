@@ -1,8 +1,10 @@
+import asyncio
 import hashlib
 import logging
+from typing import Generator
 
 from tgfs.core.api import MessageApi
-from tgfs.core.model import EMPTY_FILE_VERSION
+from tgfs.core.model import EMPTY_FILE_MESSAGE, TGFSFileVersion
 from tgfs.core.repository.interface import IFileContentRepository
 from tgfs.errors import TechnicalError
 from tgfs.reqres import (
@@ -16,6 +18,7 @@ from tgfs.reqres import (
     GeneralFileMessage,
     SentFileMessage,
 )
+from tgfs.utils.chained_async_iterator import ChainedAsyncIterator
 
 from .file_uploader import create_uploader
 
@@ -63,7 +66,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
         pass
 
     async def __send_file(self, file_msg: GeneralFileMessage) -> SentFileMessage:
-        message_id: int = EMPTY_FILE_VERSION
+        message_id: int = EMPTY_FILE_MESSAGE
 
         async def on_complete():
             nonlocal message_id
@@ -119,9 +122,44 @@ class TGMsgFileContentRepository(IFileContentRepository):
         await uploader.upload(file_msg, self.__report, file_msg.name)
         return message_id
 
+    @staticmethod
+    def __get_file_part_to_download(
+        fv: TGFSFileVersion, begin: int, end: int
+    ) -> Generator[tuple[int, int, int]]:
+        if fv.size <= 0:
+            return
+        if end < 0:
+            end = fv.size
+        if begin < 0:
+            raise TechnicalError(
+                f"Invalid begin value {begin} for file version {fv.id} with size {fv.size}"
+            )
+        if begin > end:
+            raise TechnicalError(
+                f"Invalid range: begin {begin} is greater than end {end} for file version {fv.id}"
+            )
+        if end > fv.size:
+            raise TechnicalError(
+                f"Invalid end value {end} for file version {fv.id} with size {fv.size}"
+            )
+
+        offset = 0
+        for i, part_message_id in enumerate(fv.message_ids):
+            part_size = fv.part_sizes[i]
+            b = max(begin - offset, 0)
+            e = min(end - offset, part_size - 1)
+            if b > e or b >= part_size:
+                offset += part_size
+                continue
+            yield part_message_id, b, e
+
     async def get(
-        self, name: str, message_id: int, begin: int, end: int
+        self, fv: TGFSFileVersion, begin: int, end: int, name: str
     ) -> FileContent:
-        logger.info(f"Downloading file_content {name} with message ID {message_id}")
-        resp = await self.__message_api.download_file(message_id, begin, end)
-        return resp.chunks
+        logger.info(f"Retrieving file content for {name}@{fv.id} from {begin} to {end}")
+
+        tasks = []
+        for message_id, begin, end in self.__get_file_part_to_download(fv, begin, end):
+            tasks.append(self.__message_api.download_file(message_id, begin, end))
+
+        return ChainedAsyncIterator((x.chunks for x in await asyncio.gather(*tasks)))
