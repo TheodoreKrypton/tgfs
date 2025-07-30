@@ -39,7 +39,7 @@ class FileDescApi:
             fd.add_empty_version()
         else:
             sent_file_msg = await self.__fc_repo.save(file_msg)
-            fd.add_version_from_sent_file_message(sent_file_msg)
+            fd.add_version_from_sent_file_message(*sent_file_msg)
 
         return await self.__fd_repo.save(fd, fr)
 
@@ -53,7 +53,7 @@ class FileDescApi:
             fd.update_version(version_id, fv)
         else:
             sent_file_msg = await self.__fc_repo.save(file_msg)
-            fv = TGFSFileVersion.from_sent_file_message(sent_file_msg)
+            fv = TGFSFileVersion.from_sent_file_message(*sent_file_msg)
             fv.id = version_id
             fd.update_version(version_id, fv)
 

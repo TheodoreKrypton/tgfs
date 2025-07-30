@@ -67,12 +67,11 @@ class TGFSFileVersion:
         else:
             updated_at = FIRST_DAY_OF_EPOCH
 
-        message_ids = data.get("messageIds", [])
-
-        if not message_ids and (message_id := data["messageId"]) != EMPTY_FILE_MESSAGE:
-            # if messageIds is not present, use messageId
-            message_ids = [message_id]
-
+        if (message_ids := data.get("messageIds")) is None:
+            if (message_id := data["messageId"]) != EMPTY_FILE_MESSAGE:
+                message_ids = [message_id]
+            else:
+                message_ids = []
         return TGFSFileVersion(
             id=data["id"],
             updated_at=updated_at,
@@ -163,8 +162,8 @@ class TGFSFileDesc:
         version = TGFSFileVersion.empty()
         self.add_version(version)
 
-    def add_version_from_sent_file_message(self, msg: SentFileMessage):
-        version = TGFSFileVersion.from_sent_file_message(msg)
+    def add_version_from_sent_file_message(self, *msg: SentFileMessage):
+        version = TGFSFileVersion.from_sent_file_message(*msg)
         self.add_version(version)
         return self.versions[self.latest_version_id]
 

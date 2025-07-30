@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict, List
+from typing import List, Literal, TypedDict
 
 
 class TGFSFileVersionSerialized(TypedDict):

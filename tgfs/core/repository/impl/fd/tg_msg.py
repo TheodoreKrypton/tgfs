@@ -1,7 +1,7 @@
 import json
 import logging
-from typing import Optional
 from itertools import chain
+from typing import Optional
 
 from tgfs.core.api import MessageApi
 from tgfs.core.model import TGFSFileDesc, TGFSFileRef

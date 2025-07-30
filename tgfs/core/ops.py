@@ -7,7 +7,6 @@ from tgfs.reqres import (
     FileMessageFromBuffer,
     FileMessageFromPath,
     FileMessageFromStream,
-    FileTags,
 )
 
 from .client import Client
@@ -127,9 +126,7 @@ class Ops:
         try:
             d.find_file(basename)
         except FileOrDirectoryDoesNotExist:
-            await self.__client.file_api.upload(
-                d, FileMessageEmpty(name=basename, caption="", tags=FileTags())
-            )
+            await self.__client.file_api.upload(d, FileMessageEmpty.new(name=basename))
 
     async def mv_dir(self, path_from: str, path_to: str) -> TGFSDirectory:
         dir_from, dir_to = await self.cp_dir(path_from, path_to)
@@ -177,7 +174,10 @@ class Ops:
 
         return await self.__client.file_api.upload(
             d,
-            FileMessageFromPath(name=basename, caption="", tags=FileTags(), path=local),
+            FileMessageFromPath.new(
+                path=local,
+                name=basename,
+            ),
         )
 
     async def upload_from_bytes(self, data: bytes, remote: str) -> TGFSFileDesc:
@@ -188,11 +188,9 @@ class Ops:
 
         return await self.__client.file_api.upload(
             d,
-            FileMessageFromBuffer(
-                name=basename,
-                caption="",
-                tags=FileTags(),
+            FileMessageFromBuffer.new(
                 buffer=data,
+                name=basename,
             ),
         )
 
@@ -206,8 +204,10 @@ class Ops:
 
         return await self.__client.file_api.upload(
             d,
-            FileMessageFromStream(
-                name=basename, caption="", tags=FileTags(), stream=stream, size=size
+            FileMessageFromStream.new(
+                name=basename,
+                stream=stream,
+                size=size,
             ),
         )
 

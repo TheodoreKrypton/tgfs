@@ -2,8 +2,7 @@ import json
 from typing import AsyncIterator, Optional
 
 from tgfs.core.api import MessageApi
-from tgfs.core.model import TGFSMetadata, TGFSFileVersion
-from tgfs.core.model.common import FIRST_DAY_OF_EPOCH
+from tgfs.core.model import TGFSFileVersion, TGFSMetadata
 from tgfs.core.repository.interface import IFileContentRepository, IMetaDataRepository
 from tgfs.errors import MetadataNotFound, MetadataNotInitialized
 from tgfs.reqres import FileMessageFromBuffer, FileTags, SentFileMessage
@@ -33,15 +32,14 @@ class TGMsgMetadataRepository(IMetaDataRepository):
             )
         else:
             resp = await self.__fc_repo.save(
-                FileMessageFromBuffer(
+                FileMessageFromBuffer.new(
                     name=self.METADATA_FILE_NAME,
-                    caption="",
-                    tags=FileTags(),
                     buffer=buffer,
                 )
             )
-            await self.__message_api.pin_message(message_id=resp.message_id)
-            self.__message_id = resp.message_id
+            message_id = resp[0].message_id
+            await self.__message_api.pin_message(message_id=message_id)
+            self.__message_id = message_id
 
     @staticmethod
     async def __read_all(async_iter: AsyncIterator[bytes]) -> bytes:

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import os
 from typing import AsyncIterator, Optional, Tuple, Union
 
 from telethon.tl.types import PeerChannel
@@ -132,27 +133,86 @@ class FileMessage:
     name: str
     caption: str
     tags: FileTags
+    offset: int
+    size: int
+
+    def _get_size(self) -> int:
+        return 0
+
+    def get_size(self) -> int:
+        return self.size or self._get_size()
 
 
 @dataclass
 class FileMessageEmpty(FileMessage):
-    pass
+    @classmethod
+    def new(cls, name: str = "unnamed") -> "FileMessageEmpty":
+        return cls(
+            name=name,
+            caption="",
+            tags=FileTags(),
+            offset=0,
+            size=0,
+        )
 
 
 @dataclass
 class FileMessageFromPath(FileMessage):
     path: str
 
+    def _get_size(self) -> int:
+        return os.path.getsize(self.path)
+
+    @classmethod
+    def new(cls, path: str, name: str = "unnamed") -> "FileMessageFromPath":
+        return cls(
+            name=name,
+            caption="",
+            tags=FileTags(),
+            path=path,
+            offset=0,
+            size=os.path.getsize(path),
+        )
+
 
 @dataclass
 class FileMessageFromBuffer(FileMessage):
     buffer: bytes
 
+    def _get_size(self) -> int:
+        return len(self.buffer)
+
+    @classmethod
+    def new(cls, buffer: bytes, name: str = "unnamed") -> "FileMessageFromBuffer":
+        return cls(
+            name=name,
+            caption="",
+            tags=FileTags(),
+            buffer=buffer,
+            offset=0,
+            size=len(buffer),
+        )
+
 
 @dataclass
 class FileMessageFromStream(FileMessage):
     stream: FileContent
-    size: int
+
+    @classmethod
+    def new(
+        cls,
+        stream: FileContent,
+        size: int,
+        name: str = "unnamed",
+    ) -> "FileMessageFromStream":
+        return cls(
+            name=name,
+            caption="",
+            tags=FileTags(),
+            stream=stream,
+            offset=0,
+            size=size,
+        )
 
 
 GeneralFileMessage = Union[

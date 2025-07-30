@@ -5,13 +5,12 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable, Coroutine, Generic, Optional, TypeVar
 
-from telethon.errors import RPCError
 from telethon.helpers import generate_random_long
 from telethon.tl.types import PeerChannel
 from telethon.utils import get_appropriated_part_size
 
 from tgfs.config import get_config
-from tgfs.errors import FileSizeTooLarge, TechnicalError
+from tgfs.errors import TechnicalError
 from tgfs.reqres import (
     FileMessageFromBuffer,
     FileMessageFromPath,
@@ -126,12 +125,6 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
                 self.__uploaded_size += len(chunk.content)
                 return
 
-            except RPCError as e:
-                if e.message == "FILE_PARTS_INVALID":
-                    raise FileSizeTooLarge(self._file_size) from e
-                logger.warning(
-                    f"RPC error uploading part {chunk.file_part} for {self.__file_name}: {e}, attempt={attempt + 1}"
-                )
             except Exception as e:
                 logger.warning(
                     f"Error uploading part {chunk.file_part} for {self.__file_name}: {e}, attempt={attempt + 1}"
@@ -179,21 +172,22 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         self.__file_name = file_name or file.name or self._default_file_name
 
         async def create_worker(worker_id: int) -> bool:
-            try:
-                while not self.__done_reading():
-                    part_size = await self.__upload_next_part()
-                    logger.debug(
-                        f"[Worker {worker_id}] {self.__uploaded_size * 100 / self._file_size}% uploaded. file_id={self._file_id} file_name={self.__file_name}"
-                    )
+            # try:
+            while not self.__done_reading():
+                part_size = await self.__upload_next_part()
+                logger.debug(
+                    f"[Worker {worker_id}] {self.__uploaded_size * 100 / self._file_size}% uploaded. file_id={self._file_id} file_name={self.__file_name}"
+                )
 
-                    if part_size and callback:
-                        callback(self.__read_size, self._file_size)
+                if part_size and callback:
+                    callback(self.__read_size, self._file_size)
 
-                return True
-            except Exception as e:
-                logger.error(f"Worker {worker_id} failed: {e}")
-                self.__errors[worker_id] = e
-                return False
+            return True
+
+        # except Exception as e:
+        #     logger.error(f"Worker {worker_id} failed: {e}")
+        #     self.__errors[worker_id] = e
+        #     return False
 
         while self.__uploaded_size < self._file_size:
             await asyncio.gather(
@@ -280,10 +274,12 @@ class UploaderFromStream(IFileUploader[FileMessageFromStream]):
         res = bytearray()
 
         while len(res) < length:
-            res.extend(self.__read_from_current(length - len(res)))
             if self.__rest_len() == 0:
                 self.__current = await anext(self.__stream)
                 self.__begin = 0
+            size_to_read = length - len(res)
+            res.extend(self.__read_from_current(size_to_read))
+
         return bytes(res)
 
     def __read_from_current(self, length: int):
@@ -303,26 +299,23 @@ def create_uploader(
     on_complete: Optional[OnComplete] = None,
 ):
     if isinstance(file_msg, FileMessageFromPath):
-        file_size = os.path.getsize(file_msg.path)
         return UploaderFromPath(
             client=tdlib.next_bot,
-            file_size=file_size,
+            file_size=file_msg.get_size(),
             on_complete=on_complete,
         )
 
     if isinstance(file_msg, FileMessageFromBuffer):
-        file_size = len(file_msg.buffer)
         return UploaderFromBuffer(
             client=tdlib.next_bot,
-            file_size=file_size,
+            file_size=file_msg.get_size(),
             on_complete=on_complete,
         )
 
     if isinstance(file_msg, FileMessageFromStream):
-        file_size = file_msg.size
         return UploaderFromStream(
             client=tdlib.next_bot,
-            file_size=file_size,
+            file_size=file_msg.get_size(),
             on_complete=on_complete,
         )
 
