@@ -21,10 +21,13 @@ class FileDescApi:
         return await self.__fd_repo.get(fr)
 
     async def download_file_at_version(
-        self, as_name: str, version: TGFSFileVersion, begin: int, end: int
+        self, fv: TGFSFileVersion, begin: int, end: int, as_name: str
     ) -> FileContent:
         return await self.__fc_repo.get(
-            name=as_name, message_id=version.message_id, begin=begin, end=end
+            fv=fv,
+            begin=begin,
+            end=end,
+            name=as_name,
         )
 
     async def append_file_version(
@@ -36,7 +39,7 @@ class FileDescApi:
             fd.add_empty_version()
         else:
             sent_file_msg = await self.__fc_repo.save(file_msg)
-            fd.add_version_from_sent_file_message(sent_file_msg)
+            fd.add_version_from_sent_file_message(*sent_file_msg)
 
         return await self.__fd_repo.save(fd, fr)
 
@@ -47,13 +50,12 @@ class FileDescApi:
         if isinstance(file_msg, FileMessageEmpty):
             fv = fd.get_version(version_id)
             fv.set_invalid()
-            fd.update_version(fv)
+            fd.update_version(version_id, fv)
         else:
             sent_file_msg = await self.__fc_repo.save(file_msg)
-            fv = fd.get_version(version_id)
-            fv.message_id = sent_file_msg.message_id
-            fv.size = sent_file_msg.size
-            fd.update_version(fv)
+            fv = TGFSFileVersion.from_sent_file_message(*sent_file_msg)
+            fv.id = version_id
+            fd.update_version(version_id, fv)
 
         return await self.__fd_repo.save(fd, fr)
 

@@ -50,7 +50,12 @@ class Resource(_Resource):
         return self.__fr.name
 
     async def get_content(self, begin: int = 0, end: int = -1) -> FileContent:
-        return await self.__ops.download(self.path, "unnamed", begin, end)
+        return await self.__ops.download(
+            self.path,
+            begin,
+            end,
+            "unnamed",
+        )
 
     async def overwrite(self, content: FileContent, size: int) -> None:
         fs_cache.reset(self.path)

@@ -1,5 +1,5 @@
 from .directory import TGFSDirectory, TGFSFileRef
-from .file import EMPTY_FILE_VERSION, TGFSFileDesc, TGFSFileVersion
+from .file import EMPTY_FILE_MESSAGE, TGFSFileDesc, TGFSFileVersion
 from .metadata import TGFSMetadata
 from .serialized import (
     TGFSDirectorySerialized,
@@ -18,5 +18,5 @@ __all__ = [
     "TGFSFileVersionSerialized",
     "TGFSFileRefSerialized",
     "TGFSDirectorySerialized",
-    "EMPTY_FILE_VERSION",
+    "EMPTY_FILE_MESSAGE",
 ]

@@ -75,7 +75,11 @@ class FileApi:
         return await self.__file_desc_api.get_file_desc(fr)
 
     async def retrieve(
-        self, fr: TGFSFileRef, as_name: str, begin: int, end: int
+        self,
+        fr: TGFSFileRef,
+        begin: int,
+        end: int,
+        as_name: str,
     ) -> FileContent:
         fd = await self.desc(fr)
         if isinstance(fd, FileMessageEmpty):
@@ -84,14 +88,21 @@ class FileApi:
                 yield b""
 
             return empty_file()
-        version = fd.get_latest_version()
+        fv = fd.get_latest_version()
         return await self.__file_desc_api.download_file_at_version(
-            as_name or fr.name, version, begin, end
+            fv, begin, end, as_name or fr.name
         )
 
     async def retrieve_version(
-        self, version: TGFSFileVersion, as_name: str, begin: int, end: int
+        self,
+        fv: TGFSFileVersion,
+        begin: int,
+        end: int,
+        as_name: str,
     ) -> FileContent:
         return await self.__file_desc_api.download_file_at_version(
-            as_name, version, begin, end
+            fv,
+            begin,
+            end,
+            as_name,
         )

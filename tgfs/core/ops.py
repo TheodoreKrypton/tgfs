@@ -7,7 +7,6 @@ from tgfs.reqres import (
     FileMessageFromBuffer,
     FileMessageFromPath,
     FileMessageFromStream,
-    FileTags,
 )
 
 from .client import Client
@@ -127,9 +126,7 @@ class Ops:
         try:
             d.find_file(basename)
         except FileOrDirectoryDoesNotExist:
-            await self.__client.file_api.upload(
-                d, FileMessageEmpty(name=basename, caption="", tags=FileTags())
-            )
+            await self.__client.file_api.upload(d, FileMessageEmpty.new(name=basename))
 
     async def mv_dir(self, path_from: str, path_to: str) -> TGFSDirectory:
         dir_from, dir_to = await self.cp_dir(path_from, path_to)
@@ -177,7 +174,10 @@ class Ops:
 
         return await self.__client.file_api.upload(
             d,
-            FileMessageFromPath(name=basename, caption="", tags=FileTags(), path=local),
+            FileMessageFromPath.new(
+                path=local,
+                name=basename,
+            ),
         )
 
     async def upload_from_bytes(self, data: bytes, remote: str) -> TGFSFileDesc:
@@ -188,11 +188,9 @@ class Ops:
 
         return await self.__client.file_api.upload(
             d,
-            FileMessageFromBuffer(
-                name=basename,
-                caption="",
-                tags=FileTags(),
+            FileMessageFromBuffer.new(
                 buffer=data,
+                name=basename,
             ),
         )
 
@@ -206,13 +204,19 @@ class Ops:
 
         return await self.__client.file_api.upload(
             d,
-            FileMessageFromStream(
-                name=basename, caption="", tags=FileTags(), stream=stream, size=size
+            FileMessageFromStream.new(
+                name=basename,
+                stream=stream,
+                size=size,
             ),
         )
 
     async def download(
-        self, path: str, as_name: str, begin: int, end: int
+        self,
+        path: str,
+        begin: int,
+        end: int,
+        as_name: str,
     ) -> AsyncIterator[bytes]:
         self.__validate_path(path)
         dirname, basename = os.path.dirname(path), os.path.basename(path)
@@ -223,4 +227,9 @@ class Ops:
         if not file_ref:
             raise FileOrDirectoryDoesNotExist(path)
 
-        return await self.__client.file_api.retrieve(file_ref, as_name, begin, end)
+        return await self.__client.file_api.retrieve(
+            file_ref,
+            begin,
+            end,
+            as_name,
+        )

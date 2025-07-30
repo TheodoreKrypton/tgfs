@@ -17,9 +17,9 @@ from tgfs.reqres import (
     SendTextReq,
 )
 from tgfs.telegram.interface import TDLibApi
+from tgfs.utils.chained_async_iterator import ChainedAsyncIterator
 from tgfs.utils.others import exclude_none, is_big_file
 
-from .chained_async_iterator import ChainedAsyncIterator
 from .message_broker import MessageBroker
 
 rate = Rate(20, Duration.SECOND)
@@ -102,7 +102,7 @@ class MessageApi(MessageBroker):
         yield begin + (n - 1) * length_per_chunk, end
 
     @staticmethod
-    def size(begin: int, end: int) -> int:
+    def _size(begin: int, end: int) -> int:
         return begin - end + 1
 
     async def download_file_parallel(self, message_id: int, begin: int, end: int):
@@ -121,13 +121,13 @@ class MessageApi(MessageBroker):
 
         res = [t.chunks for t in await asyncio.gather(*tasks)]
         return DownloadFileResp(
-            chunks=ChainedAsyncIterator(*res), size=self.size(begin, end)
+            chunks=ChainedAsyncIterator(res), size=self._size(begin, end)
         )
 
     async def download_file(
         self, message_id: int, begin: int, end: int
     ) -> DownloadFileResp:
-        if end > 0 and is_big_file(self.size(begin, end)):
+        if end > 0 and is_big_file(self._size(begin, end)):
             return await self.download_file_parallel(message_id, begin, end)
 
         return await self.tdlib.next_bot.download_file(

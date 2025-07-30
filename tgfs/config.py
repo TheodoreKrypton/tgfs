@@ -1,3 +1,4 @@
+import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
@@ -5,6 +6,8 @@ from typing import List, Optional, Self
 
 import yaml
 from telethon.tl.types import PeerChannel
+
+logger = logging.getLogger(__name__)
 
 DATA_DIR = os.environ.get("TGFS_DATA_DIR", os.path.expanduser("~/.tgfs"))
 
@@ -130,15 +133,11 @@ class BotConfig:
 @dataclass
 class AccountConfig:
     session_file: str
-    used_to_upload_files: bool
 
     @classmethod
     def from_dict(cls, data: dict) -> "AccountConfig":
         return cls(
             session_file=expand_path(data["session_file"]),
-            used_to_upload_files=data.get(
-                "used_to_upload_files", True  # for backward compatibility
-            ),
         )
 
 
@@ -194,5 +193,6 @@ def __load_config(file_path: str) -> "Config":
 def get_config() -> "Config":
     global __config
     if __config is None:
+        logger.info(f"Using configuration file: {__config_file_path}")
         __config = __load_config(__config_file_path)
     return __config

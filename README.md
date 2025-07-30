@@ -89,7 +89,6 @@ You can use the [config generator](https://theodorekrypton.github.io/tgfs/config
 - telegram
   - account/bot:
     - session_file: The location to store the session data.
-    - (only for account) used_to_upload_files: Whether to use the user api to upload files. Switch it on only IF you are a Telegram premium user. This enables uploading files of size up to 4GB.
 
 - tgfs
   - users: The users authenticated by tgfs, used by both webdav authentication and monitor
@@ -115,7 +114,7 @@ Frequently sending messages may get your account banned, so using a bot is the b
 
 **Q: Why do I need an account API then?**
 
-The functionality of bot API is limited. For example, a bot can neither read history messages, nor send files exceeding 50MB. The account API is used when a bot cannot do the job.
+There are some API that are only available for user accounts.
 
 ## Development
 

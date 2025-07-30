@@ -8,10 +8,8 @@ import {
   Button,
   Card,
   CardContent,
-  Checkbox,
   Container,
   FormControl,
-  FormControlLabel,
   InputLabel,
   MenuItem,
   Paper,
@@ -34,7 +32,6 @@ interface ConfigData {
     api_hash: string;
     account: {
       session_file: string;
-      used_to_upload_files: boolean;
     };
     bot: {
       session_file: string;
@@ -76,7 +73,6 @@ interface ConfigData {
 type ConfigUpdatePaths = {
   "telegram.api_id": string;
   "telegram.api_hash": string;
-  "telegram.account.used_to_upload_files": boolean;
   "telegram.private_file_channel": string;
   "telegram.bot.tokens": string[];
   "tgfs.users": { username: string; password: string }[];
@@ -110,7 +106,6 @@ export default function ConfigGenerator() {
       api_hash: "",
       account: {
         session_file: "account.session",
-        used_to_upload_files: false,
       },
       bot: {
         session_file: "bot.session",
@@ -161,8 +156,6 @@ export default function ConfigGenerator() {
         newConfig.telegram.api_id = value as string;
       } else if (path === "telegram.api_hash") {
         newConfig.telegram.api_hash = value as string;
-      } else if (path === "telegram.account.used_to_upload_files") {
-        newConfig.telegram.account.used_to_upload_files = value as boolean;
       } else if (path === "telegram.private_file_channel") {
         newConfig.telegram.private_file_channel = value as string;
       } else if (path === "telegram.bot.tokens") {
@@ -389,28 +382,6 @@ export default function ConfigGenerator() {
                 required
                 width={400}
               />
-
-              <Box>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={config.telegram.account.used_to_upload_files}
-                      onChange={(e) =>
-                        updateConfig("telegram.account.used_to_upload_files", e.target.checked)
-                      }
-                    />
-                  }
-                  label="Use user account to upload files"
-                  sx={{ mt: 2, mb: 0 }}
-                />
-                <Typography 
-                  variant="body2" 
-                  color="text.secondary" 
-                  sx={{ ml: 4, mb: 1, fontSize: '0.75rem' }}
-                >
-                  Check if you are a Telegram premium user to enable uploading files up to 4GB
-                </Typography>
-              </Box>
 
               <Box>
                 <Box

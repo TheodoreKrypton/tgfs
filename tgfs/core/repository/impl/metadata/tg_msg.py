@@ -2,10 +2,10 @@ import json
 from typing import AsyncIterator, Optional
 
 from tgfs.core.api import MessageApi
-from tgfs.core.model import TGFSMetadata
+from tgfs.core.model import TGFSFileVersion, TGFSMetadata
 from tgfs.core.repository.interface import IFileContentRepository, IMetaDataRepository
 from tgfs.errors import MetadataNotFound, MetadataNotInitialized
-from tgfs.reqres import FileMessageFromBuffer, FileTags
+from tgfs.reqres import FileMessageFromBuffer, SentFileMessage
 
 
 class TGMsgMetadataRepository(IMetaDataRepository):
@@ -32,15 +32,14 @@ class TGMsgMetadataRepository(IMetaDataRepository):
             )
         else:
             resp = await self.__fc_repo.save(
-                FileMessageFromBuffer(
+                FileMessageFromBuffer.new(
                     name=self.METADATA_FILE_NAME,
-                    caption="",
-                    tags=FileTags(),
                     buffer=buffer,
                 )
             )
-            await self.__message_api.pin_message(message_id=resp.message_id)
-            self.__message_id = resp.message_id
+            message_id = resp[0].message_id
+            await self.__message_api.pin_message(message_id=message_id)
+            self.__message_id = message_id
 
     @staticmethod
     async def __read_all(async_iter: AsyncIterator[bytes]) -> bytes:
@@ -51,17 +50,21 @@ class TGMsgMetadataRepository(IMetaDataRepository):
 
     async def get(self) -> TGFSMetadata:
         pinned_message = await self.__message_api.get_pinned_message()
-        if not pinned_message:
+        if not pinned_message or not pinned_message.document:
             raise MetadataNotFound()
+
+        temp_fv = TGFSFileVersion.from_sent_file_message(
+            SentFileMessage(pinned_message.message_id, pinned_message.document.size)
+        )
 
         metadata = TGFSMetadata.from_dict(
             json.loads(
                 await self.__read_all(
                     await self.__fc_repo.get(
-                        self.METADATA_FILE_NAME,
-                        pinned_message.message_id,
+                        temp_fv,
                         begin=0,
                         end=-1,
+                        name=self.METADATA_FILE_NAME,
                     )
                 )
             )

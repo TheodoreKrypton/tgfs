@@ -207,10 +207,16 @@ class TelethonAPI(ITDLibClient):
 
         chunk_size = req.chunk_size * 1024
 
+        bytes_to_read = req.end - req.begin + 1
+
         async def chunks():
-            bytes_to_read = (
-                document.size - req.begin if req.end < 0 else req.end - req.begin + 1
-            )
+            rest = bytes_to_read
+
+            if req.end < req.begin:
+                raise TechnicalError(
+                    f"Invalid range: end must be greater than or equal to begin, got begin={req.begin} end={req.end}"
+                )
+
             async for chunk in self._client.iter_download(
                 file=InputDocumentFileLocation(
                     id=document.id,
@@ -219,17 +225,16 @@ class TelethonAPI(ITDLibClient):
                     thumb_size="",
                 ),
                 chunk_size=chunk_size,
-                offset=req.begin if req.begin >= 0 else 0,
+                offset=req.begin,
             ):
-                if len(chunk) > bytes_to_read:
-                    chunk = chunk[:bytes_to_read]
+                if len(chunk) > rest:
+                    chunk = chunk[:rest]
                 yield chunk
-                if req.end >= 0:
-                    bytes_to_read -= len(chunk)
-                    if bytes_to_read <= 0:
-                        break
+                rest -= len(chunk)
+                if rest <= 0:
+                    break
 
-        return DownloadFileResp(chunks=chunks(), size=document.size)
+        return DownloadFileResp(chunks=chunks(), size=bytes_to_read)
 
 
 class Session:

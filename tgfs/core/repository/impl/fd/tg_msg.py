@@ -1,5 +1,6 @@
 import json
 import logging
+from itertools import chain
 from typing import Optional
 
 from tgfs.core.api import MessageApi
@@ -39,31 +40,51 @@ class TGMsgFDRepository(IFDRepository):
         except MessageNotFound:
             return await self.save(fd)
 
-    async def get(self, fr: TGFSFileRef) -> TGFSFileDesc:
-        message = (await self.__message_api.get_messages([fr.message_id]))[0]
+    async def _validate_fv(
+        self, fd: TGFSFileDesc, include_all_versions: bool
+    ) -> TGFSFileDesc:
+        versions = fd.get_versions(exclude_invalid=True)
 
-        empty = TGFSFileDesc.empty(fr.name)
+        # Files in the channel may be deleted manually, so we need to check if the messages for the versions exist.
+
+        file_messages = await self.__message_api.get_messages(
+            list(chain(*(version.message_ids for version in versions)))
+        )
+
+        message_map = {msg.message_id: msg for msg in file_messages if msg}
+
+        has_valid_version = False
+
+        for i, version in enumerate(versions):
+            for j, message_id in enumerate(version.message_ids):
+                if (
+                    not (file_message := message_map.get(message_id, None))
+                    or not file_message.document
+                ):
+                    logger.warning(
+                        f"File message {message_id} for part {j + 1} of {fd.name}@{version.id} not found"
+                    )
+                    version.set_invalid()
+                    break
+                version.part_sizes.append(file_message.document.size)
+            if version.is_valid():
+                has_valid_version = True
+                if not include_all_versions:
+                    # Found a valid version, no need to check further
+                    return fd
+
+        return fd if has_valid_version else TGFSFileDesc.empty(fd.name)
+
+    async def get(
+        self, fr: TGFSFileRef, include_all_versions: bool = False
+    ) -> TGFSFileDesc:
+        message = (await self.__message_api.get_messages([fr.message_id]))[0]
 
         if not message:
             logging.error(
                 f"File descriptor (message_id: {fr.message_id}) for {fr.name} not found"
             )
-            return empty
+            return TGFSFileDesc.empty(fr.name)
 
         fd = TGFSFileDesc.from_dict(json.loads(message.text), name=fr.name)
-
-        versions = fd.get_versions(exclude_empty=True)
-        file_messages = await self.__message_api.get_messages(
-            [version.message_id for version in versions if version.message_id]
-        )
-
-        for i, version in enumerate(versions):
-            if (file_message := file_messages[i]) and file_message.document:
-                version.size = file_message.document.size
-            else:
-                logger.warning(
-                    f"File message for version {version.id} of {fr.name} not found"
-                )
-                version.set_invalid()
-
-        return fd if versions else empty
+        return await self._validate_fv(fd, include_all_versions)

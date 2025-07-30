@@ -18,7 +18,6 @@ from .folder import Folder
 from .member import Member
 from .reqres import PropfindRequest, propfind
 from .resource import Resource
-from .utils import calc_content_length
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +86,6 @@ def create_app(
         headers=common_headers
         | {
             "Content-Type": "text/html",
-            "WWW-Authenticate": 'Basic realm="TGFS WebDAV Server"',
         },
     )
 
@@ -265,12 +263,6 @@ def create_app(
                 headers = {
                     "Last-Modified": str(last_modified),
                     "Accept-Ranges": "bytes",
-                    "Content-Length": str(
-                        content_length
-                        if not is_range_request
-                        else calc_content_length(content_length, begin, end)
-                    ),
-                    "Content-Disposition": f'attachment; filename="{path.split("/")[-1]}"',
                 }
 
                 if is_range_request:

@@ -1,8 +1,10 @@
+import asyncio
 import hashlib
 import logging
+from typing import Generator, List, Optional
 
 from tgfs.core.api import MessageApi
-from tgfs.core.model import EMPTY_FILE_VERSION
+from tgfs.core.model import EMPTY_FILE_MESSAGE, TGFSFileVersion
 from tgfs.core.repository.interface import IFileContentRepository
 from tgfs.errors import TechnicalError
 from tgfs.reqres import (
@@ -11,11 +13,11 @@ from tgfs.reqres import (
     FileMessageEmpty,
     FileMessageFromBuffer,
     FileMessageFromPath,
-    FileMessageFromStream,
     FileTags,
     GeneralFileMessage,
     SentFileMessage,
 )
+from tgfs.utils.chained_async_iterator import ChainedAsyncIterator
 
 from .file_uploader import create_uploader
 
@@ -63,7 +65,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
         pass
 
     async def __send_file(self, file_msg: GeneralFileMessage) -> SentFileMessage:
-        message_id: int = EMPTY_FILE_VERSION
+        message_id: int = EMPTY_FILE_MESSAGE
 
         async def on_complete():
             nonlocal message_id
@@ -79,10 +81,9 @@ class TGMsgFileContentRepository(IFileContentRepository):
 
         return SentFileMessage(message_id=message_id, size=size)
 
-    async def save(self, file_msg: GeneralFileMessage) -> SentFileMessage:
-        if isinstance(file_msg, FileMessageFromStream):
-            return await self.__send_file(file_msg)
-
+    async def _check_sha256(
+        self, file_msg: FileMessageFromPath | FileMessageFromBuffer
+    ) -> Optional[SentFileMessage]:
         sha256 = await self.__sha256(file_msg)
         file_msg.tags = FileTags(sha256=sha256)
 
@@ -99,11 +100,44 @@ class TGMsgFileContentRepository(IFileContentRepository):
                 size=msg.document.size,
             )
 
+        return None
+
+    async def _save(self, file_msg: GeneralFileMessage) -> SentFileMessage:
+        if isinstance(file_msg, FileMessageFromPath | FileMessageFromBuffer) and (
+            msg := await self._check_sha256(file_msg)
+        ):
+            return msg
         return await self.__send_file(file_msg)
 
+    @staticmethod
+    def _size_for_parts(size: int) -> Generator[int]:
+        PART_SIZE = 1024 * 1024 * 1024  # 1 GB
+        parts = (size + PART_SIZE - 1) // PART_SIZE
+        for i in range(parts - 1):
+            yield PART_SIZE
+        yield size - (parts - 1) * PART_SIZE
+
+    async def save(self, file_msg: GeneralFileMessage) -> List[SentFileMessage]:
+        size = file_msg.get_size()
+
+        res: List[SentFileMessage] = []
+        file_name = file_msg.name or "unnamed"
+
+        for i, part_size in enumerate(self._size_for_parts(size)):
+            file_msg.name = f"{file_name}.part{i + 1}"
+
+            logger.info(f"Saving {file_msg.name}")
+            if isinstance(file_msg, FileMessageFromBuffer | FileMessageFromPath):
+                file_msg.offset += part_size
+            file_msg.size = part_size
+            res.append(await self._save(file_msg))
+
+        return res
+
     async def update(self, message_id: int, buffer: bytes, name: str) -> int:
-        file_msg: FileMessageFromBuffer = FileMessageFromBuffer(
-            buffer=buffer, name=name, caption="", tags=FileTags()
+        file_msg: FileMessageFromBuffer = FileMessageFromBuffer.new(
+            buffer=buffer,
+            name=name,
         )
 
         async def on_complete():
@@ -119,9 +153,55 @@ class TGMsgFileContentRepository(IFileContentRepository):
         await uploader.upload(file_msg, self.__report, file_msg.name)
         return message_id
 
+    @staticmethod
+    def __get_file_part_to_download(
+        fv: TGFSFileVersion, begin: int, end: int
+    ) -> Generator[tuple[int, int, int]]:
+        if fv.size <= 0:
+            return
+        if end < 0:
+            end = fv.size
+        if begin < 0:
+            raise TechnicalError(
+                f"Invalid begin value {begin} for file version {fv.id} with size {fv.size}"
+            )
+        if begin > end:
+            raise TechnicalError(
+                f"Invalid range: begin {begin} is greater than end {end} for file version {fv.id}"
+            )
+        if end > fv.size:
+            raise TechnicalError(
+                f"Invalid end value {end} for file version {fv.id} with size {fv.size}"
+            )
+
+        offset = 0
+        i_part = 0
+
+        while i_part < len(fv.part_sizes) and offset + fv.part_sizes[i_part] <= begin:
+            offset += fv.part_sizes[i_part]
+            i_part += 1
+
+        if i_part >= len(fv.part_sizes):
+            raise TechnicalError(
+                f"Begin offset {begin} exceeds total file size {fv.size} for file version {fv.id}"
+            )
+
+        while i_part < len(fv.part_sizes) and offset < end:
+            part_size = fv.part_sizes[i_part]
+            part_begin = max(0, begin - offset)
+            part_end = min(part_size, end - offset)
+            if part_begin < part_end:
+                yield fv.message_ids[i_part], part_begin, part_end
+            offset += part_size
+            i_part += 1
+
     async def get(
-        self, name: str, message_id: int, begin: int, end: int
+        self, fv: TGFSFileVersion, begin: int, end: int, name: str
     ) -> FileContent:
-        logger.info(f"Downloading file_content {name} with message ID {message_id}")
-        resp = await self.__message_api.download_file(message_id, begin, end)
-        return resp.chunks
+        logger.info(f"Retrieving file content for {name}@{fv.id} from {begin} to {end}")
+
+        tasks = []
+        for message_id, begin, end in self.__get_file_part_to_download(fv, begin, end):
+            tasks.append(self.__message_api.download_file(message_id, begin, end))
+
+        return ChainedAsyncIterator((x.chunks for x in await asyncio.gather(*tasks)))

@@ -1,4 +1,4 @@
-from typing import Literal, TypedDict
+from typing import List, Literal, TypedDict
 
 
 class TGFSFileVersionSerialized(TypedDict):
@@ -6,13 +6,14 @@ class TGFSFileVersionSerialized(TypedDict):
     id: str
     updatedAt: int
     messageId: int
+    messageIds: List[int]
     size: int
 
 
 class TGFSFileDescSerialized(TypedDict):
     type: Literal["F"]
     name: str
-    versions: list[TGFSFileVersionSerialized]
+    versions: List[TGFSFileVersionSerialized]
 
 
 class TGFSFileRefSerialized(TypedDict):
@@ -24,5 +25,5 @@ class TGFSFileRefSerialized(TypedDict):
 class TGFSDirectorySerialized(TypedDict):
     type: Literal["D"]
     name: str
-    children: list["TGFSDirectorySerialized"]
-    files: list[TGFSFileRefSerialized]
+    children: List["TGFSDirectorySerialized"]
+    files: List[TGFSFileRefSerialized]
