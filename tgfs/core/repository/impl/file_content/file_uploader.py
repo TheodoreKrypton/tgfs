@@ -172,22 +172,22 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         self.__file_name = file_name or file.name or self._default_file_name
 
         async def create_worker(worker_id: int) -> bool:
-            # try:
-            while not self.__done_reading():
-                part_size = await self.__upload_next_part()
-                logger.debug(
-                    f"[Worker {worker_id}] {self.__uploaded_size * 100 / self._file_size}% uploaded. file_id={self._file_id} file_name={self.__file_name}"
-                )
+            try:
+                while not self.__done_reading():
+                    part_size = await self.__upload_next_part()
+                    logger.debug(
+                        f"[Worker {worker_id}] {self.__uploaded_size * 100 / self._file_size}% uploaded. file_id={self._file_id} file_name={self.__file_name}"
+                    )
 
-                if part_size and callback:
-                    callback(self.__read_size, self._file_size)
+                    if part_size and callback:
+                        callback(self.__read_size, self._file_size)
 
-            return True
+                return True
 
-        # except Exception as e:
-        #     logger.error(f"Worker {worker_id} failed: {e}")
-        #     self.__errors[worker_id] = e
-        #     return False
+            except Exception as e:
+                logger.error(f"Worker {worker_id} failed: {e}")
+                self.__errors[worker_id] = e
+                return False
 
         while self.__uploaded_size < self._file_size:
             await asyncio.gather(
@@ -235,6 +235,7 @@ class UploaderFromPath(IFileUploader[FileMessageFromPath]):
     async def _prepare(self, file_msg: FileMessageFromPath) -> None:
         self.__file_path = file_msg.path
         self.__file = open(self.__file_path, "rb")
+        self.__file.seek(file_msg.offset)
 
     async def _close(self) -> None:
         self.__file.close()
@@ -249,7 +250,7 @@ class UploaderFromPath(IFileUploader[FileMessageFromPath]):
 
 class UploaderFromBuffer(IFileUploader[FileMessageFromBuffer]):
     async def _prepare(self, file_msg: FileMessageFromBuffer) -> None:
-        self.__buffer = file_msg.buffer
+        self.__buffer = file_msg.buffer[file_msg.offset :]
 
     @property
     def _default_file_name(self) -> str:

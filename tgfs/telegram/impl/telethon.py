@@ -214,7 +214,7 @@ class TelethonAPI(ITDLibClient):
 
             if req.end < req.begin:
                 raise TechnicalError(
-                    f"Invalid range: end must be greater than or equal to begin, got begin={req.begin} end={req.begin}"
+                    f"Invalid range: end must be greater than or equal to begin, got begin={req.begin} end={req.end}"
                 )
 
             async for chunk in self._client.iter_download(
