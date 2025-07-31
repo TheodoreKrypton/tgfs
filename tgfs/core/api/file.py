@@ -71,7 +71,7 @@ class FileApi:
             if not isinstance(file_msg, FileMessageEmpty):
                 file_msg.task_tracker = await create_upload_task(
                     os.path.join(under.absolute_path, file_msg.name),
-                    file_msg.get_size()
+                    file_msg.get_size(),
                 )
             try:
                 fr = under.find_file(file_msg.name)
@@ -99,13 +99,17 @@ class FileApi:
     ) -> FileContent:
         fd = await self.desc(fr)
         if isinstance(fd, FileMessageEmpty):
+
             async def empty_file() -> FileContent:
                 yield b""
 
             return empty_file()
         fv = fd.get_latest_version()
 
-        task_tracker = await create_download_task(os.path.join(fr.location.absolute_path, as_name or fr.name), file_size=fv.size)
+        task_tracker = await create_download_task(
+            os.path.join(fr.location.absolute_path, as_name or fr.name),
+            file_size=fv.size,
+        )
 
         async def chunks():
             size_processed = 0

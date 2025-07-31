@@ -25,7 +25,7 @@ async def run_server(app, host: str, port: int, name: str):
     """Run a server with proper configuration"""
     logger = logging.getLogger(__name__)
     logger.info(f"Starting {name} server on {host}:{port}")
-    
+
     server_config = UvicornConfig(
         app,
         host=host,
@@ -56,10 +56,14 @@ async def main():
     if config.manager:
         manager_app = create_manager_app()
         manager_task = asyncio.create_task(
-            run_server(manager_app, config.manager.host, config.manager.port, "Task Manager")
+            run_server(
+                manager_app, config.manager.host, config.manager.port, "Task Manager"
+            )
         )
         tasks.append(manager_task)
-        logger.info(f"Task Manager server will start on {config.manager.host}:{config.manager.port}")
+        logger.info(
+            f"Task Manager server will start on {config.manager.host}:{config.manager.port}"
+        )
     else:
         logger.info("Task Manager not configured, skipping...")
 

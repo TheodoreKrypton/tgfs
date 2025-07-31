@@ -40,27 +40,29 @@ class TaskTracker:
         )
 
 
-async def create_upload_task(file_path: str, file_size: Optional[int] = None) -> TaskTracker:
+async def create_upload_task(
+    file_path: str, file_size: Optional[int] = None
+) -> TaskTracker:
     """Create a new upload task and return a tracker"""
     filename = os.path.basename(file_path)
-    task_id = await task_store.add_task(
-        TaskType.UPLOAD, file_path, filename, file_size
-    )
-    
+    task_id = await task_store.add_task(TaskType.UPLOAD, file_path, filename, file_size)
+
     # Mark as in progress immediately
     await task_store.update_task_progress(task_id, status=TaskStatus.IN_PROGRESS)
-    
+
     return TaskTracker(task_id)
 
 
-async def create_download_task(file_path: str, file_size: Optional[int] = None) -> TaskTracker:
+async def create_download_task(
+    file_path: str, file_size: Optional[int] = None
+) -> TaskTracker:
     """Create a new download task and return a tracker"""
     filename = os.path.basename(file_path)
     task_id = await task_store.add_task(
         TaskType.DOWNLOAD, file_path, filename, file_size
     )
-    
+
     # Mark as in progress immediately
     await task_store.update_task_progress(task_id, status=TaskStatus.IN_PROGRESS)
-    
+
     return TaskTracker(task_id)

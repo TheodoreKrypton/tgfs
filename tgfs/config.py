@@ -182,7 +182,7 @@ class Config:
         manager_config = None
         if "manager" in data:
             manager_config = ManagerConfig.from_dict(data["manager"])
-        
+
         return cls(
             telegram=TelegramConfig.from_dict(data["telegram"]),
             tgfs=TGFSConfig.from_dict(data["tgfs"]),

@@ -313,7 +313,7 @@ def create_uploader(
             client=tdlib.next_bot,
             file_size=file_msg.get_size(),
             on_complete=on_complete,
-            task_tracker=file_msg.task_tracker
+            task_tracker=file_msg.task_tracker,
         )
 
     if isinstance(file_msg, FileMessageFromBuffer):
@@ -321,7 +321,7 @@ def create_uploader(
             client=tdlib.next_bot,
             file_size=file_msg.get_size(),
             on_complete=on_complete,
-            task_tracker=file_msg.task_tracker
+            task_tracker=file_msg.task_tracker,
         )
 
     if isinstance(file_msg, FileMessageFromStream):
@@ -329,7 +329,7 @@ def create_uploader(
             client=tdlib.next_bot,
             file_size=file_msg.get_size(),
             on_complete=on_complete,
-            task_tracker=file_msg.task_tracker
+            task_tracker=file_msg.task_tracker,
         )
 
     raise ValueError(

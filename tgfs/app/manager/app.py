@@ -31,7 +31,11 @@ def create_manager_app() -> FastAPI:
         return {"status": "healthy"}
 
     @app.get("/tasks", response_model=List[dict])
-    async def get_tasks(path: Optional[str] = Query(None, description="Filter tasks under specific path")):
+    async def get_tasks(
+        path: Optional[str] = Query(
+            None, description="Filter tasks under specific path"
+        )
+    ):
         """
         Get tasks. If path is provided, returns only tasks directly under that path.
         If no path is provided, returns all tasks.
@@ -76,7 +80,11 @@ def create_manager_app() -> FastAPI:
             raise HTTPException(status_code=500, detail="Internal server error")
 
     @app.post("/tasks/cleanup")
-    async def cleanup_tasks(max_age_hours: int = Query(24, description="Maximum age in hours for completed tasks")):
+    async def cleanup_tasks(
+        max_age_hours: int = Query(
+            24, description="Maximum age in hours for completed tasks"
+        )
+    ):
         """Clean up completed and failed tasks older than specified hours."""
         try:
             removed_count = await task_store.cleanup_completed_tasks(max_age_hours)
@@ -84,19 +92,5 @@ def create_manager_app() -> FastAPI:
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
             raise HTTPException(status_code=500, detail="Internal server error")
-
-    # Background task to periodically clean up old tasks
-    @app.on_event("startup")
-    async def startup_event():
-        async def periodic_cleanup():
-            while True:
-                try:
-                    await asyncio.sleep(3600)  # Run every hour
-                    await task_store.cleanup_completed_tasks(24)
-                except Exception as e:
-                    logger.error(f"Error in periodic cleanup: {e}")
-        
-        # Start the cleanup task in the background
-        asyncio.create_task(periodic_cleanup())
 
     return app
