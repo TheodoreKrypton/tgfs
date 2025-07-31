@@ -41,6 +41,7 @@ You can use any WebDAV client to access the server.
 Tested WebDAV Clients:
 - [Cyberduck](https://cyberduck.io/)
 - [WinSCP](https://winscp.net/eng/index.php)
+- [rclone](https://rclone.org/)
 
 ### Official Telegram miniapp
 
