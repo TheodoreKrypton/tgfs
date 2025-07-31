@@ -266,7 +266,7 @@ export default function ConfigGenerator() {
           }
         : { type: config.tgfs.metadata.type };
 
-    const configForYaml: any = {
+    const configForYaml = {
       ...config,
       tgfs: {
         ...config.tgfs,
@@ -629,7 +629,8 @@ export default function ConfigGenerator() {
 
             <FormSection title="Task Manager Server (Optional)">
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Configure the task manager server to track upload/download progress in real-time.
+                Configure the task manager server to track upload/download
+                progress in real-time.
               </Typography>
               <FieldRow>
                 <ConfigTextField
