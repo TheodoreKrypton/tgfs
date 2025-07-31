@@ -1,4 +1,5 @@
 import asyncio
+import os.path
 from typing import Optional
 
 from asgidav.resource import Resource as _Resource
@@ -54,7 +55,7 @@ class Resource(_Resource):
             self.path,
             begin,
             end,
-            "unnamed",
+            os.path.basename(self.path),
         )
 
     async def overwrite(self, content: FileContent, size: int) -> None:

@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { Container, Paper, TextField, Button, Typography, Box, Switch, FormControlLabel, Alert, CircularProgress, ThemeProvider, CssBaseline } from '@mui/material';
-import { FolderOpen, Login, Wifi, WifiOff } from '@mui/icons-material';
+import { FolderOpen, Login, Wifi, WifiOff, TaskAlt } from '@mui/icons-material';
 import Cookies from 'js-cookie';
 import WebDAVClient from './webdav-client';
+import TaskManagerClient from './task-manager-client';
 import FileExplorer from './file-explorer';
 import { telegramTheme } from './telegram-theme';
 
@@ -14,6 +15,9 @@ interface LoginFormData {
   username: string;
   password: string;
   anonymous: boolean;
+  managerAddress: string;
+  managerPort: string;
+  enableManager: boolean;
 }
 
 export default function TelegramMiniApp() {
@@ -21,12 +25,16 @@ export default function TelegramMiniApp() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [webdavClient, setWebdavClient] = useState<WebDAVClient | null>(null);
+  const [taskManagerClient, setTaskManagerClient] = useState<TaskManagerClient | null>(null);
   const [formData, setFormData] = useState<LoginFormData>({
     serverAddress: '',
-    port: '8080',
+    port: '1900',
     username: '',
     password: '',
-    anonymous: false
+    anonymous: false,
+    managerAddress: '',
+    managerPort: '1901',
+    enableManager: false,
   });
 
   const handle401Error = () => {
@@ -34,9 +42,13 @@ export default function TelegramMiniApp() {
     Cookies.remove('jwt_token');
     Cookies.remove('server_address');
     Cookies.remove('server_port');
+    Cookies.remove('manager_address');
+    Cookies.remove('manager_port');
+    Cookies.remove('enable_manager');
     
     setIsLoggedIn(false);
     setWebdavClient(null);
+    setTaskManagerClient(null);
     setError('Session expired. Please login again.');
   };
 
@@ -45,13 +57,33 @@ export default function TelegramMiniApp() {
     const token = Cookies.get('jwt_token');
     const savedServerAddress = Cookies.get('server_address');
     const savedPort = Cookies.get('server_port');
+    const savedManagerAddress = Cookies.get('manager_address');
+    const savedManagerPort = Cookies.get('manager_port');
+    const savedEnableManager = Cookies.get('enable_manager') === 'true';
+    
+    // Prefill form data from cookies
+    setFormData(prev => ({
+      ...prev,
+      serverAddress: savedServerAddress || '',
+      port: savedPort || '1900',
+      managerAddress: savedManagerAddress || '',
+      managerPort: savedManagerPort || '1901',
+      enableManager: savedEnableManager,
+    }));
     
     if (token && savedServerAddress && savedPort) {
       const baseUrl = `http://${savedServerAddress}:${savedPort}`;
       const client = new WebDAVClient(baseUrl, token, handle401Error);
       setWebdavClient(client);
+      
+      // Initialize task manager client if enabled and configured
+      if (savedEnableManager && savedManagerAddress && savedManagerPort) {
+        const taskManagerUrl = `http://${savedManagerAddress}:${savedManagerPort}`;
+        const taskClient = new TaskManagerClient(taskManagerUrl);
+        setTaskManagerClient(taskClient);
+      }
+      
       setIsLoggedIn(true);
-      setFormData(prev => ({ ...prev, serverAddress: savedServerAddress, port: savedPort }));
     }
   }, []);
 
@@ -90,11 +122,25 @@ export default function TelegramMiniApp() {
       Cookies.set('jwt_token', token, { expires: 7 }); // 7 days expiry
       Cookies.set('server_address', formData.serverAddress, { expires: 7 });
       Cookies.set('server_port', formData.port, { expires: 7 });
+      
+      // Store manager settings
+      Cookies.set('manager_address', formData.managerAddress || formData.serverAddress, { expires: 7 });
+      Cookies.set('manager_port', formData.managerPort, { expires: 7 });
+      Cookies.set('enable_manager', formData.enableManager.toString(), { expires: 7 });
 
       // Create WebDAV client with JWT token
       const client = new WebDAVClient(baseUrl, token, handle401Error);
       await client.connect();
       setWebdavClient(client);
+      
+      // Initialize task manager client if enabled
+      if (formData.enableManager) {
+        const managerAddress = formData.managerAddress || formData.serverAddress;
+        const taskManagerUrl = `http://${managerAddress}:${formData.managerPort}`;
+        const taskClient = new TaskManagerClient(taskManagerUrl);
+        setTaskManagerClient(taskClient);
+      }
+      
       setIsLoggedIn(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -108,9 +154,13 @@ export default function TelegramMiniApp() {
     Cookies.remove('jwt_token');
     Cookies.remove('server_address');
     Cookies.remove('server_port');
+    Cookies.remove('manager_address');
+    Cookies.remove('manager_port');
+    Cookies.remove('enable_manager');
     
     setIsLoggedIn(false);
     setWebdavClient(null);
+    setTaskManagerClient(null);
     setError(null);
   };
 
@@ -133,7 +183,7 @@ export default function TelegramMiniApp() {
               Logout
             </Button>
           </Box>
-          <FileExplorer webdavClient={webdavClient} />
+          <FileExplorer webdavClient={webdavClient} taskManagerClient={taskManagerClient} />
         </Container>
       ) : (
         <Container maxWidth="sm" sx={{ py: 4, minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
@@ -169,7 +219,7 @@ export default function TelegramMiniApp() {
                 value={formData.port}
                 onChange={handleInputChange('port')}
                 type="number"
-                placeholder="8080"
+                placeholder="1900"
                 fullWidth
                 required
                 disabled={isLoading}
@@ -209,6 +259,46 @@ export default function TelegramMiniApp() {
                     onChange={handleInputChange('password')}
                     fullWidth
                     required
+                    disabled={isLoading}
+                  />
+                </>
+              )}
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={formData.enableManager}
+                    onChange={handleInputChange('enableManager')}
+                    disabled={isLoading}
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <TaskAlt />
+                    Enable Task Manager
+                  </Box>
+                }
+              />
+
+              {formData.enableManager && (
+                <>
+                  <TextField
+                    label="Task Manager Address"
+                    value={formData.managerAddress}
+                    onChange={handleInputChange('managerAddress')}
+                    placeholder={formData.serverAddress || "Same as server address"}
+                    fullWidth
+                    disabled={isLoading}
+                    helperText="Leave empty to use the same address as WebDAV server"
+                  />
+
+                  <TextField
+                    label="Task Manager Port"
+                    value={formData.managerPort}
+                    onChange={handleInputChange('managerPort')}
+                    type="number"
+                    placeholder="1901"
+                    fullWidth
                     disabled={isLoading}
                   />
                 </>

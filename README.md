@@ -41,6 +41,7 @@ You can use any WebDAV client to access the server.
 Tested WebDAV Clients:
 - [Cyberduck](https://cyberduck.io/)
 - [WinSCP](https://winscp.net/eng/index.php)
+- [rclone](https://rclone.org/)
 
 ### Official Telegram miniapp
 
@@ -105,6 +106,11 @@ You can use the [config generator](https://theodorekrypton.github.io/tgfs/config
   - host: The host of the WebDAV server listening on.
   - port: The port of the WebDAV server listening on.
   - path: The root path for the WebDAV server. For example, setting this value to /webdav makes the WebDAV link `http://[host]:[port]/webdav`.
+
+- manager
+  - host: The host of the manager server listening on.
+  - port: The port of the manager server listening on.
+
 
 ## FAQ
 

@@ -111,11 +111,12 @@ class TGMsgFileContentRepository(IFileContentRepository):
 
     @staticmethod
     def _size_for_parts(size: int) -> Generator[int]:
-        PART_SIZE = 1024 * 1024 * 1024  # 1 GB
-        parts = (size + PART_SIZE - 1) // PART_SIZE
+        part_size = 1024 * 1024 * 1024  # 1 GB
+
+        parts = (size + part_size - 1) // part_size
         for i in range(parts - 1):
-            yield PART_SIZE
-        yield size - (parts - 1) * PART_SIZE
+            yield part_size
+        yield size - (parts - 1) * part_size
 
     async def save(self, file_msg: GeneralFileMessage) -> List[SentFileMessage]:
         size = file_msg.get_size()

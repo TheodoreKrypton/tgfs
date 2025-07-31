@@ -4,6 +4,8 @@ from typing import AsyncIterator, Optional, Tuple, Union
 
 from telethon.tl.types import PeerChannel
 
+from tgfs.tasks.integrations import TaskTracker
+
 
 @dataclass
 class Message:
@@ -136,6 +138,8 @@ class FileMessage:
     offset: int
     size: int
 
+    task_tracker: Optional[TaskTracker]
+
     def _get_size(self) -> int:
         return 0
 
@@ -153,6 +157,7 @@ class FileMessageEmpty(FileMessage):
             tags=FileTags(),
             offset=0,
             size=0,
+            task_tracker=None,
         )
 
 
@@ -172,6 +177,7 @@ class FileMessageFromPath(FileMessage):
             path=path,
             offset=0,
             size=os.path.getsize(path),
+            task_tracker=None,
         )
 
 
@@ -191,6 +197,7 @@ class FileMessageFromBuffer(FileMessage):
             buffer=buffer,
             offset=0,
             size=len(buffer),
+            task_tracker=None,
         )
 
 
@@ -212,6 +219,7 @@ class FileMessageFromStream(FileMessage):
             stream=stream,
             offset=0,
             size=size,
+            task_tracker=None,
         )
 
 

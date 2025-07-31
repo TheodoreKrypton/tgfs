@@ -22,6 +22,7 @@ from tgfs.reqres import (
     SendMessageResp,
     UploadedFile,
 )
+from tgfs.tasks.integrations import TaskTracker
 from tgfs.telegram.interface import ITDLibClient, TDLibApi
 from tgfs.utils.others import is_big_file
 
@@ -52,9 +53,12 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         file_size: int,
         on_complete: Optional[OnComplete],
         workers=WorkersConfig(),
+        task_tracker: Optional[TaskTracker] = None,
     ):
         self.client = client
         self._file_size = file_size
+        self._task_tracker = task_tracker
+
         self.__chunk_size = get_appropriated_part_size(self._file_size) * 1024
 
         self.__on_complete = on_complete
@@ -123,6 +127,11 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
                     raise TechnicalError(f"Unexpected response: {rsp}")
 
                 self.__uploaded_size += len(chunk.content)
+
+                if self._task_tracker:
+                    await self._task_tracker.update_progress(
+                        size_processed=self.__uploaded_size,
+                    )
                 return
 
             except Exception as e:
@@ -304,6 +313,7 @@ def create_uploader(
             client=tdlib.next_bot,
             file_size=file_msg.get_size(),
             on_complete=on_complete,
+            task_tracker=file_msg.task_tracker,
         )
 
     if isinstance(file_msg, FileMessageFromBuffer):
@@ -311,6 +321,7 @@ def create_uploader(
             client=tdlib.next_bot,
             file_size=file_msg.get_size(),
             on_complete=on_complete,
+            task_tracker=file_msg.task_tracker,
         )
 
     if isinstance(file_msg, FileMessageFromStream):
@@ -318,6 +329,7 @@ def create_uploader(
             client=tdlib.next_bot,
             file_size=file_msg.get_size(),
             on_complete=on_complete,
+            task_tracker=file_msg.task_tracker,
         )
 
     raise ValueError(

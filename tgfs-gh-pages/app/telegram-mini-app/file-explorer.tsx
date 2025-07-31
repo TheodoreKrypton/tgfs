@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Close,
   CreateNewFolder,
   Delete,
   Download,
@@ -35,12 +36,14 @@ import { SimpleTreeView } from "@mui/x-tree-view/SimpleTreeView";
 import { TreeItem } from "@mui/x-tree-view/TreeItem";
 import { useEffect, useState, useCallback } from "react";
 import WebDAVClient, { WebDAVItem } from "./webdav-client";
+import TaskManagerClient, { Task } from "./task-manager-client";
 
 interface FileExplorerProps {
   webdavClient: WebDAVClient;
+  taskManagerClient?: TaskManagerClient;
 }
 
-export default function FileExplorer({ webdavClient }: FileExplorerProps) {
+export default function FileExplorer({ webdavClient, taskManagerClient }: FileExplorerProps) {
   const [currentPath, setCurrentPath] = useState("/");
   const [items, setItems] = useState<WebDAVItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +63,7 @@ export default function FileExplorer({ webdavClient }: FileExplorerProps) {
     message: "",
     severity: "success",
   });
+  const [tasks, setTasks] = useState<Task[]>([]);
 
   const loadDirectory = useCallback(async (path: string) => {
     setLoading(true);
@@ -68,18 +72,51 @@ export default function FileExplorer({ webdavClient }: FileExplorerProps) {
       const directoryItems = await webdavClient.listDirectory(path);
       setItems(directoryItems);
       setCurrentPath(path);
+      
+      // Also load tasks for this directory if task manager is available
+      if (taskManagerClient) {
+        try {
+          const directoryTasks = await taskManagerClient.getTasksUnderPath(path);
+          setTasks(directoryTasks);
+        } catch (taskErr) {
+          console.warn("Failed to load tasks:", taskErr);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load directory");
     } finally {
       setLoading(false);
     }
-  }, [webdavClient]);
+  }, [webdavClient, taskManagerClient]);
+
+  // Load tasks for current directory
+  const loadTasks = useCallback(async () => {
+    if (taskManagerClient) {
+      try {
+        const directoryTasks = await taskManagerClient.getTasksUnderPath(currentPath);
+        setTasks(directoryTasks);
+      } catch (taskErr) {
+        console.warn("Failed to load tasks:", taskErr);
+      }
+    }
+  }, [taskManagerClient, currentPath]);
 
   useEffect(() => {
     if (webdavClient) {
       loadDirectory("/");
     }
   }, [webdavClient, loadDirectory]);
+
+  // Set up polling for task updates every 1 second
+  useEffect(() => {
+    if (!taskManagerClient) return;
+
+    const interval = setInterval(() => {
+      loadTasks();
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [taskManagerClient, loadTasks]);
 
   const handleItemClick = (item: WebDAVItem) => {
     if (item.isDirectory) {
@@ -201,6 +238,26 @@ export default function FileExplorer({ webdavClient }: FileExplorerProps) {
     setSelectedFile(null);
   };
 
+  const handleDeleteTask = async (taskId: string, filename: string) => {
+    if (!taskManagerClient) return;
+
+    try {
+      await taskManagerClient.deleteTask(taskId);
+      await loadTasks(); // Refresh tasks after deletion
+      setSnackbar({
+        open: true,
+        message: `Removed task ${filename}`,
+        severity: "success",
+      });
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err instanceof Error ? err.message : "Failed to remove task",
+        severity: "error",
+      });
+    }
+  };
+
   const getPathParts = () => {
     const parts = currentPath.split("/").filter(Boolean);
     return [
@@ -234,8 +291,66 @@ export default function FileExplorer({ webdavClient }: FileExplorerProps) {
     return parts.join(" • ");
   };
 
+  const renderTaskItem = (task: Task) => (
+    <TreeItem
+      key={`task-${task.id}`}
+      itemId={`task-${task.id}`}
+      label={
+        <Box sx={{ display: "flex", alignItems: "center", py: 1, pl: 2 }}>
+          <Box sx={{ mr: 1, fontSize: "1rem" }}>
+            {taskManagerClient?.getTaskTypeIcon(task.type)}
+          </Box>
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontStyle: "italic",
+                color: taskManagerClient?.getTaskStatusColor(task.status),
+              }}
+            >
+              {task.filename}
+            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                {task.status} • {taskManagerClient?.formatProgress(task.progress)}
+                {task.status === "in_progress" && task.speed_bytes_per_sec && (
+                  <> • {taskManagerClient?.formatSpeed(task.speed_bytes_per_sec)}</>
+                )}
+              </Typography>
+              {task.status === "in_progress" && (
+                <CircularProgress
+                  size={12}
+                  variant="determinate"
+                  value={task.progress * 100}
+                />
+              )}
+            </Box>
+            {task.size_total && (
+              <Typography variant="caption" color="text.secondary">
+                {taskManagerClient?.formatFileSize(task.size_processed)} / {taskManagerClient?.formatFileSize(task.size_total)}
+              </Typography>
+            )}
+          </Box>
+          {(task.status === "completed" || task.status === "failed") && (
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteTask(task.id, task.filename);
+              }}
+              sx={{ ml: 1 }}
+              title="Remove task"
+            >
+              <Close fontSize="small" />
+            </IconButton>
+          )}
+        </Box>
+      }
+    />
+  );
+
   const renderTreeItems = (items: WebDAVItem[]) => {
-    return items.map((item) => (
+    const fileItems = items.map((item) => (
       <TreeItem
         key={item.path}
         itemId={item.path}
@@ -268,6 +383,11 @@ export default function FileExplorer({ webdavClient }: FileExplorerProps) {
         }
       />
     ));
+
+    const taskItems = tasks.map(renderTaskItem);
+
+    // Combine and return all items
+    return [...fileItems, ...taskItems];
   };
 
   return (
