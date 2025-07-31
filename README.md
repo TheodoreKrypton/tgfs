@@ -107,6 +107,11 @@ You can use the [config generator](https://theodorekrypton.github.io/tgfs/config
   - port: The port of the WebDAV server listening on.
   - path: The root path for the WebDAV server. For example, setting this value to /webdav makes the WebDAV link `http://[host]:[port]/webdav`.
 
+- manager
+  - host: The host of the manager server listening on.
+  - port: The port of the manager server listening on.
+
+
 ## FAQ
 
 **Q: Why do I need a bot when my account is also able to send messages?**
