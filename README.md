@@ -3,7 +3,7 @@
 </p>
 
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://hub.docker.com/r/wheatcarrier/tgfs)
-
+[![Telegram Mini App](https://img.shields.io/badge/telegram-miniapp-blue?style=for-the-badge&logo=telegram)](https://t.me/tgfsprdbot/manager)
 # tgfs
 
 Telegram becomes a WebDAV server.
