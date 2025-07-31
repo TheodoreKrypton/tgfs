@@ -67,6 +67,10 @@ interface ConfigData {
     port: number;
     path: string;
   };
+  manager?: {
+    host: string;
+    port: number;
+  };
 }
 
 // Type-safe path mapping for updateConfig
@@ -87,6 +91,8 @@ type ConfigUpdatePaths = {
   "tgfs.metadata.github_repo.repo": string;
   "tgfs.metadata.github_repo.commit": string;
   "tgfs.metadata.github_repo.access_token": string;
+  "manager.host": string;
+  "manager.port": number;
 };
 
 const generateRandomSecret = (): string => {
@@ -210,6 +216,16 @@ export default function ConfigGenerator() {
           };
         }
         newConfig.tgfs.metadata.github_repo.access_token = value as string;
+      } else if (path === "manager.host") {
+        if (!newConfig.manager) {
+          newConfig.manager = { host: "0.0.0.0", port: 1901 };
+        }
+        newConfig.manager.host = value as string;
+      } else if (path === "manager.port") {
+        if (!newConfig.manager) {
+          newConfig.manager = { host: "0.0.0.0", port: 1901 };
+        }
+        newConfig.manager.port = value as number;
       }
 
       setConfig(newConfig);
@@ -250,7 +266,7 @@ export default function ConfigGenerator() {
           }
         : { type: config.tgfs.metadata.type };
 
-    const configForYaml = {
+    const configForYaml: any = {
       ...config,
       tgfs: {
         ...config.tgfs,
@@ -261,6 +277,11 @@ export default function ConfigGenerator() {
         metadata,
       },
     };
+
+    // Only include manager if host and port are provided
+    if (config.manager?.host && config.manager?.port) {
+      configForYaml.manager = config.manager;
+    }
     return yaml.dump(configForYaml, { indent: 2 });
   };
 
@@ -601,6 +622,29 @@ export default function ConfigGenerator() {
                   label="Path"
                   value={config.webdav.path}
                   onChange={(e) => updateConfig("webdav.path", e.target.value)}
+                  width={120}
+                />
+              </FieldRow>
+            </FormSection>
+
+            <FormSection title="Task Manager Server (Optional)">
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Configure the task manager server to track upload/download progress in real-time.
+              </Typography>
+              <FieldRow>
+                <ConfigTextField
+                  label="Host"
+                  value={config.manager?.host || "0.0.0.0"}
+                  onChange={(e) => updateConfig("manager.host", e.target.value)}
+                  width={200}
+                />
+                <ConfigTextField
+                  label="Port"
+                  type="number"
+                  value={config.manager?.port || 1901}
+                  onChange={(e) =>
+                    updateConfig("manager.port", parseInt(e.target.value))
+                  }
                   width={120}
                 />
               </FieldRow>

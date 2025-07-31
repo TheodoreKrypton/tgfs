@@ -24,6 +24,16 @@ class WebDAVConfig:
 
 
 @dataclass
+class ManagerConfig:
+    host: str
+    port: int
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Self:
+        return cls(host=data["host"], port=data["port"])
+
+
+@dataclass
 class DownloadConfig:
     chunk_size_kb: int
 
@@ -165,13 +175,19 @@ class Config:
     telegram: TelegramConfig
     tgfs: TGFSConfig
     webdav: WebDAVConfig
+    manager: Optional[ManagerConfig] = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "Config":
+        manager_config = None
+        if "manager" in data:
+            manager_config = ManagerConfig.from_dict(data["manager"])
+        
         return cls(
             telegram=TelegramConfig.from_dict(data["telegram"]),
             tgfs=TGFSConfig.from_dict(data["tgfs"]),
             webdav=WebDAVConfig.from_dict(data["webdav"]),
+            manager=manager_config,
         )
 
 

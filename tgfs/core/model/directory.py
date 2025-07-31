@@ -135,7 +135,7 @@ class TGFSDirectory:
     @property
     def absolute_path(self) -> str:
         if self.parent is None:
-            return f"/{self.name}"
+            return ""
         return (
             f"{self.parent.absolute_path}/{self.name}"
             if self.name

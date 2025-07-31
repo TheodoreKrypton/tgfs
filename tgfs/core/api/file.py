@@ -1,8 +1,10 @@
+import os
 from typing import Optional
 
 from tgfs.core.model import TGFSDirectory, TGFSFileDesc, TGFSFileRef, TGFSFileVersion
 from tgfs.errors import FileOrDirectoryDoesNotExist
 from tgfs.reqres import FileContent, FileMessageEmpty, GeneralFileMessage
+from tgfs.tasks import create_download_task, create_upload_task
 
 from .file_desc import FileDescApi
 from .metadata import MetaDataApi
@@ -66,10 +68,24 @@ class FileApi:
         version_id: Optional[str] = None,
     ) -> TGFSFileDesc:
         try:
-            fr = under.find_file(file_msg.name)
-            return await self.__update(fr, file_msg, version_id)
-        except FileOrDirectoryDoesNotExist:
-            return await self.__create(under, file_msg)
+            if not isinstance(file_msg, FileMessageEmpty):
+                file_msg.task_tracker = await create_upload_task(
+                    os.path.join(under.absolute_path, file_msg.name),
+                    file_msg.get_size()
+                )
+            try:
+                fr = under.find_file(file_msg.name)
+                res = await self.__update(fr, file_msg, version_id)
+            except FileOrDirectoryDoesNotExist:
+                res = await self.__create(under, file_msg)
+
+            if file_msg.task_tracker:
+                await file_msg.task_tracker.mark_completed()
+            return res
+        except Exception as ex:
+            if file_msg.task_tracker:
+                await file_msg.task_tracker.mark_failed(str(ex))
+            raise ex
 
     async def desc(self, fr: TGFSFileRef) -> TGFSFileDesc:
         return await self.__file_desc_api.get_file_desc(fr)
@@ -83,15 +99,31 @@ class FileApi:
     ) -> FileContent:
         fd = await self.desc(fr)
         if isinstance(fd, FileMessageEmpty):
-
             async def empty_file() -> FileContent:
                 yield b""
 
             return empty_file()
         fv = fd.get_latest_version()
-        return await self.__file_desc_api.download_file_at_version(
-            fv, begin, end, as_name or fr.name
-        )
+
+        task_tracker = await create_download_task(os.path.join(fr.location.absolute_path, as_name or fr.name), file_size=fv.size)
+
+        async def chunks():
+            size_processed = 0
+
+            try:
+                async for chunk in await self.__file_desc_api.download_file_at_version(
+                    fv, begin, end, as_name or fr.name
+                ):
+                    size_processed += len(chunk)
+                    await task_tracker.update_progress(size_processed=size_processed)
+                    yield chunk
+
+                await task_tracker.mark_completed()
+            except Exception as ex:
+                await task_tracker.mark_failed(str(ex))
+                raise ex
+
+        return chunks()
 
     async def retrieve_version(
         self,

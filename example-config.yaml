@@ -36,3 +36,9 @@ webdav:
   host: 0.0.0.0
   port: 1900
   path: /
+
+# Optional: Task Manager Server Configuration
+# Uncomment to enable task tracking and progress monitoring
+# manager:
+#   host: 0.0.0.0
+#   port: 1901
