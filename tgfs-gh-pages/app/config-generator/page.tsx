@@ -8,8 +8,10 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Container,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Paper,
@@ -106,6 +108,8 @@ const generateRandomSecret = (): string => {
 };
 
 export default function ConfigGenerator() {
+  const [includeTaskManager, setIncludeTaskManager] = useState(true);
+  console.log(includeTaskManager);
   const [config, setConfig] = useState<ConfigData>({
     telegram: {
       api_id: "",
@@ -148,6 +152,10 @@ export default function ConfigGenerator() {
       host: "0.0.0.0",
       port: 1900,
       path: "/",
+    },
+    manager: {
+      host: "0.0.0.0",
+      port: 1901,
     },
   });
 
@@ -278,9 +286,14 @@ export default function ConfigGenerator() {
       },
     };
 
-    // Only include manager if host and port are provided
-    if (config.manager?.host && config.manager?.port) {
-      configForYaml.manager = config.manager;
+    // Include manager section if enabled
+    if (includeTaskManager) {
+      configForYaml.manager = {
+        host: config.manager?.host || "0.0.0.0",
+        port: config.manager?.port || 1901,
+      };
+    } else {
+      configForYaml.manager = undefined;
     }
     return yaml.dump(configForYaml, { indent: 2 });
   };
@@ -480,11 +493,9 @@ export default function ConfigGenerator() {
                   Add Another User
                 </Button>
               </Box>
-
               <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
                 JWT
               </Typography>
-
               <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
                 <ConfigTextField
                   label="JWT Secret"
@@ -504,9 +515,15 @@ export default function ConfigGenerator() {
                   Regenerate
                 </Button>
               </Box>
-
-              <Typography variant="h6" sx={{ mt: 2, mb: 2 }}>
+              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
                 Metadata
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mb: 2, pl: 2 }}
+              >
+                Metadata maintains the directory structure of the files.
               </Typography>
 
               <FormControl size="small" sx={{ mb: 2 }}>
@@ -525,7 +542,41 @@ export default function ConfigGenerator() {
                   <MenuItem value="github_repo">GitHub Repository</MenuItem>
                 </Select>
               </FormControl>
-
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mb: 2, pl: 2 }}
+              >
+                {config.tgfs.metadata.type === "pinned_message"
+                  ? "The metadata will be maintained in a json file pinned in the file channel. Every directory operation reuploads and updates the pinned file."
+                  : "The metadata will be maintained by a GitHub repository configured in the following github_repo section. Every directory operation is mapped to the github repository."}
+              </Typography>
+              {config.tgfs.metadata.type === "github_repo" && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2, pl: 2 }}
+                >
+                  Merits:
+                  <ul
+                    className="list-disc list-inside"
+                    style={{ marginBottom: 0 }}
+                  >
+                    <li>
+                      Directory operations are faster (possibly?) because the
+                      metadata is not re-uploaded every time.
+                    </li>
+                    <li>
+                      The metadata is versioned naturally, so rollback is
+                      possible.
+                    </li>
+                    <li>
+                      Multiple clients can access / mutate the same metadata
+                      without conflict.
+                    </li>
+                  </ul>
+                </Typography>
+              )}
               {config.tgfs.metadata.type === "github_repo" && (
                 <Box sx={{ pl: 2, borderLeft: "3px solid #e0e0e0", ml: 1 }}>
                   <Typography
@@ -622,9 +673,15 @@ export default function ConfigGenerator() {
                   label="Path"
                   value={config.webdav.path}
                   onChange={(e) => updateConfig("webdav.path", e.target.value)}
-                  width={120}
                 />
               </FieldRow>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Your WebDAV server will be at{" "}
+                <code>
+                  http://{config.webdav.host}:{config.webdav.port}
+                  {config.webdav.path}
+                </code>
+              </Typography>
             </FormSection>
 
             <FormSection title="Task Manager Server (Optional)">
@@ -632,23 +689,49 @@ export default function ConfigGenerator() {
                 Configure the task manager server to track upload/download
                 progress in real-time.
               </Typography>
-              <FieldRow>
-                <ConfigTextField
-                  label="Host"
-                  value={config.manager?.host || "0.0.0.0"}
-                  onChange={(e) => updateConfig("manager.host", e.target.value)}
-                  width={200}
-                />
-                <ConfigTextField
-                  label="Port"
-                  type="number"
-                  value={config.manager?.port || 1901}
-                  onChange={(e) =>
-                    updateConfig("manager.port", parseInt(e.target.value))
-                  }
-                  width={120}
-                />
-              </FieldRow>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={includeTaskManager}
+                    onChange={(e) => setIncludeTaskManager(e.target.checked)}
+                  />
+                }
+                label="Include Task Manager Server"
+                sx={{ mb: 2 }}
+              />
+              {includeTaskManager && (
+                <>
+                  <FieldRow>
+                    <ConfigTextField
+                      label="Host"
+                      value={config.manager?.host || "0.0.0.0"}
+                      onChange={(e) =>
+                        updateConfig("manager.host", e.target.value)
+                      }
+                      width={200}
+                    />
+                    <ConfigTextField
+                      label="Port"
+                      type="number"
+                      value={config.manager?.port || 1901}
+                      onChange={(e) =>
+                        updateConfig("manager.port", parseInt(e.target.value))
+                      }
+                      width={120}
+                    />
+                  </FieldRow>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 2 }}
+                  >
+                    Your task manager server will be at{" "}
+                    <code>
+                      http://{config.manager?.host}:{config.manager?.port}
+                    </code>
+                  </Typography>
+                </>
+              )}
             </FormSection>
           </Paper>
         </Box>
