@@ -1,11 +1,12 @@
 import asyncio
 from typing import Iterator
 
+import telethon.types as tlt
 from pyrate_limiter import Duration, InMemoryBucket, Limiter, Rate
 from telethon.errors import MessageNotModifiedError, RPCError
 
 from tgfs.config import get_config
-from tgfs.errors import MessageNotFound
+from tgfs.errors import MessageNotFound, PinnedMessageNotSupported
 from tgfs.reqres import (
     DownloadFileReq,
     DownloadFileResp,
@@ -28,8 +29,8 @@ limiter = Limiter(bucket, max_delay=60 * 1000)  # 60 seconds max delay
 
 
 class MessageApi(MessageBroker):
-    def __init__(self, tdlib: TDLibApi):
-        super().__init__(tdlib)
+    def __init__(self, tdlib: TDLibApi, private_file_channel: tlt.PeerChannel):
+        super().__init__(tdlib, private_file_channel)
 
     @staticmethod
     def __try_acquire(name: str):
@@ -39,7 +40,7 @@ class MessageApi(MessageBroker):
         self.__try_acquire("MessageApi.send_text")
         return (
             await self.tdlib.next_bot.send_text(
-                SendTextReq(chat_id=self.private_channel_id, text=message)
+                SendTextReq(chat=self.private_file_channel, text=message)
             )
         ).message_id
 
@@ -49,7 +50,7 @@ class MessageApi(MessageBroker):
             return (
                 await self.tdlib.next_bot.edit_message_text(
                     EditMessageTextReq(
-                        chat_id=self.private_channel_id,
+                        chat=self.private_file_channel,
                         message_id=message_id,
                         text=message,
                     )
@@ -66,26 +67,31 @@ class MessageApi(MessageBroker):
 
     async def get_pinned_message(self) -> MessageResp:
         self.__try_acquire("MessageApi.get_pinned_message")
+
+        if not self.tdlib.account:
+            raise PinnedMessageNotSupported()
         messages = await self.tdlib.account.get_pinned_messages(
-            GetPinnedMessageReq(chat_id=self.private_channel_id)
+            GetPinnedMessageReq(chat=self.private_file_channel)
         )
         return messages[0]
 
     async def pin_message(self, message_id: int):
         self.__try_acquire("MessageApi.pin_message")
         return await self.tdlib.next_bot.pin_message(
-            PinMessageReq(chat_id=self.private_channel_id, message_id=message_id)
+            PinMessageReq(chat=self.private_file_channel, message_id=message_id)
         )
 
     async def search_messages(self, search: str) -> list[MessageResp]:
         self.__try_acquire("MessageApi.search_messages")
-        return list(
-            exclude_none(
-                await self.tdlib.account.search_messages(
-                    SearchMessageReq(chat_id=self.private_channel_id, search=search)
+        if self.tdlib.account:
+            return list(
+                exclude_none(
+                    await self.tdlib.account.search_messages(
+                        SearchMessageReq(chat=self.private_file_channel, search=search)
+                    )
                 )
             )
-        )
+        return []
 
     @classmethod
     def split_download_tasks(
@@ -109,7 +115,7 @@ class MessageApi(MessageBroker):
         tasks = [
             self.tdlib.next_bot.download_file(
                 DownloadFileReq(
-                    chat_id=self.private_channel_id,
+                    chat=self.private_file_channel,
                     message_id=message_id,
                     chunk_size=get_config().tgfs.download.chunk_size_kb,
                     begin=b,
@@ -132,7 +138,7 @@ class MessageApi(MessageBroker):
 
         return await self.tdlib.next_bot.download_file(
             DownloadFileReq(
-                chat_id=self.private_channel_id,
+                chat=self.private_file_channel,
                 message_id=message_id,
                 chunk_size=get_config().tgfs.download.chunk_size_kb,
                 begin=begin,

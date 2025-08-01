@@ -5,14 +5,16 @@ import time
 import uuid
 from collections.abc import Awaitable
 from contextvars import ContextVar
+from dataclasses import dataclass
 from http import HTTPStatus
-from typing import Any, Callable, Optional, TypedDict
+from typing import Any, Callable, Literal, Optional, TypedDict
 from urllib.parse import unquote, urlparse
 
 import jwt
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.responses import StreamingResponse
+from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from .folder import Folder
 from .member import Member
@@ -45,10 +47,23 @@ class JWTConfig(TypedDict):
     life: int
 
 
+Permission = Literal["admin", "readonly"]
+
+
+@dataclass
+class User:
+    username: str
+    permission: Permission
+
+
+def default_auth_callback(username: str, password: str) -> Optional[User]:
+    return User(username="anonymous", permission="readonly")
+
+
 def create_app(
     get_member: Callable[[str], Awaitable[Optional[Member]]],
     jwt_config: JWTConfig,
-    auth_callback: Optional[Callable[[str, str], bool]] = None,
+    auth_callback: Callable[[str, str], Optional[User]],
 ) -> FastAPI:
     async def root() -> Folder:
         res = await get_member("/")
@@ -77,11 +92,13 @@ def create_app(
         "UNLOCK",
     ]
 
-    NOT_FOUND = HTTPException(status_code=HTTPStatus.NOT_FOUND)
-    CREATED = Response(status_code=HTTPStatus.CREATED, headers=common_headers)
+    readonly_methods = {"GET", "HEAD", "OPTIONS", "PROPFIND"}
+
+    NOT_FOUND = Response(status_code=HTTPStatus.NOT_FOUND, headers=common_headers)
+    CREATED = Response(status_code=HTTPStatus.CREATED.value, headers=common_headers)
     NO_CONTENT = Response(status_code=HTTPStatus.NO_CONTENT, headers=common_headers)
     UNAUTHORIZED = Response(
-        status_code=HTTPStatus.UNAUTHORIZED.value,
+        status_code=HTTPStatus.UNAUTHORIZED,
         content="Unauthorized",
         headers=common_headers
         | {
@@ -89,17 +106,11 @@ def create_app(
         },
     )
 
-    class CONFLICT(HTTPException):
-        status_code = HTTPStatus.CONFLICT
+    def CONFLICT(detail: str) -> Response:
+        return Response(status_code=HTTPStatus.CONFLICT, content=detail)
 
-        def __init__(self, detail: str):
-            super().__init__(status_code=self.status_code, detail=detail)
-
-    class BAD_REQUEST(HTTPException):
-        status_code = HTTPStatus.BAD_REQUEST
-
-        def __init__(self, detail: str):
-            super().__init__(status_code=self.status_code, detail=detail)
+    def BAD_REQUEST(detail: str) -> Response:
+        return Response(status_code=HTTPStatus.BAD_REQUEST, content=detail)
 
     app = FastAPI()
 
@@ -120,60 +131,76 @@ def create_app(
         uuid_context.set(str(uuid.uuid4()))
         return await call_next(request)
 
+    def deny_readonly_user(request: Request, user: User) -> Optional[Response]:
+        if request.method not in readonly_methods and user.permission == "readonly":
+            return Response(
+                status_code=HTTPStatus.FORBIDDEN,
+                content="You do not have permission to perform this operation.",
+            )
+        return None
+
     @app.middleware("http")
     async def auth_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
-        if (
-            auth_callback
-            and request.method not in {"OPTIONS"}
-            and request.url.path != "/login"
-        ):
-            auth_header = request.headers.get("Authorization")
-            if not auth_header:
-                return UNAUTHORIZED
-            if auth_header.startswith("Bearer "):
-                token = auth_header[7:]
-                try:
-                    if not jwt.decode(
-                        token,
-                        key=jwt_config["secret"],
-                        algorithms=[jwt_config["algorithm"]],
-                        options={"verify_exp": True},
-                    ):
-                        return UNAUTHORIZED
-                except Exception as e:
-                    logger.error(e)
-                    return UNAUTHORIZED
-            elif auth_header.startswith("Basic "):
-                try:
-                    credentials = base64.b64decode(auth_header[6:]).decode("utf-8")
-                    username, password = credentials.split(":", 1)
-                    if not auth_callback(username, password):
-                        return UNAUTHORIZED
-                except (ValueError, UnicodeDecodeError):
-                    return UNAUTHORIZED
-            else:
-                return UNAUTHORIZED
-        return await call_next(request)
+        if request.method == "OPTIONS" or request.url.path == "/login":
+            return await call_next(request)
 
-    class LoginRequest(TypedDict):
+        auth_header = request.headers.get("Authorization")
+        if not auth_header:
+            return UNAUTHORIZED
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+            try:
+                if res := jwt.decode(
+                    token,
+                    key=jwt_config["secret"],
+                    algorithms=[jwt_config["algorithm"]],
+                    options={"verify_exp": True},
+                ):
+                    if resp := deny_readonly_user(
+                        request,
+                        User(
+                            username=res["username"],
+                            permission=res["permission"],
+                        ),
+                    ):
+                        return resp
+                    return await call_next(request)
+                return UNAUTHORIZED
+            except Exception as e:
+                logger.error(e)
+                return UNAUTHORIZED
+        elif auth_header.startswith("Basic "):
+            try:
+                credentials = base64.b64decode(auth_header[6:]).decode("utf-8")
+                username, password = credentials.split(":", 1)
+                if user := auth_callback(username, password):
+                    if resp := deny_readonly_user(request, user):
+                        return resp
+                    return await call_next(request)
+                return UNAUTHORIZED
+            except (ValueError, UnicodeDecodeError):
+                return UNAUTHORIZED
+        else:
+            return UNAUTHORIZED
+
+    class LoginRequest(BaseModel):
         username: str
-        password: str
+        password: str = ""
 
     @app.post(path="/login")
-    async def login(request: Request):
-        data: LoginRequest = await request.json()
-        username = data["username"] if auth_callback else "anonymous"
-        if auth_callback and not auth_callback(username, data["password"]):
-            return UNAUTHORIZED
-        jwt_token = jwt.encode(
-            {
-                "username": username,
-                "exp": int(time.time()) + jwt_config["life"],
-            },
-            key=jwt_config["secret"],
-            algorithm=jwt_config["algorithm"],
-        )
-        return {"token": jwt_token}
+    async def login(request: Request, body: LoginRequest):
+        if user := auth_callback(body.username, body.password):
+            jwt_token = jwt.encode(
+                {
+                    "username": user.username,
+                    "exp": int(time.time()) + jwt_config["life"],
+                    "permission": user.permission,
+                },
+                key=jwt_config["secret"],
+                algorithm=jwt_config["algorithm"],
+            )
+            return {"token": jwt_token}
+        return UNAUTHORIZED
 
     @app.options(path="/{path:path}")
     async def options():
@@ -199,7 +226,7 @@ def create_app(
                 headers=common_headers
                 | {"Content-Type": "application/xml; charset=utf-8"},
             )
-        raise NOT_FOUND
+        return NOT_FOUND
 
     @app.head("/{path:path}")
     async def head(request: Request, path: str):
@@ -228,7 +255,7 @@ def create_app(
                     "Last-Modified": str(last_modified),
                 },
             )
-        raise NOT_FOUND
+        return NOT_FOUND
 
     @app.get("/{path:path}")
     async def get(request: Request, path: str):
@@ -283,7 +310,7 @@ def create_app(
 
             raise ValueError("Expected a Resource, got a Folder")
 
-        raise NOT_FOUND
+        return NOT_FOUND
 
     @app.put("/{path:path}")
     async def put(request: Request, path: str):
@@ -295,50 +322,50 @@ def create_app(
             if size > 0:
                 await member.overwrite(request.stream(), size=size)
             return CREATED
-        raise CONFLICT("Cannot PUT to a directory")
+        return CONFLICT("Cannot PUT to a directory")
 
     @app.delete("/{path:path}")
     async def delete(request: Request, path: str):
         if member := await get_member(path):
             await member.remove()
             return NO_CONTENT
-        raise NOT_FOUND
+        return NOT_FOUND
 
     @app.api_route("/{path:path}", methods=["MKCOL"])
     async def mkcol(request: Request, path: str):
         parent_path, folder_name = split_path(path)
         if parent := await get_member(parent_path):
             if not isinstance(parent, Folder):
-                raise CONFLICT(f"Parent {parent_path} is not a folder.")
+                return CONFLICT(f"Parent {parent_path} is not a folder.")
             if member := await parent.member(folder_name):
                 if isinstance(member, Folder):
                     return CREATED
-                raise CONFLICT(f"Resource {path} is a file.")
+                return CONFLICT(f"Resource {path} is a file.")
             await parent.create_folder(folder_name)
             return CREATED
-        raise CONFLICT(f"Parent folder {parent_path} does not exist.")
+        return CONFLICT(f"Parent folder {parent_path} does not exist.")
 
     @app.api_route("/{path:path}", methods=["COPY"])
     async def copy(request: Request, path: str):
         destination = request.headers.get("Destination")
         if not destination:
-            raise BAD_REQUEST("Destination header is required for COPY.")
+            return BAD_REQUEST("Destination header is required for COPY.")
         if member := await get_member(path):
             dest_path = extract_path_from_destination(destination)
             await member.copy_to(dest_path)
             return CREATED
-        raise NOT_FOUND
+        return NOT_FOUND
 
     @app.api_route("/{path:path}", methods=["MOVE"])
     async def move(request: Request, path: str):
         destination = request.headers.get("Destination")
         if not destination:
-            raise BAD_REQUEST("Destination header is required for MOVE.")
+            return BAD_REQUEST("Destination header is required for MOVE.")
         if member := await get_member(path):
             dest_path = extract_path_from_destination(destination)
             await member.move_to(dest_path)
             return CREATED
-        raise NOT_FOUND
+        return NOT_FOUND
 
     @app.api_route("/{full_path:path}", methods=["LOCK"])
     async def lock_handler(full_path: str):

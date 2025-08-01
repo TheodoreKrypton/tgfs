@@ -11,6 +11,7 @@ from .tgfs import (
     MetadataNotFound,
     MetadataNotInitialized,
     NoPinnedMessage,
+    PinnedMessageNotSupported,
     UnDownloadableMessage,
 )
 
@@ -27,4 +28,5 @@ __all__ = [
     "MetadataNotInitialized",
     "NoPinnedMessage",
     "UnDownloadableMessage",
+    "PinnedMessageNotSupported",
 ]

@@ -5,7 +5,6 @@ from enum import Enum
 from typing import List, Optional, Self
 
 import yaml
-from telethon.tl.types import PeerChannel
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +44,11 @@ class DownloadConfig:
 @dataclass
 class UserConfig:
     password: str
+    readonly: bool
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
-        return cls(password=data["password"])
+        return cls(password=data["password"], readonly=data.get("readonly", False))
 
 
 @dataclass
@@ -111,10 +111,14 @@ class TGFSConfig:
     @classmethod
     def from_dict(cls, data: dict) -> Self:
         return cls(
-            users={
-                username: UserConfig.from_dict(user)
-                for username, user in data["users"].items()
-            },
+            users=(
+                {
+                    username: UserConfig.from_dict(user)
+                    for username, user in data["users"].items()
+                }
+                if data["users"]
+                else {}
+            ),
             download=DownloadConfig.from_dict(data["download"]),
             jwt=JWTConfig.from_dict(data["jwt"]),
             metadata=MetadataConfig.from_dict(data.get("metadata")),
@@ -155,18 +159,20 @@ class AccountConfig:
 class TelegramConfig:
     api_id: int
     api_hash: str
-    account: AccountConfig
+    account: Optional[AccountConfig]
     bot: BotConfig
-    private_file_channel: PeerChannel
+    private_file_channel: str
 
     @classmethod
     def from_dict(cls, data: dict) -> "TelegramConfig":
         return cls(
             api_id=data["api_id"],
             api_hash=data["api_hash"],
-            account=AccountConfig.from_dict(data["account"]),
+            account=(
+                AccountConfig.from_dict(data["account"]) if "account" in data else None
+            ),
             bot=BotConfig.from_dict(data["bot"]),
-            private_file_channel=PeerChannel(int(data["private_file_channel"])),
+            private_file_channel=data["private_file_channel"],
         )
 
 
@@ -191,7 +197,7 @@ class Config:
         )
 
 
-__config_file_path = expand_path(os.path.join(DATA_DIR, "config.yaml"))
+__config_file_path = expand_path(os.path.join(DATA_DIR, "tgfsdemo-config.yaml"))
 __config: Config | None = None
 
 
