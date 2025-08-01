@@ -84,7 +84,7 @@ class TelethonAPI(ITDLibClient):
     async def get_messages(self, req: GetMessagesReq) -> GetMessagesResp:
         if message_id_to_fetch := message_cache_by_id.find_nonexistent(req.message_ids):
             fetched_messages = await self.__get_messages(
-                entity=req.chat_id, ids=message_id_to_fetch
+                entity=req.chat, ids=message_id_to_fetch
             )
 
             for message in exclude_none(self.__transform_messages(fetched_messages)):
@@ -93,20 +93,20 @@ class TelethonAPI(ITDLibClient):
         return GetMessagesResp(message_cache_by_id.gets(req.message_ids))
 
     async def send_text(self, req: SendTextReq) -> SendMessageResp:
-        message = await self._client.send_message(entity=req.chat_id, message=req.text)
+        message = await self._client.send_message(entity=req.chat, message=req.text)
         return SendMessageResp(message_id=message.id)
 
     async def edit_message_text(self, req: EditMessageTextReq) -> SendMessageResp:
         message_cache_by_id[req.message_id] = None
         message = await self._client.edit_message(
-            entity=req.chat_id, message=req.message_id, text=req.text
+            entity=req.chat, message=req.message_id, text=req.text
         )
         return SendMessageResp(message_id=message.id)
 
     async def edit_message_media(self, req: EditMessageMediaReq) -> Message:
         message_cache_by_id[req.message_id] = None
         message = await self._client.edit_message(
-            entity=req.chat_id,
+            entity=req.chat,
             message=req.message_id,
             file=tlt.InputFile(
                 id=req.file.id,
@@ -119,7 +119,7 @@ class TelethonAPI(ITDLibClient):
 
     async def search_messages(self, req: SearchMessageReq) -> GetMessagesRespNoNone:
         if req.search not in message_cache_by_search:
-            messages = await self.__get_messages(entity=req.chat_id, search=req.search)
+            messages = await self.__get_messages(entity=req.chat, search=req.search)
             message_cache_by_search[req.search] = tuple(
                 exclude_none(self.__transform_messages(messages))
             )
@@ -133,7 +133,7 @@ class TelethonAPI(ITDLibClient):
                 exclude_none(
                     self.__transform_messages(
                         await self.__get_messages(
-                            entity=req.chat_id, filter=tlt.InputMessagesFilterPinned()
+                            entity=req.chat, filter=tlt.InputMessagesFilterPinned()
                         )
                     )
                 )
@@ -142,7 +142,7 @@ class TelethonAPI(ITDLibClient):
 
     async def pin_message(self, req: PinMessageReq) -> None:
         await self._client.pin_message(
-            entity=req.chat_id, message=req.message_id, notify=False
+            entity=req.chat, message=req.message_id, notify=False
         )
 
     async def save_big_file_part(self, req: SaveBigFilePartReq) -> SaveFilePartResp:
@@ -173,7 +173,7 @@ class TelethonAPI(ITDLibClient):
             name=req.file.name,
         )
         message = await self._client.send_file(
-            entity=req.chat_id, file=file, caption=req.caption, force_document=True
+            entity=req.chat, file=file, caption=req.caption, force_document=True
         )
         if not isinstance(message, tlt.Message):
             raise TechnicalError("Unexpected response type from send_file")
@@ -187,14 +187,14 @@ class TelethonAPI(ITDLibClient):
             md5_checksum="",
         )
         message = await self._client.send_file(
-            entity=req.chat_id, file=file, caption=req.caption, force_document=True
+            entity=req.chat, file=file, caption=req.caption, force_document=True
         )
         if not isinstance(message, tlt.Message):
             raise TechnicalError("Unexpected response type from send_file")
         return SendMessageResp(message_id=message.id)
 
     async def download_file(self, req: DownloadFileReq) -> DownloadFileResp:
-        messages = await self.__get_messages(entity=req.chat_id, ids=[req.message_id])
+        messages = await self.__get_messages(entity=req.chat, ids=[req.message_id])
         message = messages[0]
 
         document = getattr(message, "document", None)
@@ -267,6 +267,9 @@ class Session:
 
 
 async def login_as_account(config: Config) -> TelegramClient:
+    if not config.telegram.account:
+        raise TechnicalError("Account configuration is missing")
+
     api_id = config.telegram.api_id
     api_hash = config.telegram.api_hash
 

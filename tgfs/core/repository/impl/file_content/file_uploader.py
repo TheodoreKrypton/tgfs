@@ -229,7 +229,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         )
 
         req = SendFileReq(
-            chat_id=chat_id,
+            chat=chat_id,
             file=self.get_uploaded_file(),
             name=self.__file_name,
             caption=caption,

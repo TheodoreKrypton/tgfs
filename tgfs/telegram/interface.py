@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from itertools import cycle
-from typing import List
+from typing import List, Optional
 
 from tgfs.reqres import (
     DownloadFileReq,
@@ -78,8 +78,8 @@ class ITDLibClient(metaclass=ABCMeta):
 
 @dataclass
 class TDLibApi:
-    account: ITDLibClient
     bots: List[ITDLibClient]
+    account: Optional[ITDLibClient] = None
 
     def __post_init__(self):
         self.__bots_cycle = cycle(self.bots)

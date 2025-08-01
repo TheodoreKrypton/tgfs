@@ -15,10 +15,10 @@ from tgfs.telegram import login_as_account, login_as_bots
 
 
 async def create_client(config: Config):
-    account = await login_as_account(config)
+    account = await login_as_account(config) if config.telegram.account else None
     bots = await login_as_bots(config)
 
-    return await Client.create(account, bots)
+    return await Client.create(bots, account)
 
 
 async def run_server(app, host: str, port: int, name: str):

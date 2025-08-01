@@ -37,3 +37,12 @@ class NoPinnedMessage(BusinessError):
             code=ErrorCode.NO_PINNED_MESSAGE,
             cause=None,
         )
+
+
+class PinnedMessageNotSupported(BusinessError):
+    def __init__(self):
+        super().__init__(
+            message="Pinned message is not supported because account api is not configured. Use metadata by Github repo instead.",
+            code=ErrorCode.PINNED_MESSAGE_NOT_SUPPORTED,
+            cause=None,
+        )

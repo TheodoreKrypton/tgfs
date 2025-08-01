@@ -71,7 +71,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
             nonlocal message_id
             message_id = (
                 await uploader.send(
-                    self.__message_api.private_channel_id,
+                    self.__message_api.private_file_channel,
                     self.__get_file_caption(file_msg),
                 )
             ).message_id
@@ -144,7 +144,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
         async def on_complete():
             await uploader.client.edit_message_media(
                 EditMessageMediaReq(
-                    chat_id=self.__message_api.private_channel_id,
+                    chat=self.__message_api.private_file_channel,
                     message_id=message_id,
                     file=uploader.get_uploaded_file(),
                 )

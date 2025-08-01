@@ -3,7 +3,8 @@ from dataclasses import dataclass
 from functools import reduce
 from typing import List, Optional, Set
 
-from tgfs.config import get_config
+import telethon.types as tlt
+
 from tgfs.reqres import GetMessagesReq, GetMessagesResp, MessageResp
 from tgfs.telegram.interface import TDLibApi
 from tgfs.utils.message_cache import message_cache_by_id
@@ -18,15 +19,12 @@ class Request:
 
 
 class MessageBroker:
-    @property
-    def private_channel_id(self):
-        return get_config().telegram.private_file_channel
-
-    def __init__(self, tdlib: TDLibApi):
+    def __init__(self, tdlib: TDLibApi, private_file_channel: tlt.PeerChannel):
         self.tdlib = tdlib
         self.__requests: List[Request] = []
         self.__lock = asyncio.Lock()
         self.__task: Optional[asyncio.Task] = None
+        self.private_file_channel = private_file_channel
 
     async def get_messages(self, ids: list[int]) -> list[Optional[MessageResp]]:
         if cached_messages := message_cache_by_id.gets(ids):
@@ -57,7 +55,7 @@ class MessageBroker:
                 lambda full, req: full.union(req.ids), requests, set()
             )
             messages = await self.tdlib.next_bot.get_messages(
-                GetMessagesReq(chat_id=self.private_channel_id, message_ids=tuple(ids))
+                GetMessagesReq(chat=self.private_file_channel, message_ids=tuple(ids))
             )
 
             messages_map = {msg.message_id: msg for msg in messages if msg is not None}

@@ -1,8 +1,9 @@
 from typing import Optional
 
-from asgidav.app import create_app
+from asgidav.app import User, create_app, default_auth_callback
 from tgfs.core import Client
 
+from ...config import Config
 from .cache import Member, fs_cache
 from .folder import Folder
 
@@ -18,25 +19,22 @@ async def _get_member(path: str, client: Client) -> Optional[Member]:
     return None
 
 
-def create_webdav_app(client, config=None):
+def create_webdav_app(client, config: Config):
     fs_cache.set("/", Folder("/", client))
 
-    auth_callback = None
-    if config and config.tgfs.users:
-
-        def authenticate(username: str, password: str) -> bool:
-            if username in config.tgfs.users:
-                return config.tgfs.users[username].password == password
-            return False
-
-        auth_callback = authenticate
+    def authenticate(username: str, password: str) -> Optional[User]:
+        if (user := config.tgfs.users.get(username)) and user.password == password:
+            return User(
+                username=username, permission="readonly" if user.readonly else "admin"
+            )
+        return None
 
     return create_app(
-        lambda path: _get_member(path, client),
-        {
+        get_member=lambda path: _get_member(path, client),
+        jwt_config={
             "secret": config.tgfs.jwt.secret,
             "algorithm": config.tgfs.jwt.algorithm,
             "life": config.tgfs.jwt.life,
         },
-        auth_callback,
+        auth_callback=authenticate if config.tgfs.users else default_auth_callback,
     )

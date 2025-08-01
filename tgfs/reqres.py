@@ -19,7 +19,7 @@ class SentFileMessage(Message):
 
 @dataclass
 class Chat:
-    chat_id: PeerChannel
+    chat: PeerChannel
 
 
 @dataclass

@@ -23,13 +23,11 @@ import { telegramTheme } from "./telegram-theme";
 import WebDAVClient from "./webdav-client";
 
 interface LoginFormData {
-  serverAddress: string;
-  port: string;
+  webdavUrl: string;
   username: string;
   password: string;
   anonymous: boolean;
-  managerAddress: string;
-  managerPort: string;
+  managerUrl: string;
   enableManager: boolean;
 }
 
@@ -41,13 +39,11 @@ export default function TelegramMiniApp() {
   const [taskManagerClient, setTaskManagerClient] =
     useState<TaskManagerClient | null>(null);
   const [formData, setFormData] = useState<LoginFormData>({
-    serverAddress: "",
-    port: "1900",
+    webdavUrl: "",
     username: "",
     password: "",
     anonymous: false,
-    managerAddress: "",
-    managerPort: "1901",
+    managerUrl: "",
     enableManager: false,
   });
 
@@ -69,31 +65,24 @@ export default function TelegramMiniApp() {
   // Check for existing JWT token on component mount
   useEffect(() => {
     const token = Cookies.get("jwt_token");
-    const savedServerAddress = Cookies.get("server_address");
-    const savedPort = Cookies.get("server_port");
-    const savedManagerAddress = Cookies.get("manager_address");
-    const savedManagerPort = Cookies.get("manager_port");
+    const savedWebdavUrl = Cookies.get("webdav_url");
+    const savedManagerUrl = Cookies.get("manager_url");
     const savedEnableManager = Cookies.get("enable_manager") === "true";
 
     // Prefill form data from cookies
     setFormData((prev) => ({
       ...prev,
-      serverAddress: savedServerAddress || "",
-      port: savedPort || "1900",
-      managerAddress: savedManagerAddress || "",
-      managerPort: savedManagerPort || "1901",
+      webdavUrl: savedWebdavUrl || "",
       enableManager: savedEnableManager,
     }));
 
-    if (token && savedServerAddress && savedPort) {
-      const baseUrl = `http://${savedServerAddress}:${savedPort}`;
-      const client = new WebDAVClient(baseUrl, token, handle401Error);
+    if (token && savedWebdavUrl) {
+      const client = new WebDAVClient(savedWebdavUrl, token, handle401Error);
       setWebdavClient(client);
 
       // Initialize task manager client if enabled and configured
-      if (savedEnableManager && savedManagerAddress && savedManagerPort) {
-        const taskManagerUrl = `http://${savedManagerAddress}:${savedManagerPort}`;
-        const taskClient = new TaskManagerClient(taskManagerUrl);
+      if (savedEnableManager && savedManagerUrl) {
+        const taskClient = new TaskManagerClient(savedManagerUrl);
         setTaskManagerClient(taskClient);
       }
 
@@ -116,10 +105,8 @@ export default function TelegramMiniApp() {
     setError(null);
 
     try {
-      const baseUrl = `http://${formData.serverAddress}:${formData.port}`;
-
       // Send login request to get JWT token
-      const response = await fetch(`${baseUrl}/login`, {
+      const response = await fetch(`${formData.webdavUrl}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -139,31 +126,24 @@ export default function TelegramMiniApp() {
 
       // Store JWT token and server info in cookies
       Cookies.set("jwt_token", token, { expires: 7 }); // 7 days expiry
-      Cookies.set("server_address", formData.serverAddress, { expires: 7 });
-      Cookies.set("server_port", formData.port, { expires: 7 });
-
-      // Store manager settings
-      Cookies.set(
-        "manager_address",
-        formData.managerAddress || formData.serverAddress,
-        { expires: 7 }
-      );
-      Cookies.set("manager_port", formData.managerPort, { expires: 7 });
+      Cookies.set("webdav_url", formData.webdavUrl, { expires: 7 });
+      Cookies.set("manager_url", formData.managerUrl, { expires: 7 });
       Cookies.set("enable_manager", formData.enableManager.toString(), {
         expires: 7,
       });
 
       // Create WebDAV client with JWT token
-      const client = new WebDAVClient(baseUrl, token, handle401Error);
+      const client = new WebDAVClient(
+        formData.webdavUrl,
+        token,
+        handle401Error
+      );
       await client.connect();
       setWebdavClient(client);
 
       // Initialize task manager client if enabled
       if (formData.enableManager) {
-        const managerAddress =
-          formData.managerAddress || formData.serverAddress;
-        const taskManagerUrl = `http://${managerAddress}:${formData.managerPort}`;
-        const taskClient = new TaskManagerClient(taskManagerUrl);
+        const taskClient = new TaskManagerClient(formData.managerUrl);
         setTaskManagerClient(taskClient);
       }
 
@@ -262,21 +242,10 @@ export default function TelegramMiniApp() {
               sx={{ display: "flex", flexDirection: "column", gap: 2 }}
             >
               <TextField
-                label="Server Address"
-                value={formData.serverAddress}
-                onChange={handleInputChange("serverAddress")}
+                label="WebDAV URL"
+                value={formData.webdavUrl}
+                onChange={handleInputChange("webdavUrl")}
                 placeholder="localhost or your-server.com"
-                fullWidth
-                required
-                disabled={isLoading}
-              />
-
-              <TextField
-                label="Port"
-                value={formData.port}
-                onChange={handleInputChange("port")}
-                type="number"
-                placeholder="1900"
                 fullWidth
                 required
                 disabled={isLoading}
@@ -341,24 +310,12 @@ export default function TelegramMiniApp() {
                 <>
                   <TextField
                     label="Task Manager Address"
-                    value={formData.managerAddress}
-                    onChange={handleInputChange("managerAddress")}
-                    placeholder={
-                      formData.serverAddress || "Same as server address"
-                    }
+                    value={formData.managerUrl}
+                    onChange={handleInputChange("managerUrl")}
+                    placeholder={formData.managerUrl}
                     fullWidth
                     disabled={isLoading}
-                    helperText="Leave empty to use the same address as WebDAV server"
-                  />
-
-                  <TextField
-                    label="Task Manager Port"
-                    value={formData.managerPort}
-                    onChange={handleInputChange("managerPort")}
-                    type="number"
-                    placeholder="1901"
-                    fullWidth
-                    disabled={isLoading}
+                    helperText="URL for task manager server"
                   />
                 </>
               )}
@@ -366,9 +323,7 @@ export default function TelegramMiniApp() {
               <Button
                 variant="contained"
                 onClick={handleLogin}
-                disabled={
-                  isLoading || !formData.serverAddress || !formData.port
-                }
+                disabled={isLoading || !formData.webdavUrl}
                 sx={{ mt: 2 }}
                 startIcon={
                   isLoading ? <CircularProgress size={20} /> : <Login />
