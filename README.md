@@ -12,6 +12,12 @@ Refer to [getting started](https://theodorekrypton.github.io/tgfs/) for installa
 
 Refer to the [wiki page](https://github.com/TheodoreKrypton/tgfs/wiki/TGFS-Wiki) for technical detail.
 
+## Demo Server
+* WebDAV URL: `https://wheatcarrier.site`
+* `username` and `password` can be any
+* File channel on Telegram: [@tgfsdemo](https://t.me/tgfsdemo)
+* Github repository for metadata: [https://github.com/tgfs-demo/tgfs-demo](https://github.com/tgfs-demo/tgfs-demo)
+
 ## Development
 
 Install the dependencies:
