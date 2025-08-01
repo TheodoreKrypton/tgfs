@@ -84,7 +84,7 @@ class TGMsgFDRepository(IFDRepository):
             logging.error(
                 f"File descriptor (message_id: {fr.message_id}) for {fr.name} not found"
             )
-            return TGFSFileDesc.empty(f"[Not Found]{fr.name}")
+            return TGFSFileDesc.empty(fr.name)
 
         fd = TGFSFileDesc.from_dict(json.loads(message.text), name=fr.name)
         return await self._validate_fv(fd, include_all_versions)

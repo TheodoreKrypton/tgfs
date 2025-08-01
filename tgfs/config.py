@@ -197,7 +197,7 @@ class Config:
         )
 
 
-__config_file_path = expand_path(os.path.join(DATA_DIR, "tgfsdemo-config.yaml"))
+__config_file_path = expand_path(os.path.join(DATA_DIR, "config.yaml"))
 __config: Config | None = None
 
 
