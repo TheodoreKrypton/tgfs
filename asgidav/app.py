@@ -133,10 +133,7 @@ def create_app(
 
     def deny_readonly_user(request: Request, user: User) -> Optional[Response]:
         if request.method not in readonly_methods and user.permission == "readonly":
-            return Response(
-                status_code=HTTPStatus.FORBIDDEN,
-                content="You do not have permission to perform this operation.",
-            )
+            return UNAUTHORIZED
         return None
 
     @app.middleware("http")
@@ -150,22 +147,21 @@ def create_app(
         if auth_header.startswith("Bearer "):
             token = auth_header[7:]
             try:
-                if res := jwt.decode(
+                res = jwt.decode(
                     token,
                     key=jwt_config["secret"],
                     algorithms=[jwt_config["algorithm"]],
                     options={"verify_exp": True},
+                )
+                if resp := deny_readonly_user(
+                    request,
+                    User(
+                        username=res["username"],
+                        permission=res["permission"],
+                    ),
                 ):
-                    if resp := deny_readonly_user(
-                        request,
-                        User(
-                            username=res["username"],
-                            permission=res["permission"],
-                        ),
-                    ):
-                        return resp
-                    return await call_next(request)
-                return UNAUTHORIZED
+                    return resp
+                return await call_next(request)
             except Exception as e:
                 logger.error(e)
                 return UNAUTHORIZED
