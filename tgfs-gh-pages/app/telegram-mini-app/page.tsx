@@ -1,6 +1,13 @@
 "use client";
 
-import { FolderOpen, Login, TaskAlt, Wifi, WifiOff } from "@mui/icons-material";
+import {
+  FolderOpen,
+  Login,
+  TaskAlt,
+  Telegram,
+  Wifi,
+  WifiOff,
+} from "@mui/icons-material";
 import {
   Alert,
   Box,
@@ -14,9 +21,18 @@ import {
   TextField,
   ThemeProvider,
   Typography,
+  createTheme,
 } from "@mui/material";
+import {
+  init,
+  isTMA,
+  miniApp,
+  retrieveLaunchParams,
+  viewport,
+} from "@telegram-apps/sdk";
+import type { ThemeParams } from "@telegram-apps/types";
 import Cookies from "js-cookie";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import FileExplorer from "./file-explorer";
 import TaskManagerClient from "./task-manager-client";
 import { telegramTheme } from "./telegram-theme";
@@ -32,12 +48,16 @@ interface LoginFormData {
 }
 
 export default function TelegramMiniApp() {
+  // State management
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [webdavClient, setWebdavClient] = useState<WebDAVClient | null>(null);
   const [taskManagerClient, setTaskManagerClient] =
     useState<TaskManagerClient | null>(null);
+  const [isInTelegram, setIsInTelegram] = useState(false);
+  const [telegramThemeColors, setTelegramThemeColors] =
+    useState<ThemeParams | null>(null);
   const [formData, setFormData] = useState<LoginFormData>({
     webdavUrl: "",
     username: "",
@@ -47,14 +67,15 @@ export default function TelegramMiniApp() {
     enableManager: false,
   });
 
+  // Session cleanup handler
   const handle401Error = () => {
-    // Clear tokens and redirect to login
-    Cookies.remove("jwt_token");
-    Cookies.remove("server_address");
-    Cookies.remove("server_port");
-    Cookies.remove("manager_address");
-    Cookies.remove("manager_port");
-    Cookies.remove("enable_manager");
+    const cookiesToRemove = [
+      "jwt_token",
+      "webdav_url",
+      "manager_url",
+      "enable_manager",
+    ];
+    cookiesToRemove.forEach((cookie) => Cookies.remove(cookie));
 
     setIsLoggedIn(false);
     setWebdavClient(null);
@@ -62,14 +83,36 @@ export default function TelegramMiniApp() {
     setError("Session expired. Please login again.");
   };
 
-  // Check for existing JWT token on component mount
+  // Initialize app on mount
   useEffect(() => {
+    // Initialize Telegram SDK using the standard pattern
+    try {
+      // First, initialize the SDK
+      init();
+
+      // Check if we're in Telegram environment using the official method
+      const inTelegram = isTMA();
+      setIsInTelegram(inTelegram);
+
+      if (inTelegram) {
+        miniApp.ready();
+        viewport.expand();
+
+        const launchParams = retrieveLaunchParams();
+        setTelegramThemeColors(launchParams.tgWebAppThemeParams);
+        document.body.style.backgroundColor =
+          launchParams.tgWebAppThemeParams.bg_color || "";
+      }
+    } catch {
+      setIsInTelegram(false);
+    }
+
+    // Restore session from cookies
     const token = Cookies.get("jwt_token");
     const savedWebdavUrl = Cookies.get("webdav_url");
     const savedManagerUrl = Cookies.get("manager_url");
     const savedEnableManager = Cookies.get("enable_manager") === "true";
 
-    // Prefill form data from cookies
     setFormData((prev) => ({
       ...prev,
       webdavUrl: savedWebdavUrl || "",
@@ -80,7 +123,6 @@ export default function TelegramMiniApp() {
       const client = new WebDAVClient(savedWebdavUrl, token, handle401Error);
       setWebdavClient(client);
 
-      // Initialize task manager client if enabled and configured
       if (savedEnableManager && savedManagerUrl) {
         const taskClient = new TaskManagerClient(savedManagerUrl);
         setTaskManagerClient(taskClient);
@@ -156,23 +198,152 @@ export default function TelegramMiniApp() {
   };
 
   const handleLogout = () => {
-    // Clear JWT token and server info from cookies
-    Cookies.remove("jwt_token");
-    Cookies.remove("server_address");
-    Cookies.remove("server_port");
-    Cookies.remove("manager_address");
-    Cookies.remove("manager_port");
-    Cookies.remove("enable_manager");
-
-    setIsLoggedIn(false);
-    setWebdavClient(null);
-    setTaskManagerClient(null);
+    handle401Error();
     setError(null);
   };
 
+  // Create dynamic theme based on Telegram theme parameters
+  const currentTheme = React.useMemo(() => {
+    if (isInTelegram && telegramThemeColors) {
+      // Use actual Telegram colors with fallbacks only when not in Telegram
+      const telegramBg = telegramThemeColors.bg_color || "#ffffff";
+      const telegramPaper = telegramThemeColors.secondary_bg_color || "#f8f9fa";
+      const telegramText = telegramThemeColors.text_color || "#000000";
+      const telegramHint = telegramThemeColors.hint_color || "#6c757d";
+      const telegramButton = telegramThemeColors.button_color || "#0088cc";
+      const telegramLink = telegramThemeColors.link_color || "#0088cc";
+
+      return createTheme({
+        palette: {
+          primary: {
+            main: telegramButton,
+            contrastText: telegramThemeColors.button_text_color || telegramText,
+          },
+          secondary: {
+            main: telegramLink,
+          },
+          background: {
+            default: telegramBg,
+            paper: telegramPaper,
+          },
+          text: {
+            primary: telegramText,
+            secondary: telegramHint,
+          },
+        },
+        typography: {
+          fontFamily:
+            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+          h4: {
+            fontWeight: 600,
+            fontSize: "1.5rem",
+          },
+          h5: {
+            fontWeight: 600,
+            fontSize: "1.25rem",
+          },
+        },
+        components: {
+          MuiCssBaseline: {
+            styleOverrides: {
+              body: {
+                backgroundColor: telegramBg,
+                color: telegramText,
+              },
+            },
+          },
+          MuiPaper: {
+            styleOverrides: {
+              root: {
+                backgroundColor: telegramPaper,
+                borderRadius: 12,
+                border: `1px solid ${
+                  telegramThemeColors.hint_color || "#6c757d"
+                }33`, // 33 = 20% opacity
+              },
+            },
+          },
+          MuiButton: {
+            styleOverrides: {
+              root: {
+                textTransform: "none",
+                borderRadius: 8,
+                fontWeight: 500,
+              },
+              contained: {
+                backgroundColor: telegramButton,
+                color: telegramThemeColors.button_text_color || "#ffffff",
+                boxShadow: "none",
+                "&:hover": {
+                  opacity: 0.9,
+                  boxShadow: "none",
+                },
+              },
+            },
+          },
+          MuiTextField: {
+            styleOverrides: {
+              root: {
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 8,
+                  backgroundColor: `${
+                    telegramThemeColors.hint_color || "#6c757d"
+                  }0d`, // 0d = 5% opacity
+                  "& fieldset": {
+                    borderColor: `${
+                      telegramThemeColors.hint_color || "#6c757d"
+                    }3a`, // 3a = 23% opacity
+                  },
+                  "&:hover fieldset": {
+                    borderColor: telegramButton,
+                  },
+                  "&.Mui-focused fieldset": {
+                    borderColor: telegramButton,
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+    return telegramTheme;
+  }, [isInTelegram, telegramThemeColors]);
+
   return (
-    <ThemeProvider theme={telegramTheme}>
+    <ThemeProvider theme={currentTheme}>
       <CssBaseline />
+      {!isInTelegram && (
+        <Button
+          onClick={() =>
+            window.open("https://t.me/tgfsprdbot/manager", "_blank")
+          }
+          variant="contained"
+          sx={{
+            position: "fixed",
+            top: 16,
+            right: 16,
+            minWidth: "auto",
+            borderRadius: "50px",
+            px: 2,
+            py: 1,
+            bgcolor: "primary.main",
+            color: "primary.contrastText",
+            fontSize: "12px",
+            fontWeight: "bold",
+            boxShadow: 3,
+            zIndex: 1000,
+            "&:hover": {
+              opacity: 0.9,
+              transform: "translateY(-1px)",
+            },
+            transition: "all 0.2s ease-in-out",
+          }}
+          startIcon={<Telegram sx={{ fontSize: "16px !important" }} />}
+        >
+          Open in Telegram
+        </Button>
+      )}
       {isLoggedIn && webdavClient ? (
         <Container maxWidth="sm" sx={{ py: 2, minHeight: "100vh" }}>
           <Box
@@ -188,7 +359,7 @@ export default function TelegramMiniApp() {
               component="h1"
               sx={{ display: "flex", alignItems: "center", gap: 1 }}
             >
-              <FolderOpen />
+              <FolderOpen sx={{ color: "text.primary" }} />
               TGFS Explorer
             </Typography>
             <Button
@@ -222,7 +393,7 @@ export default function TelegramMiniApp() {
               gutterBottom
               sx={{ display: "flex", alignItems: "center", gap: 1 }}
             >
-              <Login />
+              <Login sx={{ color: "text.primary" }} />
               TGFS WebDAV Connection
             </Typography>
 
@@ -261,7 +432,11 @@ export default function TelegramMiniApp() {
                 }
                 label={
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    {formData.anonymous ? <WifiOff /> : <Wifi />}
+                    {formData.anonymous ? (
+                      <WifiOff sx={{ color: "text.primary" }} />
+                    ) : (
+                      <Wifi sx={{ color: "text.primary" }} />
+                    )}
                     Anonymous Login
                   </Box>
                 }
@@ -300,7 +475,7 @@ export default function TelegramMiniApp() {
                 }
                 label={
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <TaskAlt />
+                    <TaskAlt sx={{ color: "text.primary" }} />
                     Enable Task Manager
                   </Box>
                 }
