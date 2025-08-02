@@ -4,9 +4,9 @@ import {
   FolderOpen,
   Login,
   TaskAlt,
+  Telegram,
   Wifi,
   WifiOff,
-  Telegram,
 } from "@mui/icons-material";
 import {
   Alert,
@@ -23,17 +23,16 @@ import {
   Typography,
   createTheme,
 } from "@mui/material";
-import Cookies from "js-cookie";
-import React, { useEffect, useState } from "react";
 import {
-  miniApp,
-  viewport,
-  on,
   init,
   isTMA,
+  miniApp,
   retrieveLaunchParams,
+  viewport,
 } from "@telegram-apps/sdk";
 import type { ThemeParams } from "@telegram-apps/types";
+import Cookies from "js-cookie";
+import React, { useEffect, useState } from "react";
 import FileExplorer from "./file-explorer";
 import TaskManagerClient from "./task-manager-client";
 import { telegramTheme } from "./telegram-theme";
@@ -86,8 +85,6 @@ export default function TelegramMiniApp() {
 
   // Initialize app on mount
   useEffect(() => {
-    let removeThemeListener: (() => void) | null = null;
-
     // Initialize Telegram SDK using the standard pattern
     try {
       // First, initialize the SDK
@@ -105,12 +102,6 @@ export default function TelegramMiniApp() {
         setTelegramThemeColors(launchParams.tgWebAppThemeParams);
         document.body.style.backgroundColor =
           launchParams.tgWebAppThemeParams.bg_color || "";
-
-        removeThemeListener = on("theme_changed", (eventData) => {
-          const updatedTheme = eventData.theme_params;
-          setTelegramThemeColors(updatedTheme);
-          document.body.style.backgroundColor = updatedTheme.bg_color || "";
-        });
       }
     } catch {
       setIsInTelegram(false);
@@ -139,13 +130,6 @@ export default function TelegramMiniApp() {
 
       setIsLoggedIn(true);
     }
-
-    // Cleanup function
-    return () => {
-      if (typeof removeThemeListener === "function") {
-        removeThemeListener();
-      }
-    };
   }, []);
 
   const handleInputChange =
