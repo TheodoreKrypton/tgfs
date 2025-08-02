@@ -109,7 +109,6 @@ const generateRandomSecret = (): string => {
 
 export default function ConfigGenerator() {
   const [includeTaskManager, setIncludeTaskManager] = useState(true);
-  console.log(includeTaskManager);
   const [config, setConfig] = useState<ConfigData>({
     telegram: {
       api_id: "",
