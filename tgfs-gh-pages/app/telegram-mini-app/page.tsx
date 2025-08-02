@@ -32,6 +32,7 @@ import {
 } from "@telegram-apps/sdk";
 import type { ThemeParams } from "@telegram-apps/types";
 import Cookies from "js-cookie";
+import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import FileExplorer from "./file-explorer";
 import TaskManagerClient from "./task-manager-client";
@@ -315,9 +316,6 @@ export default function TelegramMiniApp() {
       <CssBaseline />
       {!isInTelegram && (
         <Button
-          onClick={() =>
-            window.open("https://t.me/tgfsprdbot/manager", "_blank")
-          }
           variant="contained"
           sx={{
             position: "fixed",
@@ -341,7 +339,14 @@ export default function TelegramMiniApp() {
           }}
           startIcon={<Telegram sx={{ fontSize: "16px !important" }} />}
         >
-          Open in Telegram
+          <Link
+            href="https://t.me/tgfsprdbot/manager"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: "inherit", textDecoration: "none" }}
+          >
+            Open in Telegram
+          </Link>
         </Button>
       )}
       {isLoggedIn && webdavClient ? (
