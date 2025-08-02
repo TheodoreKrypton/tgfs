@@ -1,17 +1,17 @@
 "use client";
 
-import Link from "next/link";
+import { Apps, ArrowBack, Settings } from "@mui/icons-material";
 import {
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent,
-  Typography,
-  Button,
-  TextField,
   Box,
+  Button,
+  Step,
+  StepContent,
+  StepLabel,
+  Stepper,
+  TextField,
+  Typography,
 } from "@mui/material";
-import { ArrowBack, Settings, Apps } from "@mui/icons-material";
+import Link from "next/link";
 import { useState } from "react";
 
 export default function GettingStarted() {
@@ -368,12 +368,13 @@ export default function GettingStarted() {
                   </li>
                   <li style={{ marginBottom: "12px" }}>
                     <a
-                      href="https://davdroid.com/"
+                      href="https://readdle.com/documents"
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      DavDroid
+                      Documents
                     </a>
+                    &nbsp;by Readdle
                   </li>
                 </ul>
                 <Typography
