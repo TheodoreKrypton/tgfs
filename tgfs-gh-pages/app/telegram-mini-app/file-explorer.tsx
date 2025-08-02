@@ -271,9 +271,9 @@ export default function FileExplorer({ webdavClient, taskManagerClient }: FileEx
 
   const getFileIcon = (item: WebDAVItem) => {
     if (item.isDirectory) {
-      return <Folder color="primary" />;
+      return <Folder sx={{ color: "primary.main" }} />;
     }
-    return <InsertDriveFile color="action" />;
+    return <InsertDriveFile sx={{ color: "text.secondary" }} />;
   };
 
   const getFileInfo = (item: WebDAVItem) => {
@@ -341,7 +341,7 @@ export default function FileExplorer({ webdavClient, taskManagerClient }: FileEx
               sx={{ ml: 1 }}
               title="Remove task"
             >
-              <Close fontSize="small" />
+              <Close fontSize="small" sx={{ color: "text.secondary" }} />
             </IconButton>
           )}
         </Box>
@@ -377,7 +377,7 @@ export default function FileExplorer({ webdavClient, taskManagerClient }: FileEx
               onClick={(e) => handleMenuOpen(e, item)}
               sx={{ ml: 1 }}
             >
-              <MoreVert fontSize="small" />
+              <MoreVert fontSize="small" sx={{ color: "text.secondary" }} />
             </IconButton>
           </Box>
         }
@@ -409,7 +409,7 @@ export default function FileExplorer({ webdavClient, taskManagerClient }: FileEx
               onClick={() => loadDirectory(part.path)}
               sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
             >
-              {index === 0 && <Home fontSize="small" />}
+              {index === 0 && <Home fontSize="small" sx={{ color: "text.primary" }} />}
               {part.name}
             </Link>
           ))}
@@ -420,7 +420,7 @@ export default function FileExplorer({ webdavClient, taskManagerClient }: FileEx
             {items.length} items
           </Typography>
           <IconButton onClick={() => loadDirectory(currentPath)} size="small">
-            <Refresh />
+            <Refresh sx={{ color: "text.primary" }} />
           </IconButton>
         </Box>
       </Box>
@@ -475,12 +475,12 @@ export default function FileExplorer({ webdavClient, taskManagerClient }: FileEx
       >
         {!selectedItem?.isDirectory && (
           <MenuItem onClick={handleDownload}>
-            <Download sx={{ mr: 1 }} />
+            <Download sx={{ mr: 1, color: "text.primary" }} />
             Download
           </MenuItem>
         )}
         <MenuItem onClick={handleDelete}>
-          <Delete sx={{ mr: 1 }} />
+          <Delete sx={{ mr: 1, color: "text.primary" }} />
           Delete
         </MenuItem>
       </Menu>
