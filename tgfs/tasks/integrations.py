@@ -16,14 +16,14 @@ class TaskTracker:
 
     async def update_progress(
         self,
-        size_processed: Optional[int] = None,
+        size_delta: Optional[int] = None,
         status: Optional[TaskStatus] = None,
         error_message: Optional[str] = None,
     ):
         """Update task progress by size processed"""
         try:
             await task_store.update_task_progress(
-                self.task_id, size_processed, status, error_message
+                self.task_id, size_delta, status, error_message
             )
         except Exception as e:
             logger.error(f"Failed to update task progress for {self.task_id}: {e}")
@@ -38,6 +38,9 @@ class TaskTracker:
             status=TaskStatus.FAILED,
             error_message=error_message,
         )
+
+    async def cancelled(self) -> bool:
+        return not await task_store.get_task(self.task_id)
 
 
 async def create_upload_task(

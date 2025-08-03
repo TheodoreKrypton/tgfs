@@ -112,14 +112,11 @@ class FileApi:
         )
 
         async def chunks():
-            size_processed = 0
-
             try:
                 async for chunk in await self.__file_desc_api.download_file_at_version(
                     fv, begin, end, as_name or fr.name
                 ):
-                    size_processed += len(chunk)
-                    await task_tracker.update_progress(size_processed=size_processed)
+                    await task_tracker.update_progress(size_delta=len(chunk))
                     yield chunk
 
                 await task_tracker.mark_completed()

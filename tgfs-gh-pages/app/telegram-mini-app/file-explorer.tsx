@@ -34,16 +34,19 @@ import {
 } from "@mui/material";
 import { SimpleTreeView } from "@mui/x-tree-view/SimpleTreeView";
 import { TreeItem } from "@mui/x-tree-view/TreeItem";
-import { useEffect, useState, useCallback } from "react";
-import WebDAVClient, { WebDAVItem } from "./webdav-client";
+import { useCallback, useEffect, useState } from "react";
 import TaskManagerClient, { Task } from "./task-manager-client";
+import WebDAVClient, { WebDAVItem } from "./webdav-client";
 
 interface FileExplorerProps {
   webdavClient: WebDAVClient;
   taskManagerClient?: TaskManagerClient;
 }
 
-export default function FileExplorer({ webdavClient, taskManagerClient }: FileExplorerProps) {
+export default function FileExplorer({
+  webdavClient,
+  taskManagerClient,
+}: FileExplorerProps) {
   const [currentPath, setCurrentPath] = useState("/");
   const [items, setItems] = useState<WebDAVItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,35 +68,44 @@ export default function FileExplorer({ webdavClient, taskManagerClient }: FileEx
   });
   const [tasks, setTasks] = useState<Task[]>([]);
 
-  const loadDirectory = useCallback(async (path: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const directoryItems = await webdavClient.listDirectory(path);
-      setItems(directoryItems);
-      setCurrentPath(path);
-      
-      // Also load tasks for this directory if task manager is available
-      if (taskManagerClient) {
-        try {
-          const directoryTasks = await taskManagerClient.getTasksUnderPath(path);
-          setTasks(directoryTasks);
-        } catch (taskErr) {
-          console.warn("Failed to load tasks:", taskErr);
+  const loadDirectory = useCallback(
+    async (path: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const directoryItems = await webdavClient.listDirectory(path);
+        setItems(directoryItems);
+        setCurrentPath(path);
+
+        // Also load tasks for this directory if task manager is available
+        if (taskManagerClient) {
+          try {
+            const directoryTasks = await taskManagerClient.getTasksUnderPath(
+              path
+            );
+            setTasks(directoryTasks);
+          } catch (taskErr) {
+            console.warn("Failed to load tasks:", taskErr);
+          }
         }
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to load directory"
+        );
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load directory");
-    } finally {
-      setLoading(false);
-    }
-  }, [webdavClient, taskManagerClient]);
+    },
+    [webdavClient, taskManagerClient]
+  );
 
   // Load tasks for current directory
   const loadTasks = useCallback(async () => {
     if (taskManagerClient) {
       try {
-        const directoryTasks = await taskManagerClient.getTasksUnderPath(currentPath);
+        const directoryTasks = await taskManagerClient.getTasksUnderPath(
+          currentPath
+        );
         setTasks(directoryTasks);
       } catch (taskErr) {
         console.warn("Failed to load tasks:", taskErr);
@@ -312,9 +324,13 @@ export default function FileExplorer({ webdavClient, taskManagerClient }: FileEx
             </Typography>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                {task.status} • {taskManagerClient?.formatProgress(task.progress)}
+                {task.status} •{" "}
+                {taskManagerClient?.formatProgress(task.progress)}
                 {task.status === "in_progress" && task.speed_bytes_per_sec && (
-                  <> • {taskManagerClient?.formatSpeed(task.speed_bytes_per_sec)}</>
+                  <>
+                    {" "}
+                    • {taskManagerClient?.formatSpeed(task.speed_bytes_per_sec)}
+                  </>
                 )}
               </Typography>
               {task.status === "in_progress" && (
@@ -327,23 +343,23 @@ export default function FileExplorer({ webdavClient, taskManagerClient }: FileEx
             </Box>
             {task.size_total && (
               <Typography variant="caption" color="text.secondary">
-                {taskManagerClient?.formatFileSize(task.size_processed)} / {taskManagerClient?.formatFileSize(task.size_total)}
+                {taskManagerClient?.formatFileSize(task.size_processed)} /{" "}
+                {taskManagerClient?.formatFileSize(task.size_total)}
               </Typography>
             )}
           </Box>
-          {(task.status === "completed" || task.status === "failed") && (
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteTask(task.id, task.filename);
-              }}
-              sx={{ ml: 1 }}
-              title="Remove task"
-            >
-              <Close fontSize="small" sx={{ color: "text.secondary" }} />
-            </IconButton>
-          )}
+
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDeleteTask(task.id, task.filename);
+            }}
+            sx={{ ml: 1 }}
+            title="Remove task"
+          >
+            <Close fontSize="small" sx={{ color: "text.secondary" }} />
+          </IconButton>
         </Box>
       }
     />
@@ -409,7 +425,9 @@ export default function FileExplorer({ webdavClient, taskManagerClient }: FileEx
               onClick={() => loadDirectory(part.path)}
               sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
             >
-              {index === 0 && <Home fontSize="small" sx={{ color: "text.primary" }} />}
+              {index === 0 && (
+                <Home fontSize="small" sx={{ color: "text.primary" }} />
+              )}
               {part.name}
             </Link>
           ))}

@@ -10,7 +10,7 @@ from telethon.tl.types import PeerChannel
 from telethon.utils import get_appropriated_part_size
 
 from tgfs.config import get_config
-from tgfs.errors import TechnicalError
+from tgfs.errors import TaskCancelled, TechnicalError
 from tgfs.reqres import (
     FileMessageFromBuffer,
     FileMessageFromPath,
@@ -127,11 +127,6 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
                     raise TechnicalError(f"Unexpected response: {rsp}")
 
                 self.__uploaded_size += len(chunk.content)
-
-                if self._task_tracker:
-                    await self._task_tracker.update_progress(
-                        size_processed=self.__uploaded_size,
-                    )
                 return
 
             except Exception as e:
@@ -171,10 +166,14 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         await self.__upload_chunk(FileChunk(content=content, file_part=file_part))
         return chunk_length
 
+    async def _cancelled(self) -> bool:
+        if self._task_tracker:
+            return await self._task_tracker.cancelled()
+        return False
+
     async def upload(
         self,
         file: T,
-        callback: Optional[Callable[[int, int], None]] = None,
         file_name: Optional[str] = None,
     ) -> int:
         await self._prepare(file)
@@ -183,14 +182,20 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         async def create_worker(worker_id: int) -> bool:
             try:
                 while not self.__done_reading():
+                    if await self._cancelled():
+                        logger.warning(
+                            f"Task uploading for {self.__file_name} was cancelled. Worker {worker_id} exiting."
+                        )
+                        return False
+
                     part_size = await self.__upload_next_part()
                     logger.debug(
                         f"[Worker {worker_id}] {self.__uploaded_size * 100 / self._file_size}% uploaded. file_id={self._file_id} file_name={self.__file_name}"
                     )
-
-                    if part_size and callback:
-                        callback(self.__read_size, self._file_size)
-
+                    if self._task_tracker and part_size > 0:
+                        await self._task_tracker.update_progress(
+                            size_delta=part_size,
+                        )
                 return True
 
             except Exception as e:
@@ -202,6 +207,13 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
             await asyncio.gather(
                 *(create_worker(worker_id) for worker_id in range(self.__num_workers))
             )
+
+            if await self._cancelled():
+                logger.warning(
+                    f"Task uploading for {self.__file_name} was cancelled. Exiting upload."
+                )
+                raise TaskCancelled(self.__file_name)
+
             await self.__save_uncompleted_chunks()
 
         await asyncio.sleep(0.5)

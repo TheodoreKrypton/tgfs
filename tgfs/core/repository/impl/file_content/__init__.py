@@ -60,10 +60,6 @@ class TGMsgFileContentRepository(IFileContentRepository):
             caption += f"#sha256IS{file_msg.tags.sha256}"
         return caption
 
-    @staticmethod
-    def __report(uploaded: int, total_size: int) -> None:
-        pass
-
     async def __send_file(self, file_msg: GeneralFileMessage) -> SentFileMessage:
         message_id: int = EMPTY_FILE_MESSAGE
 
@@ -77,7 +73,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
             ).message_id
 
         uploader = create_uploader(self.__message_api.tdlib, file_msg, on_complete)
-        size = await uploader.upload(file_msg, self.__report, file_msg.name)
+        size = await uploader.upload(file_msg, file_msg.name)
 
         return SentFileMessage(message_id=message_id, size=size)
 
@@ -151,7 +147,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
             )
 
         uploader = create_uploader(self.__message_api.tdlib, file_msg, on_complete)
-        await uploader.upload(file_msg, self.__report, file_msg.name)
+        await uploader.upload(file_msg, file_msg.name)
         return message_id
 
     @staticmethod

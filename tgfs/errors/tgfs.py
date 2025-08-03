@@ -46,3 +46,12 @@ class PinnedMessageNotSupported(BusinessError):
             code=ErrorCode.PINNED_MESSAGE_NOT_SUPPORTED,
             cause=None,
         )
+
+
+class TaskCancelled(BusinessError):
+    def __init__(self, file_name: str):
+        super().__init__(
+            message=f"Task for {file_name} has been cancelled",
+            code=ErrorCode.TASK_CANCELLED,
+            cause=None,
+        )
