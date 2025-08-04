@@ -35,7 +35,7 @@ import Cookies from "js-cookie";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import FileExplorer from "./file-explorer";
-import TaskManagerClient from "./task-manager-client";
+import ManagerClient from "./manager-client";
 import { telegramTheme } from "./telegram-theme";
 import WebDAVClient from "./webdav-client";
 
@@ -48,14 +48,22 @@ interface LoginFormData {
   enableManager: boolean;
 }
 
+type SavedInfo = {
+  webdavUrl: string;
+  username: string;
+  managerUrl: string;
+  enableManager: boolean;
+};
+
 export default function TelegramMiniApp() {
   // State management
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [webdavClient, setWebdavClient] = useState<WebDAVClient | null>(null);
-  const [taskManagerClient, setTaskManagerClient] =
-    useState<TaskManagerClient | null>(null);
+  const [managerClient, setManagerClient] = useState<ManagerClient | null>(
+    null
+  );
   const [isInTelegram, setIsInTelegram] = useState(false);
   const [telegramThemeColors, setTelegramThemeColors] =
     useState<ThemeParams | null>(null);
@@ -80,7 +88,7 @@ export default function TelegramMiniApp() {
 
     setIsLoggedIn(false);
     setWebdavClient(null);
-    setTaskManagerClient(null);
+    setManagerClient(null);
     setError("Session expired. Please login again.");
   };
 
@@ -110,23 +118,29 @@ export default function TelegramMiniApp() {
 
     // Restore session from cookies
     const token = Cookies.get("jwt_token");
-    const savedWebdavUrl = Cookies.get("webdav_url");
-    const savedManagerUrl = Cookies.get("manager_url");
-    const savedEnableManager = Cookies.get("enable_manager") === "true";
+    const savedInfo: SavedInfo = JSON.parse(
+      localStorage.getItem("saved_info") ?? "{}"
+    );
 
     setFormData((prev) => ({
       ...prev,
-      webdavUrl: savedWebdavUrl || "",
-      enableManager: savedEnableManager,
+      webdavUrl: savedInfo.webdavUrl || "",
+      username: savedInfo.username || "",
+      managerUrl: savedInfo.managerUrl || "",
+      enableManager: savedInfo.enableManager || false,
     }));
 
-    if (token && savedWebdavUrl) {
-      const client = new WebDAVClient(savedWebdavUrl, token, handle401Error);
+    if (token && savedInfo.webdavUrl) {
+      const client = new WebDAVClient(
+        savedInfo.webdavUrl,
+        token,
+        handle401Error
+      );
       setWebdavClient(client);
 
-      if (savedEnableManager && savedManagerUrl) {
-        const taskClient = new TaskManagerClient(savedManagerUrl);
-        setTaskManagerClient(taskClient);
+      if (savedInfo.enableManager && savedInfo.managerUrl) {
+        const managerClient = new ManagerClient(savedInfo.managerUrl, token);
+        setManagerClient(managerClient);
       }
 
       setIsLoggedIn(true);
@@ -169,11 +183,16 @@ export default function TelegramMiniApp() {
 
       // Store JWT token and server info in cookies
       Cookies.set("jwt_token", token, { expires: 7 }); // 7 days expiry
-      Cookies.set("webdav_url", formData.webdavUrl, { expires: 7 });
-      Cookies.set("manager_url", formData.managerUrl, { expires: 7 });
-      Cookies.set("enable_manager", formData.enableManager.toString(), {
-        expires: 7,
-      });
+
+      localStorage.setItem(
+        "saved_info",
+        JSON.stringify({
+          webdavUrl: formData.webdavUrl,
+          username: formData.username,
+          managerUrl: formData.managerUrl,
+          enableManager: formData.enableManager,
+        })
+      );
 
       // Create WebDAV client with JWT token
       const client = new WebDAVClient(
@@ -184,10 +203,10 @@ export default function TelegramMiniApp() {
       await client.connect();
       setWebdavClient(client);
 
-      // Initialize task manager client if enabled
+      // Initialize manager client if enabled
       if (formData.enableManager) {
-        const taskClient = new TaskManagerClient(formData.managerUrl);
-        setTaskManagerClient(taskClient);
+        const managerClient = new ManagerClient(formData.managerUrl, token);
+        setManagerClient(managerClient);
       }
 
       setIsLoggedIn(true);
@@ -378,7 +397,7 @@ export default function TelegramMiniApp() {
           </Box>
           <FileExplorer
             webdavClient={webdavClient}
-            taskManagerClient={taskManagerClient ?? undefined}
+            managerClient={managerClient ?? undefined}
           />
         </Container>
       ) : (

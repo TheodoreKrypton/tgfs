@@ -1,16 +1,13 @@
 import asyncio
-import base64
 import logging
-import time
 import uuid
 from collections.abc import Awaitable
 from contextvars import ContextVar
 from dataclasses import dataclass
 from http import HTTPStatus
-from typing import Any, Callable, Literal, Optional, TypedDict
+from typing import Any, Callable, Literal, Optional
 from urllib.parse import unquote, urlparse
 
-import jwt
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -41,12 +38,6 @@ def extract_path_from_destination(destination: str) -> str:
     return unquote(path)
 
 
-class JWTConfig(TypedDict):
-    secret: str
-    algorithm: str
-    life: int
-
-
 Permission = Literal["admin", "readonly"]
 
 
@@ -56,14 +47,10 @@ class User:
     permission: Permission
 
 
-def default_auth_callback(username: str, password: str) -> Optional[User]:
-    return User(username="anonymous", permission="readonly")
-
-
 def create_app(
     get_member: Callable[[str], Awaitable[Optional[Member]]],
-    jwt_config: JWTConfig,
-    auth_callback: Callable[[str, str], Optional[User]],
+    login_callback: Callable[[str, str], str],
+    auth_callback: Callable[[str], User],
 ) -> FastAPI:
     async def root() -> Folder:
         res = await get_member("/")
@@ -97,6 +84,7 @@ def create_app(
     NOT_FOUND = Response(status_code=HTTPStatus.NOT_FOUND, headers=common_headers)
     CREATED = Response(status_code=HTTPStatus.CREATED.value, headers=common_headers)
     NO_CONTENT = Response(status_code=HTTPStatus.NO_CONTENT, headers=common_headers)
+
     UNAUTHORIZED = Response(
         status_code=HTTPStatus.UNAUTHORIZED,
         content="Unauthorized",
@@ -131,10 +119,10 @@ def create_app(
         uuid_context.set(str(uuid.uuid4()))
         return await call_next(request)
 
-    def deny_readonly_user(request: Request, user: User) -> Optional[Response]:
+    def has_permission(request: Request, user: User) -> bool:
         if request.method not in readonly_methods and user.permission == "readonly":
-            return UNAUTHORIZED
-        return None
+            return False
+        return True
 
     @app.middleware("http")
     async def auth_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
@@ -144,40 +132,10 @@ def create_app(
         auth_header = request.headers.get("Authorization")
         if not auth_header:
             return UNAUTHORIZED
-        if auth_header.startswith("Bearer "):
-            token = auth_header[7:]
-            try:
-                res = jwt.decode(
-                    token,
-                    key=jwt_config["secret"],
-                    algorithms=[jwt_config["algorithm"]],
-                    options={"verify_exp": True},
-                )
-                if resp := deny_readonly_user(
-                    request,
-                    User(
-                        username=res["username"],
-                        permission=res["permission"],
-                    ),
-                ):
-                    return resp
-                return await call_next(request)
-            except Exception as e:
-                logger.error(e)
-                return UNAUTHORIZED
-        elif auth_header.startswith("Basic "):
-            try:
-                credentials = base64.b64decode(auth_header[6:]).decode("utf-8")
-                username, password = credentials.split(":", 1)
-                if user := auth_callback(username, password):
-                    if resp := deny_readonly_user(request, user):
-                        return resp
-                    return await call_next(request)
-                return UNAUTHORIZED
-            except (ValueError, UnicodeDecodeError):
-                return UNAUTHORIZED
-        else:
-            return UNAUTHORIZED
+
+        if (user := auth_callback(auth_header)) and has_permission(request, user):
+            return await call_next(request)
+        return UNAUTHORIZED
 
     class LoginRequest(BaseModel):
         username: str
@@ -185,17 +143,8 @@ def create_app(
 
     @app.post(path="/login")
     async def login(request: Request, body: LoginRequest):
-        if user := auth_callback(body.username, body.password):
-            jwt_token = jwt.encode(
-                {
-                    "username": user.username,
-                    "exp": int(time.time()) + jwt_config["life"],
-                    "permission": user.permission,
-                },
-                key=jwt_config["secret"],
-                algorithm=jwt_config["algorithm"],
-            )
-            return {"token": jwt_token}
+        if token := login_callback(body.username, body.password):
+            return {"token": token}
         return UNAUTHORIZED
 
     @app.options(path="/{path:path}")

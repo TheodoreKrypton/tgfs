@@ -10,11 +10,11 @@ class ResourceProperties(Properties):
 
 class Resource(Member):
     @abstractmethod
-    async def content_length(self):
+    async def content_length(self) -> int:
         pass
 
     @abstractmethod
-    async def display_name(self):
+    async def display_name(self) -> str:
         pass
 
     @abstractmethod

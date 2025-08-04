@@ -35,6 +35,7 @@ pytest = "^8.4.1"
 pytest-mock = "^3.14.1"
 types-pyyaml = "^6.0.12.20250516"
 pre-commit = "^4.2.0"
+lxml-stubs = "^0.5.1"
 
 [tool.ruff]
 fix = true

@@ -35,17 +35,17 @@ import {
 import { SimpleTreeView } from "@mui/x-tree-view/SimpleTreeView";
 import { TreeItem } from "@mui/x-tree-view/TreeItem";
 import { useCallback, useEffect, useState } from "react";
-import TaskManagerClient, { Task } from "./task-manager-client";
+import ManagerClient, { Task } from "./manager-client";
 import WebDAVClient, { WebDAVItem } from "./webdav-client";
 
 interface FileExplorerProps {
   webdavClient: WebDAVClient;
-  taskManagerClient?: TaskManagerClient;
+  managerClient?: ManagerClient;
 }
 
 export default function FileExplorer({
   webdavClient,
-  taskManagerClient,
+  managerClient,
 }: FileExplorerProps) {
   const [currentPath, setCurrentPath] = useState("/");
   const [items, setItems] = useState<WebDAVItem[]>([]);
@@ -78,11 +78,9 @@ export default function FileExplorer({
         setCurrentPath(path);
 
         // Also load tasks for this directory if task manager is available
-        if (taskManagerClient) {
+        if (managerClient) {
           try {
-            const directoryTasks = await taskManagerClient.getTasksUnderPath(
-              path
-            );
+            const directoryTasks = await managerClient.getTasksUnderPath(path);
             setTasks(directoryTasks);
           } catch (taskErr) {
             console.warn("Failed to load tasks:", taskErr);
@@ -96,14 +94,14 @@ export default function FileExplorer({
         setLoading(false);
       }
     },
-    [webdavClient, taskManagerClient]
+    [webdavClient, managerClient]
   );
 
   // Load tasks for current directory
   const loadTasks = useCallback(async () => {
-    if (taskManagerClient) {
+    if (managerClient) {
       try {
-        const directoryTasks = await taskManagerClient.getTasksUnderPath(
+        const directoryTasks = await managerClient.getTasksUnderPath(
           currentPath
         );
         setTasks(directoryTasks);
@@ -111,7 +109,7 @@ export default function FileExplorer({
         console.warn("Failed to load tasks:", taskErr);
       }
     }
-  }, [taskManagerClient, currentPath]);
+  }, [managerClient, currentPath]);
 
   useEffect(() => {
     if (webdavClient) {
@@ -121,14 +119,14 @@ export default function FileExplorer({
 
   // Set up polling for task updates every 1 second
   useEffect(() => {
-    if (!taskManagerClient) return;
+    if (!managerClient) return;
 
     const interval = setInterval(() => {
       loadTasks();
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [taskManagerClient, loadTasks]);
+  }, [managerClient, loadTasks]);
 
   const handleItemClick = (item: WebDAVItem) => {
     if (item.isDirectory) {
@@ -251,10 +249,10 @@ export default function FileExplorer({
   };
 
   const handleDeleteTask = async (taskId: string, filename: string) => {
-    if (!taskManagerClient) return;
+    if (!managerClient) return;
 
     try {
-      await taskManagerClient.deleteTask(taskId);
+      await managerClient.deleteTask(taskId);
       await loadTasks(); // Refresh tasks after deletion
       setSnackbar({
         open: true,
@@ -310,27 +308,23 @@ export default function FileExplorer({
       label={
         <Box sx={{ display: "flex", alignItems: "center", py: 1, pl: 2 }}>
           <Box sx={{ mr: 1, fontSize: "1rem" }}>
-            {taskManagerClient?.getTaskTypeIcon(task.type)}
+            {managerClient?.getTaskTypeIcon(task.type)}
           </Box>
           <Box sx={{ flexGrow: 1 }}>
             <Typography
               variant="body2"
               sx={{
                 fontStyle: "italic",
-                color: taskManagerClient?.getTaskStatusColor(task.status),
+                color: managerClient?.getTaskStatusColor(task.status),
               }}
             >
               {task.filename}
             </Typography>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                {task.status} •{" "}
-                {taskManagerClient?.formatProgress(task.progress)}
+                {task.status} • {managerClient?.formatProgress(task.progress)}
                 {task.status === "in_progress" && task.speed_bytes_per_sec && (
-                  <>
-                    {" "}
-                    • {taskManagerClient?.formatSpeed(task.speed_bytes_per_sec)}
-                  </>
+                  <> • {managerClient?.formatSpeed(task.speed_bytes_per_sec)}</>
                 )}
               </Typography>
               {task.status === "in_progress" && (
@@ -343,8 +337,8 @@ export default function FileExplorer({
             </Box>
             {task.size_total && (
               <Typography variant="caption" color="text.secondary">
-                {taskManagerClient?.formatFileSize(task.size_processed)} /{" "}
-                {taskManagerClient?.formatFileSize(task.size_total)}
+                {managerClient?.formatFileSize(task.size_processed)} /{" "}
+                {managerClient?.formatFileSize(task.size_total)}
               </Typography>
             )}
           </Box>

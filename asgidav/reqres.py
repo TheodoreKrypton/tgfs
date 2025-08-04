@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import List, Tuple
 from urllib.parse import quote
 
-import lxml.etree as et  # type: ignore
+import lxml.etree as et
 from fastapi import Request
 
 from asgidav.async_map import async_map
@@ -11,6 +11,8 @@ from asgidav.member import Member, Properties, PropertyName, ResourceType
 
 DAV_NS = "DAV:"
 NS_MAP = {"D": DAV_NS}
+
+Element = et._Element
 
 
 @dataclass
@@ -55,7 +57,7 @@ def _tag(name: str) -> str:
     return "{%s}%s" % (DAV_NS, name)
 
 
-async def _propstat(member: Member, prop_names: Tuple[PropertyName, ...]) -> et.Element:
+async def _propstat(member: Member, prop_names: Tuple[PropertyName, ...]) -> Element:
     root = et.Element(_tag("propstat"), nsmap=NS_MAP)
     properties: Properties = await member.get_properties()
     props = et.SubElement(root, _tag("prop"))
@@ -74,7 +76,7 @@ async def _propstat(member: Member, prop_names: Tuple[PropertyName, ...]) -> et.
 
 async def _propfind_response(
     member: Member, depth: int, prop_names: Tuple[PropertyName, ...]
-) -> List[et.Element]:
+) -> List[Element]:
     root = et.Element(_tag("response"))
 
     href_elem = et.SubElement(root, _tag("href"))
@@ -91,11 +93,13 @@ async def _propfind_response(
     if not isinstance(member, Folder) or depth == 0:
         return res
 
+    folder: Folder = member
+
     names = await member.member_names()
-    sub_members = await async_map(lambda name: member.member(name), names)
+    sub_members = await async_map(lambda name: folder.member(name), names)
     propfind_responses = await async_map(
-        lambda sub_member: _propfind_response(sub_member, depth - 1, prop_names),
-        sub_members,
+        lambda m: _propfind_response(m, depth - 1, prop_names),
+        (m for m in sub_members if m is not None),
     )
     for sub_response in propfind_responses:
         res.extend(sub_response)

@@ -1,20 +1,20 @@
 import logging
-from typing import List, Optional
+from typing import Any, Callable, List, Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
+from tgfs.auth.bearer import authenticate
+from tgfs.auth.user import User
 from tgfs.tasks import task_store
 
 logger = logging.getLogger(__name__)
 
 
 def create_manager_app() -> FastAPI:
-    app = FastAPI(
-        title="TGFS Task Manager",
-        description="Task management API for TGFS upload/download operations",
-        version="1.0.0",
-    )
+    readonly_methods = frozenset({"GET", "HEAD", "OPTIONS"})
+
+    app = FastAPI()
 
     # Enable CORS for the telegram mini-app
     app.add_middleware(
@@ -25,9 +25,30 @@ def create_manager_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    @app.get("/health")
-    async def health_check():
-        return {"status": "healthy"}
+    UNAUTHORIZED = Response(
+        content="Unauthorized",
+        status_code=401,
+    )
+
+    def has_permission(request: Request, user: User) -> bool:
+        if request.method not in readonly_methods:
+            return not user.readonly
+        return True
+
+    @app.middleware("http")
+    async def auth_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
+        auth_header = request.headers.get("Authorization")
+        if not auth_header or not auth_header.startswith("Bearer "):
+            return UNAUTHORIZED
+
+        user = authenticate(auth_header[7:])
+
+        if has_permission(request, user):
+            return await call_next(request)
+        return UNAUTHORIZED
 
     @app.get("/tasks", response_model=List[dict])
     async def get_tasks(
