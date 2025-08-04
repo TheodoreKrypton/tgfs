@@ -57,15 +57,15 @@ async def main():
         manager_app = create_manager_app()
         manager_task = asyncio.create_task(
             run_server(
-                manager_app, config.manager.host, config.manager.port, "Task Manager"
+                manager_app, config.manager.host, config.manager.port, "TGFS Manager"
             )
         )
         tasks.append(manager_task)
         logger.info(
-            f"Task Manager server will start on {config.manager.host}:{config.manager.port}"
+            f"TGFS Manager server will start on {config.manager.host}:{config.manager.port}"
         )
     else:
-        logger.info("Task Manager not configured, skipping...")
+        logger.info("TGFS Manager not configured, skipping...")
 
     # Wait for all servers to complete
     await asyncio.gather(*tasks)

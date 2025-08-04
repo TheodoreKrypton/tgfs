@@ -14,7 +14,7 @@ export default class WebDAVClient {
   private jwtToken: string;
   private onAuthError?: () => void;
 
-  constructor(baseUrl: string, jwtToken: string = "", onAuthError?: () => void) {
+  constructor(baseUrl: string, jwtToken: string, onAuthError?: () => void) {
     this.jwtToken = jwtToken;
     this.onAuthError = onAuthError;
     this.client = createClient(baseUrl, {

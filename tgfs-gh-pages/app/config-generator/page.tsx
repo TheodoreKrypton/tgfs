@@ -108,7 +108,7 @@ const generateRandomSecret = (): string => {
 };
 
 export default function ConfigGenerator() {
-  const [includeTaskManager, setIncludeTaskManager] = useState(true);
+  const [includeManager, setIncludeManager] = useState(true);
   const [config, setConfig] = useState<ConfigData>({
     telegram: {
       api_id: "",
@@ -286,7 +286,7 @@ export default function ConfigGenerator() {
     };
 
     // Include manager section if enabled
-    if (includeTaskManager) {
+    if (includeManager) {
       configForYaml.manager = {
         host: config.manager?.host || "0.0.0.0",
         port: config.manager?.port || 1901,
@@ -691,14 +691,14 @@ export default function ConfigGenerator() {
               <FormControlLabel
                 control={
                   <Checkbox
-                    checked={includeTaskManager}
-                    onChange={(e) => setIncludeTaskManager(e.target.checked)}
+                    checked={includeManager}
+                    onChange={(e) => setIncludeManager(e.target.checked)}
                   />
                 }
                 label="Include Task Manager Server"
                 sx={{ mb: 2 }}
               />
-              {includeTaskManager && (
+              {includeManager && (
                 <>
                   <FieldRow>
                     <ConfigTextField

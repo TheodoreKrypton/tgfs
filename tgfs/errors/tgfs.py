@@ -55,3 +55,12 @@ class TaskCancelled(BusinessError):
             code=ErrorCode.TASK_CANCELLED,
             cause=None,
         )
+
+
+class LoginFailed(BusinessError):
+    def __init__(self, message: str):
+        super().__init__(
+            message=message,
+            code=ErrorCode.LOGIN_FAILED,
+            cause=None,
+        )

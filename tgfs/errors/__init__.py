@@ -8,6 +8,7 @@ from .path import (
 )
 from .telegram import FileSizeTooLarge, MessageNotFound
 from .tgfs import (
+    LoginFailed,
     MetadataNotFound,
     MetadataNotInitialized,
     NoPinnedMessage,
@@ -31,4 +32,5 @@ __all__ = [
     "UnDownloadableMessage",
     "PinnedMessageNotSupported",
     "TaskCancelled",
+    "LoginFailed",
 ]
