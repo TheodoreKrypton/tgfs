@@ -3,8 +3,8 @@ from typing import List, Tuple
 from urllib.parse import quote
 
 import lxml.etree as et
-from lxml.etree import _Element as Element
 from fastapi import Request
+from lxml.etree import _Element as Element
 
 from asgidav.async_map import async_map
 from asgidav.folder import Folder
