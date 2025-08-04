@@ -3,6 +3,7 @@ from typing import List, Tuple
 from urllib.parse import quote
 
 import lxml.etree as et
+from lxml.etree import _Element as Element
 from fastapi import Request
 
 from asgidav.async_map import async_map
@@ -11,8 +12,6 @@ from asgidav.member import Member, Properties, PropertyName, ResourceType
 
 DAV_NS = "DAV:"
 NS_MAP = {"D": DAV_NS}
-
-Element = et._Element
 
 
 @dataclass

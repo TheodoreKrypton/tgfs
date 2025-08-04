@@ -39,8 +39,5 @@ def authenticate(token: str) -> User:
         token, key=jwt_config.secret, algorithms=[jwt_config.algorithm]
     )
 
-    if not payload:
-        raise LoginFailed("Invalid token")
-
     username = payload["username"]
     return AdminUser(username) if not payload["readonly"] else ReadonlyUser(username)
