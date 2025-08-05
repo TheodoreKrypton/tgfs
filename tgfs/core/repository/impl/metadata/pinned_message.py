@@ -2,10 +2,10 @@ import json
 from typing import AsyncIterator, Optional
 
 from tgfs.core.api import MessageApi
-from tgfs.core.model import TGFSFileVersion, TGFSMetadata, TGFSDirectory
+from tgfs.core.model import TGFSDirectory, TGFSFileVersion, TGFSMetadata
 from tgfs.core.repository.interface import IFileContentRepository, IMetaDataRepository
 from tgfs.errors import MetadataNotFound, MetadataNotInitialized, NoPinnedMessage
-from tgfs.reqres import FileMessageFromBuffer, SentFileMessage, MessageResp
+from tgfs.reqres import FileMessageFromBuffer, MessageResp, SentFileMessage
 
 
 class TGMsgMetadataRepository(IMetaDataRepository):

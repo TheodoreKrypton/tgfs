@@ -6,7 +6,7 @@ from pyrate_limiter import Duration, InMemoryBucket, Limiter, Rate
 from telethon.errors import MessageNotModifiedError, RPCError
 
 from tgfs.config import get_config
-from tgfs.errors import MessageNotFound, PinnedMessageNotSupported, NoPinnedMessage
+from tgfs.errors import MessageNotFound, NoPinnedMessage, PinnedMessageNotSupported
 from tgfs.reqres import (
     DownloadFileReq,
     DownloadFileResp,
