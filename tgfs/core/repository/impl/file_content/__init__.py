@@ -122,12 +122,12 @@ class TGMsgFileContentRepository(IFileContentRepository):
 
         for i, part_size in enumerate(self._size_for_parts(size)):
             file_msg.name = f"{file_name}.part{i + 1}"
+            file_msg.size = part_size
+            res.append(await self._save(file_msg))
 
             logger.info(f"Saving {file_msg.name}")
             if isinstance(file_msg, FileMessageFromBuffer | FileMessageFromPath):
                 file_msg.offset += part_size
-            file_msg.size = part_size
-            res.append(await self._save(file_msg))
 
         return res
 

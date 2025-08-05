@@ -19,6 +19,18 @@ class JWTPayload(TypedDict):
 
 
 def login(username: str, password: str) -> str:
+    if not config.tgfs.users:
+        return jwt.encode(
+            dict(
+                JWTPayload(
+                    username="anonymous",
+                    exp=int(time.time()) + jwt_config.life,
+                    readonly=True,
+                )
+            ),
+            key=jwt_config.secret,
+            algorithm=jwt_config.algorithm,
+        )
     if (user := config.tgfs.users.get(username)) and user.password == password:
         return jwt.encode(
             dict(

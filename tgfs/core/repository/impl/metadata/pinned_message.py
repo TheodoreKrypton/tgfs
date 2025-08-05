@@ -2,10 +2,10 @@ import json
 from typing import AsyncIterator, Optional
 
 from tgfs.core.api import MessageApi
-from tgfs.core.model import TGFSFileVersion, TGFSMetadata
+from tgfs.core.model import TGFSDirectory, TGFSFileVersion, TGFSMetadata
 from tgfs.core.repository.interface import IFileContentRepository, IMetaDataRepository
-from tgfs.errors import MetadataNotFound, MetadataNotInitialized
-from tgfs.reqres import FileMessageFromBuffer, SentFileMessage
+from tgfs.errors import MetadataNotFound, MetadataNotInitialized, NoPinnedMessage
+from tgfs.reqres import FileMessageFromBuffer, MessageResp, SentFileMessage
 
 
 class TGMsgMetadataRepository(IMetaDataRepository):
@@ -48,9 +48,20 @@ class TGMsgMetadataRepository(IMetaDataRepository):
             result.extend(chunk)
         return bytes(result)
 
+    async def new_metadata(self) -> MessageResp:
+        root = TGFSDirectory.root_dir()
+        self.metadata = TGFSMetadata(root)
+        self.__message_id = None
+        await self.push()
+        return await self.__message_api.get_pinned_message()
+
     async def get(self) -> TGFSMetadata:
-        pinned_message = await self.__message_api.get_pinned_message()
-        if not pinned_message or not pinned_message.document:
+        try:
+            pinned_message = await self.__message_api.get_pinned_message()
+        except NoPinnedMessage:
+            pinned_message = await self.new_metadata()
+
+        if not pinned_message.document:
             raise MetadataNotFound()
 
         temp_fv = TGFSFileVersion.from_sent_file_message(

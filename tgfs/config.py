@@ -98,7 +98,9 @@ class MetadataConfig:
                 type=MetadataType.GITHUB_REPO,
                 github_repo=GithubRepoConfig.from_dict(data["github_repo"]),
             )
-        raise ValueError(f"Unknown metadata type: {data['type']}")
+        raise ValueError(
+            f"Unknown metadata type: {data['type']}, available options: {', '.join(e.value for e in MetadataType)}"
+        )
 
 
 @dataclass
