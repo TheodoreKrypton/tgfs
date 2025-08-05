@@ -34,6 +34,7 @@ import type { ThemeParams } from "@telegram-apps/types";
 import Cookies from "js-cookie";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
+import errors from "./error";
 import FileExplorer from "./file-explorer";
 import ManagerClient from "./manager-client";
 import { telegramTheme } from "./telegram-theme";
@@ -76,20 +77,8 @@ export default function TelegramMiniApp() {
     enableManager: false,
   });
 
-  // Session cleanup handler
-  const handle401Error = () => {
-    const cookiesToRemove = [
-      "jwt_token",
-      "webdav_url",
-      "manager_url",
-      "enable_manager",
-    ];
-    cookiesToRemove.forEach((cookie) => Cookies.remove(cookie));
-
-    setIsLoggedIn(false);
-    setWebdavClient(null);
-    setManagerClient(null);
-    setError("Session expired. Please login again.");
+  const handleError = (message: string) => {
+    setError(message);
   };
 
   // Initialize app on mount
@@ -131,11 +120,7 @@ export default function TelegramMiniApp() {
     }));
 
     if (token && savedInfo.webdavUrl) {
-      const client = new WebDAVClient(
-        savedInfo.webdavUrl,
-        token,
-        handle401Error
-      );
+      const client = new WebDAVClient(savedInfo.webdavUrl, token, handleError);
       setWebdavClient(client);
 
       if (savedInfo.enableManager && savedInfo.managerUrl) {
@@ -175,7 +160,7 @@ export default function TelegramMiniApp() {
       });
 
       if (!response.ok) {
-        throw new Error("Login failed");
+        throw new errors.CatchableError(await response.text());
       }
 
       const data = await response.json();
@@ -195,11 +180,7 @@ export default function TelegramMiniApp() {
       );
 
       // Create WebDAV client with JWT token
-      const client = new WebDAVClient(
-        formData.webdavUrl,
-        token,
-        handle401Error
-      );
+      const client = new WebDAVClient(formData.webdavUrl, token, handleError);
       await client.connect();
       setWebdavClient(client);
 
@@ -211,16 +192,35 @@ export default function TelegramMiniApp() {
 
       setIsLoggedIn(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      if (err instanceof errors.CatchableError) {
+        setError(err.message);
+      } else {
+        let potentialReason = "";
+        if (
+          window.location.protocol === "https:" &&
+          !formData.webdavUrl.startsWith("https://")
+        ) {
+          potentialReason =
+            "WebDAV URL must start with https:// when using secure connections.";
+        }
+        setError(
+          `The URL is not a TGFS server, or is not reachable. ${potentialReason}`
+        );
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLogout = () => {
-    handle401Error();
+  const handleLogout = React.useCallback(() => {
+    // Clear session data
+    Cookies.remove("jwt_token");
+
+    setIsLoggedIn(false);
+    setWebdavClient(null);
+    setManagerClient(null);
     setError(null);
-  };
+  }, []);
 
   // Create dynamic theme based on Telegram theme parameters
   const currentTheme = React.useMemo(() => {
@@ -389,8 +389,8 @@ export default function TelegramMiniApp() {
             <Button
               variant="outlined"
               color="secondary"
-              onClick={handleLogout}
               size="small"
+              onClick={handleLogout}
             >
               Logout
             </Button>
