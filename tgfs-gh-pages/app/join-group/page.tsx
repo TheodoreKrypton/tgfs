@@ -12,6 +12,7 @@ export default function JoinGroup() {
   return (
     <div style={{ textAlign: "center", marginTop: "20px" }}>
       <h1>Join Telegram Group</h1>
+      <div style={{ marginBottom: "20px" }} />
       {success && (
         <Button
           variant="contained"
@@ -22,6 +23,7 @@ export default function JoinGroup() {
           Join Support Group
         </Button>
       )}
+      <div style={{ marginBottom: "20px" }} />
       <Turnstile
         siteKey="0x4AAAAAABodeku20TbzpFdm"
         onSuccess={() => setSuccess(true)}
