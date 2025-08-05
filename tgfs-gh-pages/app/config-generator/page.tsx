@@ -550,6 +550,16 @@ export default function ConfigGenerator() {
                   ? "The metadata will be maintained in a json file pinned in the file channel. Every directory operation reuploads and updates the pinned file."
                   : "The metadata will be maintained by a GitHub repository configured in the following github_repo section. Every directory operation is mapped to the github repository."}
               </Typography>
+              {config.tgfs.metadata.type === "pinned_message" && (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2, pl: 2 }}
+                >
+                  ⚠️ NEVER delete the pinned file AND NEVER manually pin any
+                  message.
+                </Typography>
+              )}
               {config.tgfs.metadata.type === "github_repo" && (
                 <Typography
                   variant="body2"

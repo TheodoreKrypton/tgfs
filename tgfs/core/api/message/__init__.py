@@ -6,7 +6,7 @@ from pyrate_limiter import Duration, InMemoryBucket, Limiter, Rate
 from telethon.errors import MessageNotModifiedError, RPCError
 
 from tgfs.config import get_config
-from tgfs.errors import MessageNotFound, PinnedMessageNotSupported
+from tgfs.errors import MessageNotFound, PinnedMessageNotSupported, NoPinnedMessage
 from tgfs.reqres import (
     DownloadFileReq,
     DownloadFileResp,
@@ -73,6 +73,10 @@ class MessageApi(MessageBroker):
         messages = await self.tdlib.account.get_pinned_messages(
             GetPinnedMessageReq(chat=self.private_file_channel)
         )
+
+        if len(messages) == 0:
+            raise NoPinnedMessage()
+
         return messages[0]
 
     async def pin_message(self, message_id: int):
