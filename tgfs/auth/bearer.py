@@ -31,6 +31,8 @@ def login(username: str, password: str) -> str:
             key=jwt_config.secret,
             algorithm=jwt_config.algorithm,
         )
+    if not username:
+        raise LoginFailed("Anonymous login is disabled.")
     if (user := config.tgfs.users.get(username)) and user.password == password:
         return jwt.encode(
             dict(
@@ -43,7 +45,7 @@ def login(username: str, password: str) -> str:
             key=jwt_config.secret,
             algorithm=jwt_config.algorithm,
         )
-    raise LoginFailed(f"No such user or password incorrect: {username}")
+    raise LoginFailed(f"No such user ({username}) or password incorrect.")
 
 
 def authenticate(token: str) -> User:

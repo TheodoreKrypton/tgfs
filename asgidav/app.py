@@ -62,6 +62,7 @@ def create_app(
         "DAV": "1, 2",
         "WWW-Authenticate": 'Basic realm="WebDAV"',
         "MS-Author-Via": "DAV",
+        "Access-Control-Allow-Origin": "*",
     }
 
     allowed_methods = [
@@ -85,14 +86,25 @@ def create_app(
     CREATED = Response(status_code=HTTPStatus.CREATED.value, headers=common_headers)
     NO_CONTENT = Response(status_code=HTTPStatus.NO_CONTENT, headers=common_headers)
 
-    UNAUTHORIZED = Response(
-        status_code=HTTPStatus.UNAUTHORIZED,
-        content="Unauthorized",
-        headers=common_headers
-        | {
-            "Content-Type": "text/html",
-        },
-    )
+    def UNAUTHORIZED(detail: str) -> Response:
+        return Response(
+            status_code=HTTPStatus.UNAUTHORIZED,
+            content=detail,
+            headers=common_headers
+            | {
+                "Content-Type": "text/html",
+            },
+        )
+
+    def FORBIDDEN(detail: str) -> Response:
+        return Response(
+            status_code=HTTPStatus.FORBIDDEN,
+            content=detail,
+            headers=common_headers
+            | {
+                "Content-Type": "text/html",
+            },
+        )
 
     def CONFLICT(detail: str) -> Response:
         return Response(status_code=HTTPStatus.CONFLICT, content=detail)
@@ -131,11 +143,13 @@ def create_app(
 
         auth_header = request.headers.get("Authorization")
         if not auth_header:
-            return UNAUTHORIZED
-
-        if (user := auth_callback(auth_header)) and has_permission(request, user):
-            return await call_next(request)
-        return UNAUTHORIZED
+            return UNAUTHORIZED("Authorization header is missing")
+        try:
+            if (user := auth_callback(auth_header)) and has_permission(request, user):
+                return await call_next(request)
+            return FORBIDDEN("Readonly user cannot perform this action")
+        except Exception as e:
+            return UNAUTHORIZED(str(e))
 
     class LoginRequest(BaseModel):
         username: str
@@ -143,9 +157,10 @@ def create_app(
 
     @app.post(path="/login")
     async def login(request: Request, body: LoginRequest):
-        if token := login_callback(body.username, body.password):
-            return {"token": token}
-        return UNAUTHORIZED
+        try:
+            return {"token": login_callback(body.username, body.password)}
+        except Exception as e:
+            return UNAUTHORIZED(str(e))
 
     @app.options(path="/{path:path}")
     async def options():

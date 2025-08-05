@@ -1,4 +1,9 @@
-import { createClient, WebDAVClient as WebDAVClientType, FileStat, AuthType } from 'webdav';
+import {
+  AuthType,
+  createClient,
+  FileStat,
+  WebDAVClient as WebDAVClientType,
+} from "webdav";
 
 export interface WebDAVItem {
   name: string;
@@ -11,36 +16,33 @@ export interface WebDAVItem {
 
 export default class WebDAVClient {
   private client: WebDAVClientType;
-  private jwtToken: string;
-  private onAuthError?: () => void;
 
-  constructor(baseUrl: string, jwtToken: string, onAuthError?: () => void) {
-    this.jwtToken = jwtToken;
-    this.onAuthError = onAuthError;
+  constructor(
+    baseUrl: string,
+    jwtToken: string,
+    private onError?: (message: string) => void
+  ) {
     this.client = createClient(baseUrl, {
       authType: AuthType.None,
-      headers: jwtToken ? {
-        'Authorization': `Bearer ${jwtToken}`
-      } : {},
+      headers: jwtToken
+        ? {
+            Authorization: `Bearer ${jwtToken}`,
+          }
+        : {},
     });
   }
 
   private handleError(error: unknown): never {
-    // Check if error is 401 unauthorized
-    const errorObj = error as { status?: number; response?: { status?: number } };
-    if (errorObj.status === 401 || errorObj.response?.status === 401) {
-      if (this.onAuthError) {
-        this.onAuthError();
-      }
-      throw new Error('Authentication failed');
+    if (error instanceof Error) {
+      this.onError?.(error.message);
+      throw Error(`WebDAV error: ${error.message}`);
     }
-    throw error;
+    throw Error("Unknown WebDAV error");
   }
 
   async connect(): Promise<void> {
     try {
-      // Test connection by getting root directory info
-      await this.client.stat('/');
+      await this.client.stat("/");
     } catch (error) {
       this.handleError(error);
     }
@@ -49,12 +51,12 @@ export default class WebDAVClient {
   async listDirectory(path: string = "/"): Promise<WebDAVItem[]> {
     try {
       const contents = await this.client.getDirectoryContents(path);
-      
+
       return (contents as FileStat[]).map((item) => ({
         name: item.basename,
         path: item.filename,
-        isDirectory: item.type === 'directory',
-        size: item.type === 'file' ? item.size : undefined,
+        isDirectory: item.type === "directory",
+        size: item.type === "file" ? item.size : undefined,
         lastModified: item.lastmod,
         contentType: item.mime,
       }));
@@ -65,7 +67,9 @@ export default class WebDAVClient {
 
   async downloadFile(path: string): Promise<Blob> {
     try {
-      const arrayBuffer = await this.client.getFileContents(path, { format: 'binary' });
+      const arrayBuffer = await this.client.getFileContents(path, {
+        format: "binary",
+      });
       return new Blob([arrayBuffer as ArrayBuffer]);
     } catch (error) {
       this.handleError(error);
