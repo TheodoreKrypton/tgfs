@@ -7,7 +7,8 @@ from tgfs.reqres import (
     FileMessageFromBuffer,
     FileMessageFromPath,
     FileMessageFromStream,
-    FileMessageImported, MessageResp
+    FileMessageImported,
+    MessageRespWithDocument,
 )
 
 from .client import Client
@@ -212,7 +213,9 @@ class Ops:
             ),
         )
 
-    async def import_from_existing_file_message(self, message: MessageResp, remote: str) -> TGFSFileDesc:
+    async def import_from_existing_file_message(
+        self, message: MessageRespWithDocument, remote: str
+    ) -> TGFSFileDesc:
         self.__validate_path(remote)
         dirname, basename = os.path.dirname(remote), os.path.basename(remote)
         d = self.cd(dirname)

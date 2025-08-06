@@ -6,7 +6,12 @@ from pyrate_limiter import Duration, InMemoryBucket, Limiter, Rate
 from telethon.errors import MessageNotModifiedError, RPCError
 
 from tgfs.config import get_config
-from tgfs.errors import MessageNotFound, NoPinnedMessage, PinnedMessageNotSupported
+from tgfs.errors import (
+    MessageNotFound,
+    NoPinnedMessage,
+    PinnedMessageNotSupported,
+    TechnicalError,
+)
 from tgfs.reqres import (
     DownloadFileReq,
     DownloadFileResp,
@@ -16,6 +21,7 @@ from tgfs.reqres import (
     PinMessageReq,
     SearchMessageReq,
     SendTextReq,
+    MessageRespWithDocument,
 )
 from tgfs.telegram.interface import TDLibApi
 from tgfs.utils.chained_async_iterator import ChainedAsyncIterator
@@ -65,7 +71,7 @@ class MessageApi(MessageBroker):
                 return message_id
             raise e
 
-    async def get_pinned_message(self) -> MessageResp:
+    async def get_pinned_message(self) -> MessageRespWithDocument:
         self.__try_acquire("MessageApi.get_pinned_message")
 
         if not self.tdlib.account:
@@ -77,7 +83,14 @@ class MessageApi(MessageBroker):
         if len(messages) == 0:
             raise NoPinnedMessage()
 
-        return messages[0]
+        if (message := messages[0]).document is None:
+            raise TechnicalError("Pinned message does not contain a document")
+
+        return MessageRespWithDocument(
+            message_id=message.message_id,
+            document=message.document,
+            text="",
+        )
 
     async def pin_message(self, message_id: int):
         self.__try_acquire("MessageApi.pin_message")

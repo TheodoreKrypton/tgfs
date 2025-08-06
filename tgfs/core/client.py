@@ -22,7 +22,9 @@ config = get_config()
 
 
 class Client:
-    def __init__(self, message_api: MessageApi, file_api: FileApi, dir_api: DirectoryApi):
+    def __init__(
+        self, message_api: MessageApi, file_api: FileApi, dir_api: DirectoryApi
+    ):
         self.message_api = message_api
         self.file_api = file_api
         self.dir_api = dir_api

@@ -14,8 +14,10 @@ from tgfs.reqres import (
     FileMessageFromBuffer,
     FileMessageFromPath,
     FileTags,
-    GeneralFileMessage,
-    SentFileMessage, FileMessageImported,
+    SentFileMessage,
+    FileMessage,
+    FileMessageImported,
+    UploadableFileMessage,
 )
 from tgfs.utils.chained_async_iterator import ChainedAsyncIterator
 
@@ -30,11 +32,8 @@ class TGMsgFileContentRepository(IFileContentRepository):
 
     @staticmethod
     async def __sha256(
-        file_msg: FileMessageFromPath | FileMessageFromBuffer | FileMessageEmpty,
+        file_msg: FileMessageFromPath | FileMessageFromBuffer,
     ) -> str:
-        if isinstance(file_msg, FileMessageEmpty):
-            raise TechnicalError("Cannot compute SHA256 for an empty file_content")
-
         if isinstance(file_msg, FileMessageFromPath):
             sha256 = hashlib.sha256()
             with open(file_msg.path, "rb") as f:
@@ -45,22 +44,23 @@ class TGMsgFileContentRepository(IFileContentRepository):
                     sha256.update(chunk)
             return sha256.hexdigest()
 
-        if isinstance(file_msg, FileMessageFromBuffer):
-            sha256 = hashlib.sha256(file_msg.buffer)
-            return sha256.hexdigest()
-
-        raise TechnicalError(
-            "Unsupported file_content message type for SHA256 computation"
-        )
+        # file_msg is FileMessageFromBuffer
+        sha256 = hashlib.sha256(file_msg.buffer)
+        return sha256.hexdigest()
 
     @staticmethod
-    def __get_file_caption(file_msg: GeneralFileMessage) -> str:
+    def __get_file_caption(
+        file_msg: FileMessage,
+    ) -> str:
+        if not isinstance(file_msg, UploadableFileMessage):
+            return ""
+
         caption = f"{file_msg.caption}\n" if file_msg.caption else ""
         if file_msg.tags and file_msg.tags.sha256:
             caption += f"#sha256IS{file_msg.tags.sha256}"
         return caption
 
-    async def __send_file(self, file_msg: GeneralFileMessage) -> SentFileMessage:
+    async def __send_file(self, file_msg: UploadableFileMessage) -> SentFileMessage:
         message_id: int = EMPTY_FILE_MESSAGE
 
         async def on_complete():
@@ -98,7 +98,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
 
         return None
 
-    async def _save(self, file_msg: GeneralFileMessage) -> SentFileMessage:
+    async def _save(self, file_msg: UploadableFileMessage) -> SentFileMessage:
         if isinstance(file_msg, FileMessageFromPath | FileMessageFromBuffer) and (
             msg := await self._check_sha256(file_msg)
         ):
@@ -114,7 +114,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
             yield part_size
         yield size - (parts - 1) * part_size
 
-    async def save(self, file_msg: GeneralFileMessage) -> List[SentFileMessage]:
+    async def save(self, file_msg: UploadableFileMessage) -> List[SentFileMessage]:
         size = file_msg.get_size()
 
         res: List[SentFileMessage] = []

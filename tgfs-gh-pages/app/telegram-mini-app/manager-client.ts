@@ -15,10 +15,7 @@ export interface Task {
 
 export interface ChannelMessage {
   id: number;
-  filename: string;
   file_size: number;
-  mime_type: string;
-  date: string | null;
   caption: string;
   has_document: boolean;
 }

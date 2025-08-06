@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Schedule, Storage, Warning } from "@mui/icons-material";
+import { CheckCircle, Storage, Warning } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -223,24 +223,6 @@ export default function TelegramImportDialog({
               )}
             </Box>
 
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-              <Box sx={{ flexGrow: 1 }}>
-                <Typography
-                  variant="subtitle1"
-                  sx={{
-                    fontWeight: 600,
-                    color: "text.primary",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  {messagePreview.filename}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {messagePreview.mime_type}
-                </Typography>
-              </Box>
-            </Box>
-
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
               {messagePreview.has_document && (
                 <Box sx={{ display: "flex", alignItems: "center" }}>
@@ -256,24 +238,6 @@ export default function TelegramImportDialog({
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
                     {managerClient?.formatFileSize(messagePreview.file_size)}
-                  </Typography>
-                </Box>
-              )}
-
-              {messagePreview.date && (
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <Schedule
-                    sx={{ color: "text.secondary", mr: 1, fontSize: 18 }}
-                  />
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mr: 1 }}
-                  >
-                    Date:
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {managerClient?.formatDate(messagePreview.date)}
                   </Typography>
                 </Box>
               )}

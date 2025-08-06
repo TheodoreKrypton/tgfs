@@ -37,8 +37,8 @@ import { SimpleTreeView } from "@mui/x-tree-view/SimpleTreeView";
 import { TreeItem } from "@mui/x-tree-view/TreeItem";
 import { useCallback, useEffect, useState } from "react";
 import ManagerClient, { Task } from "./manager-client";
-import WebDAVClient, { WebDAVItem } from "./webdav-client";
 import TelegramImportDialog from "./telegram-import-dialog";
+import WebDAVClient, { WebDAVItem } from "./webdav-client";
 
 interface FileExplorerProps {
   webdavClient: WebDAVClient;
@@ -204,7 +204,7 @@ export default function FileExplorer({
       });
     }
     handleMenuClose();
-  }, [selectedItem, webdavClient, handleMenuClose]);
+  }, [selectedItem, webdavClient, handleMenuClose, currentPath, loadDirectory]);
 
   const handleCreateDirectory = useCallback(async () => {
     if (!newDirName.trim()) return;
@@ -229,7 +229,7 @@ export default function FileExplorer({
     }
     setCreateDirDialog(false);
     setNewDirName("");
-  }, [currentPath, webdavClient, handleMenuClose]);
+  }, [currentPath, webdavClient, loadDirectory, newDirName]);
 
   const handleFileUpload = useCallback(async () => {
     if (!selectedFile) return;
@@ -268,9 +268,12 @@ export default function FileExplorer({
           asName
         );
         setTelegramLinkDialog(false);
-
-        // Refresh tasks to show the new import task
-        await loadTasks();
+        await loadDirectory(currentPath);
+        setSnackbar({
+          open: true,
+          message: `Imported message as ${asName}`,
+          severity: "success",
+        });
       } catch (err) {
         setSnackbar({
           open: true,
@@ -279,7 +282,7 @@ export default function FileExplorer({
         });
       }
     },
-    [managerClient, loadTasks, currentPath]
+    [managerClient, currentPath, loadDirectory]
   );
 
   const handleDeleteTask = useCallback(

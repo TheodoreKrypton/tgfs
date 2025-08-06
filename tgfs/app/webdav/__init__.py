@@ -8,7 +8,7 @@ from tgfs.auth.bearer import login
 from tgfs.config import Config
 from tgfs.core import Client
 
-from .cache import Member, fs_cache
+from tgfs.app.cache import Member, fs_cache
 from .folder import Folder
 
 

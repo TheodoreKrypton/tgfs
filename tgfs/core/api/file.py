@@ -3,7 +3,12 @@ from typing import Optional
 
 from tgfs.core.model import TGFSDirectory, TGFSFileDesc, TGFSFileRef, TGFSFileVersion
 from tgfs.errors import FileOrDirectoryDoesNotExist
-from tgfs.reqres import FileContent, FileMessageEmpty, GeneralFileMessage, UploadableFileMessage
+from tgfs.reqres import (
+    FileContent,
+    FileMessage,
+    FileMessageEmpty,
+    UploadableFileMessage,
+)
 from tgfs.tasks import create_download_task, create_upload_task
 
 from .file_desc import FileDescApi
@@ -23,7 +28,7 @@ class FileApi:
         return copied_fr
 
     async def __create_new_file(
-        self, where: TGFSDirectory, file_msg: GeneralFileMessage
+        self, where: TGFSDirectory, file_msg: FileMessage
     ) -> TGFSFileDesc:
         resp = await self.__file_desc_api.create_file_desc(file_msg)
         where.create_file_ref(file_msg.name, resp.message_id)
@@ -42,7 +47,7 @@ class FileApi:
             await self.__metadata_api.push()
 
     async def __update_existing_file(
-        self, fr: TGFSFileRef, file_msg: GeneralFileMessage, version_id: Optional[str]
+        self, fr: TGFSFileRef, file_msg: FileMessage, version_id: Optional[str]
     ) -> TGFSFileDesc:
         if version_id:
             resp = await self.__file_desc_api.update_file_version(
@@ -64,28 +69,32 @@ class FileApi:
     async def upload(
         self,
         under: TGFSDirectory,
-        file_msg: GeneralFileMessage,
+        file_msg: FileMessage,
         version_id: Optional[str] = None,
     ) -> TGFSFileDesc:
-        try:
-            if isinstance(file_msg, UploadableFileMessage):
-                file_msg.task_tracker = await create_upload_task(
-                    os.path.join(under.absolute_path, file_msg.name),
-                    file_msg.get_size(),
-                )
+
+        async def update_or_create() -> TGFSFileDesc:
             try:
                 fr = under.find_file(file_msg.name)
-                res = await self.__update_existing_file(fr, file_msg, version_id)
+                return await self.__update_existing_file(fr, file_msg, version_id)
             except FileOrDirectoryDoesNotExist:
-                res = await self.__create_new_file(under, file_msg)
+                return await self.__create_new_file(under, file_msg)
 
-            if file_msg.task_tracker:
-                await file_msg.task_tracker.mark_completed()
-            return res
-        except Exception as ex:
-            if file_msg.task_tracker:
-                await file_msg.task_tracker.mark_failed(str(ex))
-            raise ex
+        if isinstance(file_msg, UploadableFileMessage):
+            task_tracker = await create_upload_task(
+                os.path.join(under.absolute_path, file_msg.name),
+                file_msg.get_size(),
+            )
+            file_msg.task_tracker = task_tracker
+            try:
+                res = await update_or_create()
+                await task_tracker.mark_completed()
+                return res
+            except Exception as ex:
+                await task_tracker.mark_failed(str(ex))
+                raise ex
+        else:
+            return await update_or_create()
 
     async def desc(self, fr: TGFSFileRef) -> TGFSFileDesc:
         return await self.__file_desc_api.get_file_desc(fr)
