@@ -22,7 +22,8 @@ config = get_config()
 
 
 class Client:
-    def __init__(self, file_api: FileApi, dir_api: DirectoryApi):
+    def __init__(self, message_api: MessageApi, file_api: FileApi, dir_api: DirectoryApi):
+        self.message_api = message_api
         self.file_api = file_api
         self.dir_api = dir_api
 
@@ -78,4 +79,4 @@ class Client:
         file_api = FileApi(metadata_api, fd_api)
         dir_api = DirectoryApi(metadata_api)
 
-        return cls(file_api=file_api, dir_api=dir_api)
+        return cls(message_api=message_api, file_api=file_api, dir_api=dir_api)

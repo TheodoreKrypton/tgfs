@@ -3,7 +3,7 @@ from typing import Optional
 
 from tgfs.core.model import TGFSDirectory, TGFSFileDesc, TGFSFileRef, TGFSFileVersion
 from tgfs.errors import FileOrDirectoryDoesNotExist
-from tgfs.reqres import FileContent, FileMessageEmpty, GeneralFileMessage
+from tgfs.reqres import FileContent, FileMessageEmpty, GeneralFileMessage, UploadableFileMessage
 from tgfs.tasks import create_download_task, create_upload_task
 
 from .file_desc import FileDescApi
@@ -22,11 +22,11 @@ class FileApi:
         await self.__metadata_api.push()
         return copied_fr
 
-    async def __create(
+    async def __create_new_file(
         self, where: TGFSDirectory, file_msg: GeneralFileMessage
     ) -> TGFSFileDesc:
         resp = await self.__file_desc_api.create_file_desc(file_msg)
-        where.create_file_ref(file_msg.name, file_message_id=resp.message_id)
+        where.create_file_ref(file_msg.name, resp.message_id)
         await self.__metadata_api.push()
         return resp.fd
 
@@ -41,7 +41,7 @@ class FileApi:
             fr.message_id = message_id
             await self.__metadata_api.push()
 
-    async def __update(
+    async def __update_existing_file(
         self, fr: TGFSFileRef, file_msg: GeneralFileMessage, version_id: Optional[str]
     ) -> TGFSFileDesc:
         if version_id:
@@ -68,16 +68,16 @@ class FileApi:
         version_id: Optional[str] = None,
     ) -> TGFSFileDesc:
         try:
-            if not isinstance(file_msg, FileMessageEmpty):
+            if isinstance(file_msg, UploadableFileMessage):
                 file_msg.task_tracker = await create_upload_task(
                     os.path.join(under.absolute_path, file_msg.name),
                     file_msg.get_size(),
                 )
             try:
                 fr = under.find_file(file_msg.name)
-                res = await self.__update(fr, file_msg, version_id)
+                res = await self.__update_existing_file(fr, file_msg, version_id)
             except FileOrDirectoryDoesNotExist:
-                res = await self.__create(under, file_msg)
+                res = await self.__create_new_file(under, file_msg)
 
             if file_msg.task_tracker:
                 await file_msg.task_tracker.mark_completed()

@@ -223,6 +223,27 @@ class FileMessageFromStream(FileMessage):
         )
 
 
+@dataclass
+class FileMessageImported(FileMessage):
+    message_id: int
+
+    @classmethod
+    def new(cls, message_id: int, size: int, name: str = "unnamed") -> "FileMessageImported":
+        return cls(
+            name=name,
+            caption="",
+            tags=FileTags(),
+            offset=0,
+            size=size,
+            task_tracker=None,
+            message_id=message_id,
+        )
+
+
+UploadableFileMessage = Union[
+    FileMessageFromPath, FileMessageFromBuffer, FileMessageFromStream
+]
+
 GeneralFileMessage = Union[
-    FileMessageEmpty, FileMessageFromPath, FileMessageFromBuffer, FileMessageFromStream
+    UploadableFileMessage, FileMessageEmpty, FileMessageImported
 ]

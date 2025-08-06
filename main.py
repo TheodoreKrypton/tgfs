@@ -54,7 +54,7 @@ async def main():
     # Start manager server if configured
     tasks = [webdav_task]
     if config.manager:
-        manager_app = create_manager_app()
+        manager_app = create_manager_app(client, config)
         manager_task = asyncio.create_task(
             run_server(
                 manager_app, config.manager.host, config.manager.port, "TGFS Manager"

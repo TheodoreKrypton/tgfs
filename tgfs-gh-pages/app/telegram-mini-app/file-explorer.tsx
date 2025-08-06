@@ -11,6 +11,7 @@ import {
   InsertDriveFile,
   MoreVert,
   Refresh,
+  Telegram,
 } from "@mui/icons-material";
 import {
   Alert,
@@ -37,6 +38,7 @@ import { TreeItem } from "@mui/x-tree-view/TreeItem";
 import { useCallback, useEffect, useState } from "react";
 import ManagerClient, { Task } from "./manager-client";
 import WebDAVClient, { WebDAVItem } from "./webdav-client";
+import TelegramImportDialog from "./telegram-import-dialog";
 
 interface FileExplorerProps {
   webdavClient: WebDAVClient;
@@ -57,6 +59,7 @@ export default function FileExplorer({
   const [newDirName, setNewDirName] = useState("");
   const [uploadDialog, setUploadDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [telegramLinkDialog, setTelegramLinkDialog] = useState(false);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -128,27 +131,32 @@ export default function FileExplorer({
     return () => clearInterval(interval);
   }, [managerClient, loadTasks]);
 
-  const handleItemClick = (item: WebDAVItem) => {
-    if (item.isDirectory) {
-      loadDirectory(item.path);
-    }
-  };
+  const handleItemClick = useCallback(
+    (item: WebDAVItem) => {
+      if (item.isDirectory) {
+        loadDirectory(item.path);
+      }
+    },
+    [loadDirectory]
+  );
 
-  const handleMenuOpen = (
-    event: React.MouseEvent<HTMLElement>,
-    item: WebDAVItem
-  ) => {
-    event.stopPropagation();
-    setAnchorEl(event.currentTarget);
-    setSelectedItem(item);
-  };
+  const handleMenuOpen = useCallback(
+    (event: React.MouseEvent<HTMLElement>, item: WebDAVItem) => {
+      if (item.isDirectory) return;
 
-  const handleMenuClose = () => {
+      event.stopPropagation();
+      setAnchorEl(event.currentTarget);
+      setSelectedItem(item);
+    },
+    []
+  );
+
+  const handleMenuClose = useCallback(() => {
     setAnchorEl(null);
     setSelectedItem(null);
-  };
+  }, []);
 
-  const handleDownload = async () => {
+  const handleDownload = useCallback(async () => {
     if (!selectedItem || selectedItem.isDirectory) return;
 
     try {
@@ -175,9 +183,9 @@ export default function FileExplorer({
       });
     }
     handleMenuClose();
-  };
+  }, [selectedItem, webdavClient, handleMenuClose]);
 
-  const handleDelete = async () => {
+  const handleDelete = useCallback(async () => {
     if (!selectedItem) return;
 
     try {
@@ -196,9 +204,9 @@ export default function FileExplorer({
       });
     }
     handleMenuClose();
-  };
+  }, [selectedItem, webdavClient, handleMenuClose]);
 
-  const handleCreateDirectory = async () => {
+  const handleCreateDirectory = useCallback(async () => {
     if (!newDirName.trim()) return;
 
     try {
@@ -221,9 +229,9 @@ export default function FileExplorer({
     }
     setCreateDirDialog(false);
     setNewDirName("");
-  };
+  }, [currentPath, webdavClient, handleMenuClose]);
 
-  const handleFileUpload = async () => {
+  const handleFileUpload = useCallback(async () => {
     if (!selectedFile) return;
 
     try {
@@ -246,29 +254,58 @@ export default function FileExplorer({
     }
     setUploadDialog(false);
     setSelectedFile(null);
-  };
+  }, [currentPath, webdavClient, loadDirectory, selectedFile]);
 
-  const handleDeleteTask = async (taskId: string, filename: string) => {
-    if (!managerClient) return;
+  const handleTelegramImport = useCallback(
+    async (channelId: number, messageId: number, asName: string) => {
+      if (!messageId || !managerClient || !currentPath) return;
 
-    try {
-      await managerClient.deleteTask(taskId);
-      await loadTasks(); // Refresh tasks after deletion
-      setSnackbar({
-        open: true,
-        message: `Removed task ${filename}`,
-        severity: "success",
-      });
-    } catch (err) {
-      setSnackbar({
-        open: true,
-        message: err instanceof Error ? err.message : "Failed to remove task",
-        severity: "error",
-      });
-    }
-  };
+      try {
+        await managerClient.importTelegramMessage(
+          channelId,
+          messageId,
+          currentPath,
+          asName
+        );
+        setTelegramLinkDialog(false);
 
-  const getPathParts = () => {
+        // Refresh tasks to show the new import task
+        await loadTasks();
+      } catch (err) {
+        setSnackbar({
+          open: true,
+          message: err instanceof Error ? err.message : "Import failed",
+          severity: "error",
+        });
+      }
+    },
+    [managerClient, loadTasks, currentPath]
+  );
+
+  const handleDeleteTask = useCallback(
+    async (taskId: string, filename: string) => {
+      if (!managerClient) return;
+
+      try {
+        await managerClient.deleteTask(taskId);
+        await loadTasks(); // Refresh tasks after deletion
+        setSnackbar({
+          open: true,
+          message: `Removed task ${filename}`,
+          severity: "success",
+        });
+      } catch (err) {
+        setSnackbar({
+          open: true,
+          message: err instanceof Error ? err.message : "Failed to remove task",
+          severity: "error",
+        });
+      }
+    },
+    [managerClient, loadTasks]
+  );
+
+  const getPathParts = useCallback(() => {
     const parts = currentPath.split("/").filter(Boolean);
     return [
       { name: "Home", path: "/" },
@@ -277,128 +314,148 @@ export default function FileExplorer({
         path: "/" + parts.slice(0, index + 1).join("/"),
       })),
     ];
-  };
+  }, [currentPath]);
 
-  const getFileIcon = (item: WebDAVItem) => {
+  const getFileIcon = useCallback((item: WebDAVItem) => {
     if (item.isDirectory) {
       return <Folder sx={{ color: "primary.main" }} />;
     }
     return <InsertDriveFile sx={{ color: "text.secondary" }} />;
-  };
+  }, []);
 
-  const getFileInfo = (item: WebDAVItem) => {
-    if (item.isDirectory) {
-      return "Directory";
-    }
-
-    const parts = [];
-    if (item.size !== undefined) {
-      parts.push(webdavClient.formatFileSize(item.size));
-    }
-    if (item.lastModified) {
-      parts.push(webdavClient.formatDate(item.lastModified));
-    }
-    return parts.join(" • ");
-  };
-
-  const renderTaskItem = (task: Task) => (
-    <TreeItem
-      key={`task-${task.id}`}
-      itemId={`task-${task.id}`}
-      label={
-        <Box sx={{ display: "flex", alignItems: "center", py: 1, pl: 2 }}>
-          <Box sx={{ mr: 1, fontSize: "1rem" }}>
-            {managerClient?.getTaskTypeIcon(task.type)}
-          </Box>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography
-              variant="body2"
-              sx={{
-                fontStyle: "italic",
-                color: managerClient?.getTaskStatusColor(task.status),
-              }}
-            >
-              {task.filename}
-            </Typography>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                {task.status} • {managerClient?.formatProgress(task.progress)}
-                {task.status === "in_progress" && task.speed_bytes_per_sec && (
-                  <> • {managerClient?.formatSpeed(task.speed_bytes_per_sec)}</>
-                )}
-              </Typography>
-              {task.status === "in_progress" && (
-                <CircularProgress
-                  size={12}
-                  variant="determinate"
-                  value={task.progress * 100}
-                />
-              )}
-            </Box>
-            {task.size_total && (
-              <Typography variant="caption" color="text.secondary">
-                {managerClient?.formatFileSize(task.size_processed)} /{" "}
-                {managerClient?.formatFileSize(task.size_total)}
-              </Typography>
-            )}
-          </Box>
-
-          <IconButton
-            size="small"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDeleteTask(task.id, task.filename);
-            }}
-            sx={{ ml: 1 }}
-            title="Remove task"
-          >
-            <Close fontSize="small" sx={{ color: "text.secondary" }} />
-          </IconButton>
-        </Box>
+  const getFileInfo = useCallback(
+    (item: WebDAVItem) => {
+      if (item.isDirectory) {
+        return "Directory";
       }
-    />
+
+      const parts = [];
+      if (item.size !== undefined) {
+        parts.push(webdavClient.formatFileSize(item.size));
+      }
+      if (item.lastModified) {
+        parts.push(webdavClient.formatDate(item.lastModified));
+      }
+      return parts.join(" • ");
+    },
+    [webdavClient]
   );
 
-  const renderTreeItems = (items: WebDAVItem[]) => {
-    const fileItems = items.map((item) => (
+  const renderTaskItem = useCallback(
+    (task: Task) => (
       <TreeItem
-        key={item.path}
-        itemId={item.path}
+        key={`task-${task.id}`}
+        itemId={`task-${task.id}`}
         label={
-          <Box sx={{ display: "flex", alignItems: "center", py: 1 }}>
-            <Box sx={{ mr: 1 }}>{getFileIcon(item)}</Box>
+          <Box sx={{ display: "flex", alignItems: "center", py: 1, pl: 2 }}>
+            <Box sx={{ mr: 1, fontSize: "1rem" }}>
+              {managerClient?.getTaskTypeIcon(task.type)}
+            </Box>
             <Box sx={{ flexGrow: 1 }}>
               <Typography
                 variant="body2"
                 sx={{
-                  cursor: "pointer",
-                  fontWeight: item.isDirectory ? 500 : 400,
+                  fontStyle: "italic",
+                  color: managerClient?.getTaskStatusColor(task.status),
                 }}
-                onClick={() => handleItemClick(item)}
               >
-                {item.name}
+                {task.filename}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {getFileInfo(item)}
-              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  {task.status} • {managerClient?.formatProgress(task.progress)}
+                  {task.status === "in_progress" &&
+                    task.speed_bytes_per_sec && (
+                      <>
+                        {" "}
+                        • {managerClient?.formatSpeed(task.speed_bytes_per_sec)}
+                      </>
+                    )}
+                </Typography>
+                {task.status === "in_progress" && (
+                  <CircularProgress
+                    size={12}
+                    variant="determinate"
+                    value={task.progress * 100}
+                  />
+                )}
+              </Box>
+              {task.size_total && (
+                <Typography variant="caption" color="text.secondary">
+                  {managerClient?.formatFileSize(task.size_processed)} /{" "}
+                  {managerClient?.formatFileSize(task.size_total)}
+                </Typography>
+              )}
             </Box>
+
             <IconButton
               size="small"
-              onClick={(e) => handleMenuOpen(e, item)}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteTask(task.id, task.filename);
+              }}
               sx={{ ml: 1 }}
+              title="Remove task"
             >
-              <MoreVert fontSize="small" sx={{ color: "text.secondary" }} />
+              <Close fontSize="small" sx={{ color: "text.secondary" }} />
             </IconButton>
           </Box>
         }
       />
-    ));
+    ),
+    [managerClient, handleDeleteTask]
+  );
 
-    const taskItems = tasks.map(renderTaskItem);
+  const renderTreeItems = useCallback(
+    (items: WebDAVItem[]) => {
+      const fileItems = items.map((item) => (
+        <TreeItem
+          key={item.path}
+          itemId={item.path}
+          label={
+            <Box sx={{ display: "flex", alignItems: "center", py: 1 }}>
+              <Box sx={{ mr: 1 }}>{getFileIcon(item)}</Box>
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    cursor: "pointer",
+                    fontWeight: item.isDirectory ? 500 : 400,
+                  }}
+                  onClick={() => handleItemClick(item)}
+                >
+                  {item.name}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {getFileInfo(item)}
+                </Typography>
+              </Box>
+              <IconButton
+                size="small"
+                onClick={(e) => handleMenuOpen(e, item)}
+                sx={{ ml: 1 }}
+              >
+                <MoreVert fontSize="small" sx={{ color: "text.secondary" }} />
+              </IconButton>
+            </Box>
+          }
+        />
+      ));
 
-    // Combine and return all items
-    return [...fileItems, ...taskItems];
-  };
+      const taskItems = tasks.map(renderTaskItem);
+
+      // Combine and return all items
+      return [...fileItems, ...taskItems];
+    },
+    [
+      tasks,
+      getFileIcon,
+      getFileInfo,
+      handleItemClick,
+      handleMenuOpen,
+      renderTaskItem,
+    ]
+  );
 
   return (
     <Box
@@ -520,19 +577,56 @@ export default function FileExplorer({
       <Dialog open={uploadDialog} onClose={() => setUploadDialog(false)}>
         <DialogTitle>Upload File</DialogTitle>
         <DialogContent>
-          <input
-            type="file"
-            onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-            style={{ marginTop: 16 }}
-          />
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, pt: 1 }}>
+            <Button
+              variant="outlined"
+              startIcon={<FileUpload />}
+              onClick={() => {
+                setUploadDialog(false);
+                // Open file picker dialog
+                const input = document.createElement("input");
+                input.type = "file";
+                input.onchange = (e) => {
+                  const file = (e.target as HTMLInputElement).files?.[0];
+                  if (file) {
+                    setSelectedFile(file);
+                    // Immediately upload the file
+                    handleFileUpload();
+                  }
+                };
+                input.click();
+              }}
+              fullWidth
+            >
+              Upload from Device
+            </Button>
+
+            {managerClient && (
+              <Button
+                variant="outlined"
+                startIcon={<Telegram />}
+                onClick={() => {
+                  setUploadDialog(false);
+                  setTelegramLinkDialog(true);
+                }}
+                fullWidth
+              >
+                Import from Telegram Message
+              </Button>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setUploadDialog(false)}>Cancel</Button>
-          <Button onClick={handleFileUpload} disabled={!selectedFile}>
-            Upload
-          </Button>
         </DialogActions>
       </Dialog>
+
+      <TelegramImportDialog
+        open={telegramLinkDialog}
+        onClose={() => setTelegramLinkDialog(false)}
+        onImport={handleTelegramImport}
+        managerClient={managerClient}
+      />
 
       <Snackbar
         open={snackbar.open}

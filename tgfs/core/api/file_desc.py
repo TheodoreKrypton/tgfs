@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from tgfs.core.model import TGFSFileDesc, TGFSFileRef, TGFSFileVersion
 from tgfs.core.repository.interface import (
@@ -6,7 +6,7 @@ from tgfs.core.repository.interface import (
     IFDRepository,
     IFileContentRepository,
 )
-from tgfs.reqres import FileContent, FileMessageEmpty, GeneralFileMessage
+from tgfs.reqres import FileContent, FileMessageEmpty, GeneralFileMessage, FileMessageImported, SentFileMessage, UploadableFileMessage
 
 
 class FileDescApi:
@@ -30,6 +30,12 @@ class FileDescApi:
             name=as_name,
         )
 
+    async def get_sent_file_message(self, file_msg: UploadableFileMessage | FileMessageImported) -> List[SentFileMessage]:
+        if isinstance(file_msg, FileMessageImported):
+            return [SentFileMessage(file_msg.message_id, file_msg.size)]
+        else:
+            return await self.__fc_repo.save(file_msg)
+
     async def append_file_version(
         self, file_msg: GeneralFileMessage, fr: Optional[TGFSFileRef] = None
     ) -> FDRepositoryResp:
@@ -38,7 +44,7 @@ class FileDescApi:
         if isinstance(file_msg, FileMessageEmpty):
             fd.add_empty_version()
         else:
-            sent_file_msg = await self.__fc_repo.save(file_msg)
+            sent_file_msg = await self.get_sent_file_message(file_msg)
             fd.add_version_from_sent_file_message(*sent_file_msg)
 
         return await self.__fd_repo.save(fd, fr)
@@ -52,7 +58,7 @@ class FileDescApi:
             fv.set_invalid()
             fd.update_version(version_id, fv)
         else:
-            sent_file_msg = await self.__fc_repo.save(file_msg)
+            sent_file_msg = await self.get_sent_file_message(file_msg)
             fv = TGFSFileVersion.from_sent_file_message(*sent_file_msg)
             fv.id = version_id
             fd.update_version(version_id, fv)

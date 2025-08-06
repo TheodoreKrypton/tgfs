@@ -15,7 +15,7 @@ from tgfs.reqres import (
     FileMessageFromPath,
     FileTags,
     GeneralFileMessage,
-    SentFileMessage,
+    SentFileMessage, FileMessageImported,
 )
 from tgfs.utils.chained_async_iterator import ChainedAsyncIterator
 

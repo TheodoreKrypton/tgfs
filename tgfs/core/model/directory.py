@@ -109,12 +109,12 @@ class TGFSDirectory:
             raise FileOrDirectoryDoesNotExist(name)
         return files[0]
 
-    def create_file_ref(self, name: str, file_message_id: int) -> TGFSFileRef:
+    def create_file_ref(self, name: str, fd_message_id: int) -> TGFSFileRef:
         if self.find_files([name]):
             raise FileOrDirectoryAlreadyExists(name)
 
         fr = TGFSFileRef(
-            message_id=file_message_id,
+            message_id=fd_message_id,
             name=name,
             location=self,
         )
