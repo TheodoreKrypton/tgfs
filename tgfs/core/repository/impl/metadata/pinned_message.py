@@ -4,8 +4,15 @@ from typing import AsyncIterator, Optional
 from tgfs.core.api import MessageApi
 from tgfs.core.model import TGFSDirectory, TGFSFileVersion, TGFSMetadata
 from tgfs.core.repository.interface import IFileContentRepository, IMetaDataRepository
-from tgfs.errors import MetadataNotFound, MetadataNotInitialized, NoPinnedMessage
-from tgfs.reqres import FileMessageFromBuffer, MessageResp, SentFileMessage
+from tgfs.errors import (
+    MetadataNotInitialized,
+    NoPinnedMessage,
+)
+from tgfs.reqres import (
+    FileMessageFromBuffer,
+    MessageRespWithDocument,
+    SentFileMessage,
+)
 
 
 class TGMsgMetadataRepository(IMetaDataRepository):
@@ -48,7 +55,7 @@ class TGMsgMetadataRepository(IMetaDataRepository):
             result.extend(chunk)
         return bytes(result)
 
-    async def new_metadata(self) -> MessageResp:
+    async def new_metadata(self) -> MessageRespWithDocument:
         root = TGFSDirectory.root_dir()
         self.metadata = TGFSMetadata(root)
         self.__message_id = None
@@ -60,9 +67,6 @@ class TGMsgMetadataRepository(IMetaDataRepository):
             pinned_message = await self.__message_api.get_pinned_message()
         except NoPinnedMessage:
             pinned_message = await self.new_metadata()
-
-        if not pinned_message.document:
-            raise MetadataNotFound()
 
         temp_fv = TGFSFileVersion.from_sent_file_message(
             SentFileMessage(pinned_message.message_id, pinned_message.document.size)

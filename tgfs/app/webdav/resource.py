@@ -3,12 +3,11 @@ import os.path
 from typing import Optional
 
 from asgidav.resource import Resource as _Resource
+from tgfs.app.cache import fs_cache
 from tgfs.core import Client, Ops
 from tgfs.core.model import TGFSFileDesc, TGFSFileRef
 from tgfs.errors import TechnicalError
 from tgfs.reqres import FileContent
-
-from .cache import fs_cache
 
 
 class Resource(_Resource):

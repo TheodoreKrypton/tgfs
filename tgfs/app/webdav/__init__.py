@@ -2,13 +2,13 @@ import base64
 from typing import Optional
 
 from asgidav.app import User, create_app
+from tgfs.app.cache import Member, fs_cache
 from tgfs.auth.basic import authenticate as auth_basic
 from tgfs.auth.bearer import authenticate as auth_bearer
 from tgfs.auth.bearer import login
 from tgfs.config import Config
 from tgfs.core import Client
 
-from .cache import Member, fs_cache
 from .folder import Folder
 
 

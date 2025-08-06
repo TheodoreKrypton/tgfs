@@ -1,7 +1,7 @@
 from asgidav.folder import Folder as _Folder
+from tgfs.app.cache import fs_cache
 from tgfs.core import Client, Ops
 
-from .cache import fs_cache
 from .resource import Resource
 
 

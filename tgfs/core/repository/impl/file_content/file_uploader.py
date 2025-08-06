@@ -15,11 +15,11 @@ from tgfs.reqres import (
     FileMessageFromBuffer,
     FileMessageFromPath,
     FileMessageFromStream,
-    GeneralFileMessage,
     SaveBigFilePartReq,
     SaveFilePartReq,
     SendFileReq,
     SendMessageResp,
+    UploadableFileMessage,
     UploadedFile,
 )
 from tgfs.tasks.integrations import TaskTracker
@@ -317,7 +317,7 @@ class UploaderFromStream(IFileUploader[FileMessageFromStream]):
 
 def create_uploader(
     tdlib: TDLibApi,
-    file_msg: GeneralFileMessage,
+    file_msg: UploadableFileMessage,
     on_complete: Optional[OnComplete] = None,
 ):
     if isinstance(file_msg, FileMessageFromPath):

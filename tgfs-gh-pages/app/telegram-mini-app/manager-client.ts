@@ -13,6 +13,17 @@ export interface Task {
   speed_bytes_per_sec?: number;
 }
 
+export interface ChannelMessage {
+  id: number;
+  file_size: number;
+  caption: string;
+  has_document: boolean;
+}
+
+export interface ManagerError {
+  detail: string;
+}
+
 export default class ManagerClient {
   private baseUrl: string;
   private jwtToken: string;
@@ -35,9 +46,8 @@ export default class ManagerClient {
     });
 
     if (!response.ok) {
-      throw new Error(
-        `Manager API error: ${response.status} ${response.statusText}`
-      );
+      const errorData = (await response.json()) as ManagerError;
+      throw new Error(errorData.detail);
     }
 
     return response.json();
@@ -62,13 +72,33 @@ export default class ManagerClient {
     });
   }
 
-  async cleanupTasks(maxAgeHours: number = 24): Promise<{ message: string }> {
-    return await this.makeRequest<{ message: string }>(
-      `/tasks/cleanup?max_age_hours=${maxAgeHours}`,
-      {
-        method: "POST",
-      }
+  async getMessage(
+    channelId: number,
+    messageId: number
+  ): Promise<ChannelMessage> {
+    return this.makeRequest<ChannelMessage>(
+      `/message/${channelId}/${messageId}`
     );
+  }
+
+  async importTelegramMessage(
+    channelId: number,
+    messageId: number,
+    directory: string,
+    asName: string
+  ): Promise<void> {
+    await this.makeRequest<void>(`/import`, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      body: JSON.stringify({
+        channel_id: channelId,
+        message_id: messageId,
+        directory,
+        name: asName,
+      }),
+    });
   }
 
   formatFileSize(bytes?: number): string {

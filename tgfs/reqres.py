@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import AsyncIterator, Optional, Tuple, Union
+from typing import AsyncIterator, Optional, Tuple
 
 from telethon.tl.types import PeerChannel
 
@@ -39,6 +39,11 @@ class Document:
 class MessageResp(Message):
     text: str
     document: Optional[Document]
+
+
+@dataclass
+class MessageRespWithDocument(MessageResp):
+    document: Document
 
 
 GetMessagesResp = list[Optional[MessageResp]]
@@ -133,10 +138,14 @@ class FileTags:
 @dataclass
 class FileMessage:
     name: str
+    size: int
+
+
+@dataclass
+class UploadableFileMessage(FileMessage):
     caption: str
     tags: FileTags
     offset: int
-    size: int
 
     task_tracker: Optional[TaskTracker]
 
@@ -151,18 +160,11 @@ class FileMessage:
 class FileMessageEmpty(FileMessage):
     @classmethod
     def new(cls, name: str = "unnamed") -> "FileMessageEmpty":
-        return cls(
-            name=name,
-            caption="",
-            tags=FileTags(),
-            offset=0,
-            size=0,
-            task_tracker=None,
-        )
+        return cls(name=name, size=0)
 
 
 @dataclass
-class FileMessageFromPath(FileMessage):
+class FileMessageFromPath(UploadableFileMessage):
     path: str
 
     def _get_size(self) -> int:
@@ -182,7 +184,7 @@ class FileMessageFromPath(FileMessage):
 
 
 @dataclass
-class FileMessageFromBuffer(FileMessage):
+class FileMessageFromBuffer(UploadableFileMessage):
     buffer: bytes
 
     def _get_size(self) -> int:
@@ -202,7 +204,7 @@ class FileMessageFromBuffer(FileMessage):
 
 
 @dataclass
-class FileMessageFromStream(FileMessage):
+class FileMessageFromStream(UploadableFileMessage):
     stream: FileContent
 
     @classmethod
@@ -223,6 +225,12 @@ class FileMessageFromStream(FileMessage):
         )
 
 
-GeneralFileMessage = Union[
-    FileMessageEmpty, FileMessageFromPath, FileMessageFromBuffer, FileMessageFromStream
-]
+@dataclass
+class FileMessageImported(FileMessage):
+    message_id: int
+
+    @classmethod
+    def new(
+        cls, message_id: int, size: int, name: str = "unnamed"
+    ) -> "FileMessageImported":
+        return cls(name=name, size=size, message_id=message_id)

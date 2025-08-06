@@ -1,4 +1,4 @@
-from tgfs.app.webdav.cache import FSCache
+from tgfs.app.cache import FSCache
 
 
 class TestFSCache:

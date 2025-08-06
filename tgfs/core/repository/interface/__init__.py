@@ -10,7 +10,7 @@ from tgfs.core.model import (
     TGFSMetadata,
 )
 from tgfs.errors import MetadataNotInitialized
-from tgfs.reqres import FileContent, GeneralFileMessage, SentFileMessage
+from tgfs.reqres import FileContent, SentFileMessage, UploadableFileMessage
 
 
 @dataclass
@@ -21,7 +21,7 @@ class FDRepositoryResp:
 
 class IFileContentRepository(metaclass=ABCMeta):
     @abstractmethod
-    async def save(self, file_msg: GeneralFileMessage) -> List[SentFileMessage]:
+    async def save(self, file_msg: UploadableFileMessage) -> List[SentFileMessage]:
         pass
 
     @abstractmethod

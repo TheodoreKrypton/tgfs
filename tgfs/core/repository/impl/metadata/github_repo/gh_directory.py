@@ -101,7 +101,7 @@ class GithubDirectory(TGFSDirectory):
             REPO.create_file(
                 path=file_path,
                 message=f"Create file reference for {name}",
-                content=f"message_id: {file_message_id}",
+                content="",
                 branch=COMMIT,
             )
             logger.info(f"Created file reference {name} in {REPO_NAME} at {file_path}")

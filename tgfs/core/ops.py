@@ -7,6 +7,8 @@ from tgfs.reqres import (
     FileMessageFromBuffer,
     FileMessageFromPath,
     FileMessageFromStream,
+    FileMessageImported,
+    MessageRespWithDocument,
 )
 
 from .client import Client
@@ -208,6 +210,22 @@ class Ops:
                 name=basename,
                 stream=stream,
                 size=size,
+            ),
+        )
+
+    async def import_from_existing_file_message(
+        self, message: MessageRespWithDocument, remote: str
+    ) -> TGFSFileDesc:
+        self.__validate_path(remote)
+        dirname, basename = os.path.dirname(remote), os.path.basename(remote)
+        d = self.cd(dirname)
+
+        return await self.__client.file_api.upload(
+            d,
+            FileMessageImported.new(
+                name=basename,
+                size=message.document.size,
+                message_id=message.message_id,
             ),
         )
 
