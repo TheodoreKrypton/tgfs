@@ -10,13 +10,11 @@ from tgfs.errors import TechnicalError
 from tgfs.reqres import (
     EditMessageMediaReq,
     FileContent,
-    FileMessageEmpty,
+    FileMessage,
     FileMessageFromBuffer,
     FileMessageFromPath,
     FileTags,
     SentFileMessage,
-    FileMessage,
-    FileMessageImported,
     UploadableFileMessage,
 )
 from tgfs.utils.chained_async_iterator import ChainedAsyncIterator

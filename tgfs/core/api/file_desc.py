@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import List, Optional
 
 from tgfs.core.model import TGFSFileDesc, TGFSFileRef, TGFSFileVersion
 from tgfs.core.repository.interface import (
@@ -9,7 +9,6 @@ from tgfs.core.repository.interface import (
 from tgfs.reqres import (
     FileContent,
     FileMessage,
-    FileMessageEmpty,
     FileMessageImported,
     SentFileMessage,
     UploadableFileMessage,
@@ -42,8 +41,7 @@ class FileDescApi:
     ) -> List[SentFileMessage]:
         if isinstance(file_msg, FileMessageImported):
             return [SentFileMessage(file_msg.message_id, file_msg.size)]
-        else:
-            return await self.__fc_repo.save(file_msg)
+        return await self.__fc_repo.save(file_msg)
 
     async def append_file_version(
         self, file_msg: FileMessage, fr: Optional[TGFSFileRef] = None

@@ -18,10 +18,10 @@ from tgfs.reqres import (
     EditMessageTextReq,
     GetPinnedMessageReq,
     MessageResp,
+    MessageRespWithDocument,
     PinMessageReq,
     SearchMessageReq,
     SendTextReq,
-    MessageRespWithDocument,
 )
 from tgfs.telegram.interface import TDLibApi
 from tgfs.utils.chained_async_iterator import ChainedAsyncIterator

@@ -5,16 +5,13 @@ from tgfs.core.api import MessageApi
 from tgfs.core.model import TGFSDirectory, TGFSFileVersion, TGFSMetadata
 from tgfs.core.repository.interface import IFileContentRepository, IMetaDataRepository
 from tgfs.errors import (
-    MetadataNotFound,
     MetadataNotInitialized,
     NoPinnedMessage,
-    TechnicalError,
 )
 from tgfs.reqres import (
     FileMessageFromBuffer,
-    MessageResp,
-    SentFileMessage,
     MessageRespWithDocument,
+    SentFileMessage,
 )
 
 

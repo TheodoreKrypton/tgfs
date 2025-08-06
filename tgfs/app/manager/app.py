@@ -1,20 +1,19 @@
 import logging
-from typing import Any, Callable, List, Optional
 import os
+from typing import Any, Callable, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-
 from pydantic import BaseModel
 
+from tgfs.app.cache import fs_cache
 from tgfs.auth.bearer import authenticate
 from tgfs.auth.user import User
 from tgfs.config import Config
 from tgfs.core import Client
+from tgfs.core.ops import Ops
 from tgfs.reqres import MessageRespWithDocument
 from tgfs.tasks import task_store
-from tgfs.core.ops import Ops
-from tgfs.app.cache import fs_cache
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +92,7 @@ def create_manager_app(client: Client, config: Config) -> FastAPI:
         if channel_id != expected_channel_id:
             raise HTTPException(
                 status_code=400,
-                detail=f"The message is not in the configured file channel. Please forward the message to the file channel first.",
+                detail="The message is not in the configured file channel. Please forward the message to the file channel first.",
             )
 
         message = (await client.message_api.get_messages([message_id]))[0]

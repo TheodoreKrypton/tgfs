@@ -19,8 +19,8 @@ from tgfs.reqres import (
     SaveFilePartReq,
     SendFileReq,
     SendMessageResp,
-    UploadedFile,
     UploadableFileMessage,
+    UploadedFile,
 )
 from tgfs.tasks.integrations import TaskTracker
 from tgfs.telegram.interface import ITDLibClient, TDLibApi
