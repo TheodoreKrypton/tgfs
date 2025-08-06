@@ -146,7 +146,6 @@ class UploadableFileMessage(FileMessage):
     caption: str
     tags: FileTags
     offset: int
-    size: int
 
     task_tracker: Optional[TaskTracker]
 
