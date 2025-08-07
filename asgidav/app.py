@@ -25,7 +25,7 @@ def split_path(path: str) -> tuple[str, str]:
 
 
 def extract_path_from_destination(destination: str) -> str:
-    if destination.startswith("https://"):
+    if destination.startswith(("http://", "https://")):
         parsed = urlparse(destination)
         path = parsed.path
     else:
