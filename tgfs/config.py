@@ -104,11 +104,22 @@ class MetadataConfig:
 
 
 @dataclass
+class ServerConfig:
+    host: str
+    port: int
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "ServerConfig":
+        return cls(host=data["host"], port=data["port"])
+
+
+@dataclass
 class TGFSConfig:
     users: dict[str, UserConfig]
     download: DownloadConfig
     jwt: JWTConfig
     metadata: MetadataConfig
+    server: ServerConfig
 
     @classmethod
     def from_dict(cls, data: dict) -> Self:
@@ -124,6 +135,7 @@ class TGFSConfig:
             download=DownloadConfig.from_dict(data["download"]),
             jwt=JWTConfig.from_dict(data["jwt"]),
             metadata=MetadataConfig.from_dict(data.get("metadata")),
+            server=ServerConfig.from_dict(data["server"]),
         )
 
 
@@ -182,20 +194,12 @@ class TelegramConfig:
 class Config:
     telegram: TelegramConfig
     tgfs: TGFSConfig
-    webdav: WebDAVConfig
-    manager: Optional[ManagerConfig] = None
 
     @classmethod
     def from_dict(cls, data: dict) -> "Config":
-        manager_config = None
-        if "manager" in data:
-            manager_config = ManagerConfig.from_dict(data["manager"])
-
         return cls(
             telegram=TelegramConfig.from_dict(data["telegram"]),
             tgfs=TGFSConfig.from_dict(data["tgfs"]),
-            webdav=WebDAVConfig.from_dict(data["webdav"]),
-            manager=manager_config,
         )
 
 

@@ -32,20 +32,23 @@ def extract_path_from_destination(destination: str) -> str:
         path = destination
     return unquote(path)
 
-METHODS = frozenset({
-    "GET",
-    "HEAD",
-    "POST",
-    "PUT",
-    "DELETE",
-    "OPTIONS",
-    "PROPFIND",
-    "COPY",
-    "MOVE",
-    "MKCOL",
-    "LOCK",
-    "UNLOCK",
-})
+
+METHODS = frozenset(
+    {
+        "GET",
+        "HEAD",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS",
+        "PROPFIND",
+        "COPY",
+        "MOVE",
+        "MKCOL",
+        "LOCK",
+        "UNLOCK",
+    }
+)
 
 
 def create_app(
@@ -64,8 +67,6 @@ def create_app(
         "MS-Author-Via": "DAV",
         "Access-Control-Allow-Origin": "*",
     }
-
-
 
     NOT_FOUND = Response(status_code=HTTPStatus.NOT_FOUND, headers=common_headers)
     CREATED = Response(status_code=HTTPStatus.CREATED.value, headers=common_headers)

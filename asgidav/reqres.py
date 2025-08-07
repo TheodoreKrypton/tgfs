@@ -107,7 +107,10 @@ async def _propfind_response(
 
 
 async def propfind(
-    members: Tuple[Member, ...], depth: int, prop_names: Tuple[PropertyName, ...], base_path: str
+    members: Tuple[Member, ...],
+    depth: int,
+    prop_names: Tuple[PropertyName, ...],
+    base_path: str,
 ) -> str:
     root = et.Element(_tag("multistatus"), nsmap=NS_MAP)
 

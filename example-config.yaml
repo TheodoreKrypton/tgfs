@@ -25,20 +25,11 @@ tgfs:
     life: 604800
   metadata:
     type: pinned_message
-
 #    type: github_repo
 #    github_repo:
 #      repo: 'github_username/repo_name'
 #      commit: 'master'
 #      access_token: github_pat_114514
-
-webdav:
-  host: 0.0.0.0
-  port: 1900
-  path: /
-
-# Optional: Task Manager Server Configuration
-# Uncomment to enable task tracking and progress monitoring
-# manager:
-#   host: 0.0.0.0
-#   port: 1901
+  server:
+    host: 0.0.0.0
+    port: 1900

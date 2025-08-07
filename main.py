@@ -43,7 +43,7 @@ async def main():
     client = await create_client(config)
 
     app = create_app(client, config)
-    await run_server(app, config.webdav.host, config.webdav.port, "TGFS")
+    await run_server(app, config.tgfs.server.host, config.tgfs.server.port, "TGFS")
 
 
 if __name__ == "__main__":
