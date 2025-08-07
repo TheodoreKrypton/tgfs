@@ -1,9 +1,8 @@
 import asyncio
 import logging
 from collections.abc import Awaitable
-from dataclasses import dataclass
 from http import HTTPStatus
-from typing import Callable, Literal, Optional
+from typing import Callable, Optional
 from urllib.parse import unquote, urlparse
 
 from fastapi import FastAPI, Request, Response
@@ -33,18 +32,25 @@ def extract_path_from_destination(destination: str) -> str:
         path = destination
     return unquote(path)
 
-
-Permission = Literal["admin", "readonly"]
-
-
-@dataclass
-class User:
-    username: str
-    permission: Permission
+METHODS = frozenset({
+    "GET",
+    "HEAD",
+    "POST",
+    "PUT",
+    "DELETE",
+    "OPTIONS",
+    "PROPFIND",
+    "COPY",
+    "MOVE",
+    "MKCOL",
+    "LOCK",
+    "UNLOCK",
+})
 
 
 def create_app(
     get_member: Callable[[str], Awaitable[Optional[Member]]],
+    base_path: str = "",
 ) -> FastAPI:
     async def root() -> Folder:
         res = await get_member("/")
@@ -59,20 +65,7 @@ def create_app(
         "Access-Control-Allow-Origin": "*",
     }
 
-    allowed_methods = [
-        "GET",
-        "HEAD",
-        "POST",
-        "PUT",
-        "DELETE",
-        "OPTIONS",
-        "PROPFIND",
-        "COPY",
-        "MOVE",
-        "MKCOL",
-        "LOCK",
-        "UNLOCK",
-    ]
+
 
     NOT_FOUND = Response(status_code=HTTPStatus.NOT_FOUND, headers=common_headers)
     CREATED = Response(status_code=HTTPStatus.CREATED.value, headers=common_headers)
@@ -92,7 +85,7 @@ def create_app(
             status_code=HTTPStatus.OK,
             headers=common_headers
             | {
-                "Allow": ", ".join(allowed_methods),
+                "Allow": ", ".join(METHODS),
                 "Cache-Control": "no-cache",
             },
         )
@@ -101,7 +94,7 @@ def create_app(
     async def handle_propfind(request: Request, path: str):
         r = await PropfindRequest.from_request(request)
         if member := await get_member(path):
-            resp = await propfind((member,), r.depth, r.props)
+            resp = await propfind((member,), r.depth, r.props, base_path)
             return Response(
                 resp,
                 status_code=HTTPStatus.MULTI_STATUS,

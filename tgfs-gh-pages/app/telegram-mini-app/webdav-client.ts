@@ -18,17 +18,16 @@ export default class WebDAVClient {
   private client: WebDAVClientType;
 
   constructor(
-    baseUrl: string,
+    url: string,
     jwtToken: string,
     private onError?: (message: string) => void
   ) {
-    this.client = createClient(baseUrl, {
-      authType: AuthType.None,
-      headers: jwtToken
-        ? {
-            Authorization: `Bearer ${jwtToken}`,
-          }
-        : {},
+    this.client = createClient(url, {
+      authType: AuthType.Token,
+      token: {
+        access_token: jwtToken,
+        token_type: "Bearer",
+      },
     });
   }
 

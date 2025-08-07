@@ -14,7 +14,7 @@ from tgfs.config import Config
 from tgfs.core.client import Client
 
 from .manager import create_manager_app
-from .webdav import create_webdav_app
+from .webdav import METHODS, create_webdav_app
 
 READONLY_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "PROPFIND"})
 
@@ -24,7 +24,7 @@ def cors(app: FastAPI):
         CORSMiddleware,
         allow_origins=["*"],
         allow_credentials=True,
-        allow_methods=["*"],
+        allow_methods=list(METHODS),
         allow_headers=["*"],
     )
     return app
@@ -83,19 +83,6 @@ def create_app(client: Client, config: Config) -> FastAPI:
         except Exception as e:
             return UNAUTHORIZED(str(e))
 
-    @app.options("/{full_path:path}")
-    async def handle_options(request: Request, full_path: str):
-        return Response(
-            status_code=200,
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, HEAD, POST, PUT, DELETE, OPTIONS, PROPFIND, PROPPATCH, MKCOL, COPY, MOVE, LOCK, UNLOCK",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Max-Age": "86400",
-            },
-        )
-
     class LoginRequest(BaseModel):
         username: str
         password: str = ""
@@ -110,7 +97,7 @@ def create_app(client: Client, config: Config) -> FastAPI:
     manager_app = cors(create_manager_app(client, config))
     app.mount("/api", manager_app)
 
-    webdav_app = cors(create_webdav_app(client))
+    webdav_app = cors(create_webdav_app(client, "/webdav"))
     app.mount("/webdav", webdav_app)
 
     return app

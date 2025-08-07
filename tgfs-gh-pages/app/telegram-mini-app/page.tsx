@@ -3,7 +3,6 @@
 import {
   FolderOpen,
   Login,
-  TaskAlt,
   Telegram,
   Wifi,
   WifiOff,
@@ -41,19 +40,15 @@ import { telegramTheme } from "./telegram-theme";
 import WebDAVClient from "./webdav-client";
 
 interface LoginFormData {
-  webdavUrl: string;
+  tgfsUrl: string;
   username: string;
   password: string;
   anonymous: boolean;
-  managerUrl: string;
-  enableManager: boolean;
 }
 
 type SavedInfo = {
-  webdavUrl: string;
+  tgfsUrl: string;
   username: string;
-  managerUrl: string;
-  enableManager: boolean;
 };
 
 export default function TelegramMiniApp() {
@@ -69,12 +64,10 @@ export default function TelegramMiniApp() {
   const [telegramThemeColors, setTelegramThemeColors] =
     useState<ThemeParams | null>(null);
   const [formData, setFormData] = useState<LoginFormData>({
-    webdavUrl: "",
+    tgfsUrl: "",
     username: "",
     password: "",
     anonymous: false,
-    managerUrl: "",
-    enableManager: false,
   });
 
   const handleError = (message: string) => {
@@ -113,20 +106,17 @@ export default function TelegramMiniApp() {
 
     setFormData((prev) => ({
       ...prev,
-      webdavUrl: savedInfo.webdavUrl || "",
+      tgfsUrl: savedInfo.tgfsUrl || "",
       username: savedInfo.username || "",
-      managerUrl: savedInfo.managerUrl || "",
-      enableManager: savedInfo.enableManager || false,
     }));
 
-    if (token && savedInfo.webdavUrl) {
-      const client = new WebDAVClient(savedInfo.webdavUrl, token, handleError);
+    if (token && savedInfo.tgfsUrl) {
+      const client = new WebDAVClient(
+        `${savedInfo.tgfsUrl}/webdav`,
+        token,
+        handleError
+      );
       setWebdavClient(client);
-
-      if (savedInfo.enableManager && savedInfo.managerUrl) {
-        const managerClient = new ManagerClient(savedInfo.managerUrl, token);
-        setManagerClient(managerClient);
-      }
 
       setIsLoggedIn(true);
     }
@@ -148,7 +138,7 @@ export default function TelegramMiniApp() {
 
     try {
       // Send login request to get JWT token
-      const response = await fetch(`${formData.webdavUrl}/login`, {
+      const response = await fetch(`${formData.tgfsUrl}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -172,26 +162,21 @@ export default function TelegramMiniApp() {
       localStorage.setItem(
         "saved_info",
         JSON.stringify({
-          webdavUrl: formData.webdavUrl,
+          tgfsUrl: formData.tgfsUrl,
           username: formData.username,
-          managerUrl: formData.managerUrl,
-          enableManager: formData.enableManager,
         })
       );
 
       // Create WebDAV client with JWT token
       const client = new WebDAVClient(
-        `${formData.webdavUrl}/webdav`,
+        `${formData.tgfsUrl}/webdav`,
         token,
         handleError
       );
       await client.connect();
       setWebdavClient(client);
 
-      const managerClient = new ManagerClient(
-        `${formData.webdavUrl}/api`,
-        token
-      );
+      const managerClient = new ManagerClient(`${formData.tgfsUrl}/api`, token);
       setManagerClient(managerClient);
 
       setIsLoggedIn(true);
@@ -202,7 +187,7 @@ export default function TelegramMiniApp() {
         let potentialReason = "";
         if (
           window.location.protocol === "https:" &&
-          !formData.webdavUrl.startsWith("https://")
+          !formData.tgfsUrl.startsWith("https://")
         ) {
           potentialReason =
             "WebDAV URL must start with https:// when using secure connections.";
@@ -442,8 +427,8 @@ export default function TelegramMiniApp() {
             >
               <TextField
                 label="WebDAV URL"
-                value={formData.webdavUrl}
-                onChange={handleInputChange("webdavUrl")}
+                value={formData.tgfsUrl}
+                onChange={handleInputChange("tgfsUrl")}
                 placeholder="localhost or your-server.com"
                 fullWidth
                 required
@@ -493,40 +478,10 @@ export default function TelegramMiniApp() {
                 </>
               )}
 
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={formData.enableManager}
-                    onChange={handleInputChange("enableManager")}
-                    disabled={isLoading}
-                  />
-                }
-                label={
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <TaskAlt sx={{ color: "text.primary" }} />
-                    Enable Task Manager
-                  </Box>
-                }
-              />
-
-              {formData.enableManager && (
-                <>
-                  <TextField
-                    label="Task Manager Address"
-                    value={formData.managerUrl}
-                    onChange={handleInputChange("managerUrl")}
-                    placeholder={formData.managerUrl}
-                    fullWidth
-                    disabled={isLoading}
-                    helperText="URL for task manager server"
-                  />
-                </>
-              )}
-
               <Button
                 variant="contained"
                 onClick={handleLogin}
-                disabled={isLoading || !formData.webdavUrl}
+                disabled={isLoading || !formData.tgfsUrl}
                 sx={{ mt: 2 }}
                 startIcon={
                   isLoading ? <CircularProgress size={20} /> : <Login />

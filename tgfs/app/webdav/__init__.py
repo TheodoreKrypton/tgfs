@@ -1,6 +1,6 @@
 from typing import Optional
 
-from asgidav.app import create_app
+from asgidav.app import METHODS, create_app
 from tgfs.app.cache import Member, fs_cache
 from tgfs.core import Client
 
@@ -18,9 +18,16 @@ async def _get_member(path: str, client: Client) -> Optional[Member]:
     return None
 
 
-def create_webdav_app(client: Client):
+def create_webdav_app(client: Client, base_path: str = ""):
     fs_cache.set("/", Folder("/", client))
 
     return create_app(
         get_member=lambda path: _get_member(path, client),
+        base_path=base_path,
     )
+
+
+__all__ = [
+    "create_webdav_app",
+    "METHODS",
+]
