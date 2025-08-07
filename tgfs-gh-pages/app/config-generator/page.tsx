@@ -355,13 +355,14 @@ export default function ConfigGenerator() {
                   Get API Keys
                 </Button>
               </Box>
-              <FieldRow>
+              <FieldRow justifyContent="space-between">
                 <ConfigTextField
                   label="API ID"
                   value={config.telegram.api_id}
                   onChange={(e) =>
                     updateConfig("telegram.api_id", e.target.value)
                   }
+                  style={{ flex: 1 }}
                   required
                 />
                 <ConfigTextField
@@ -370,6 +371,7 @@ export default function ConfigGenerator() {
                   onChange={(e) =>
                     updateConfig("telegram.api_hash", e.target.value)
                   }
+                  style={{ flex: 1 }}
                   required
                 />
               </FieldRow>
@@ -380,9 +382,9 @@ export default function ConfigGenerator() {
                 onChange={(e) =>
                   updateConfig("telegram.private_file_channel", e.target.value)
                 }
-                helperText="Channel ID (numeric, e.g., 1234567)"
+                helperText="Channel ID (numeric, e.g., 1234567). Click the Copy Post Link button of any message in the channel to get the ID."
+                style={{ width: "100%" }}
                 required
-                width={400}
               />
 
               <Box>
@@ -650,12 +652,23 @@ export default function ConfigGenerator() {
                   width={120}
                 />
               </FieldRow>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Your WebDAV server will be at{" "}
+              <Typography variant="body2" color="text.secondary">
+                WebDAV server will be at{" "}
                 <code>
                   http://{config.tgfs.server.host}:{config.tgfs.server.port}
                   /webdav
                 </code>
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                TGFS server will be at{" "}
+                <code>
+                  http://{config.tgfs.server.host}:{config.tgfs.server.port}
+                </code>{" "}
+                {"("}Used in the{" "}
+                <a href="https://theodorekrypton.github.io/tgfs/telegram-mini-app/">
+                  <u>Telegram Mini App</u>
+                </a>
+                {")"}.
               </Typography>
             </FormSection>
           </Paper>
@@ -695,8 +708,6 @@ export default function ConfigGenerator() {
                   customStyle={{
                     fontSize: "0.75rem",
                     margin: 0,
-                    maxHeight: "400px",
-                    overflow: "auto",
                   }}
                 >
                   {generateYaml()}

@@ -190,7 +190,7 @@ export default function TelegramMiniApp() {
           !formData.tgfsUrl.startsWith("https://")
         ) {
           potentialReason =
-            "WebDAV URL must start with https:// when using secure connections.";
+            "URL must start with https:// when using secure connections.";
         }
         setError(
           `The URL is not a TGFS server, or is not reachable. ${potentialReason}`
@@ -405,14 +405,10 @@ export default function TelegramMiniApp() {
               component="h1"
               gutterBottom
               sx={{ display: "flex", alignItems: "center", gap: 1 }}
+              mb={3}
             >
               <Login sx={{ color: "text.primary" }} />
-              TGFS WebDAV Connection
-            </Typography>
-
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              Connect to your TGFS WebDAV server to browse and manage files
-              stored on Telegram.
+              Login to TGFS
             </Typography>
 
             {error && (
@@ -426,7 +422,7 @@ export default function TelegramMiniApp() {
               sx={{ display: "flex", flexDirection: "column", gap: 2 }}
             >
               <TextField
-                label="WebDAV URL"
+                label="TGFS Server URL (without /webdav suffix)"
                 value={formData.tgfsUrl}
                 onChange={handleInputChange("tgfsUrl")}
                 placeholder="localhost or your-server.com"
