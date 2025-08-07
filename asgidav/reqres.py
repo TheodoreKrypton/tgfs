@@ -74,12 +74,12 @@ async def _propstat(member: Member, prop_names: Tuple[PropertyName, ...]) -> Ele
 
 
 async def _propfind_response(
-    member: Member, depth: int, prop_names: Tuple[PropertyName, ...]
+    member: Member, depth: int, prop_names: Tuple[PropertyName, ...], base_path: str
 ) -> List[Element]:
     root = et.Element(_tag("response"))
 
     href_elem = et.SubElement(root, _tag("href"))
-    href_elem.text = quote(member.path, safe="/")
+    href_elem.text = quote(f"{base_path}{member.path}", safe="/")
 
     propstat_elem = await _propstat(
         member=member,
@@ -97,7 +97,7 @@ async def _propfind_response(
     names = await member.member_names()
     sub_members = await async_map(lambda name: folder.member(name), names)
     propfind_responses = await async_map(
-        lambda m: _propfind_response(m, depth - 1, prop_names),
+        lambda m: _propfind_response(m, depth - 1, prop_names, base_path),
         (m for m in sub_members if m is not None),
     )
     for sub_response in propfind_responses:
@@ -107,12 +107,15 @@ async def _propfind_response(
 
 
 async def propfind(
-    members: Tuple[Member, ...], depth: int, prop_names: Tuple[PropertyName, ...]
+    members: Tuple[Member, ...],
+    depth: int,
+    prop_names: Tuple[PropertyName, ...],
+    base_path: str,
 ) -> str:
     root = et.Element(_tag("multistatus"), nsmap=NS_MAP)
 
     for propfind_responses in await async_map(
-        lambda member: _propfind_response(member, depth, prop_names), members
+        lambda member: _propfind_response(member, depth, prop_names, base_path), members
     ):
         for response in propfind_responses:
             root.append(response)

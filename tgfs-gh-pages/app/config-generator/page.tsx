@@ -8,10 +8,8 @@ import {
   Button,
   Card,
   CardContent,
-  Checkbox,
   Container,
   FormControl,
-  FormControlLabel,
   InputLabel,
   MenuItem,
   Paper,
@@ -63,15 +61,10 @@ interface ConfigData {
         access_token: string;
       };
     };
-  };
-  webdav: {
-    host: string;
-    port: number;
-    path: string;
-  };
-  manager?: {
-    host: string;
-    port: number;
+    server: {
+      host: string;
+      port: number;
+    };
   };
 }
 
@@ -83,9 +76,6 @@ type ConfigUpdatePaths = {
   "telegram.bot.tokens": string[];
   "tgfs.users": { username: string; password: string }[];
   "tgfs.download.chunk_size_kb": number;
-  "webdav.host": string;
-  "webdav.port": number;
-  "webdav.path": string;
   "tgfs.jwt.secret": string;
   "tgfs.jwt.algorithm": string;
   "tgfs.jwt.life": number;
@@ -93,8 +83,8 @@ type ConfigUpdatePaths = {
   "tgfs.metadata.github_repo.repo": string;
   "tgfs.metadata.github_repo.commit": string;
   "tgfs.metadata.github_repo.access_token": string;
-  "manager.host": string;
-  "manager.port": number;
+  "tgfs.server.host": string;
+  "tgfs.server.port": number;
 };
 
 const generateRandomSecret = (): string => {
@@ -108,7 +98,6 @@ const generateRandomSecret = (): string => {
 };
 
 export default function ConfigGenerator() {
-  const [includeManager, setIncludeManager] = useState(true);
   const [config, setConfig] = useState<ConfigData>({
     telegram: {
       api_id: "",
@@ -146,15 +135,10 @@ export default function ConfigGenerator() {
           access_token: "",
         },
       },
-    },
-    webdav: {
-      host: "0.0.0.0",
-      port: 1900,
-      path: "/",
-    },
-    manager: {
-      host: "0.0.0.0",
-      port: 1901,
+      server: {
+        host: "0.0.0.0",
+        port: 1900,
+      },
     },
   });
 
@@ -180,12 +164,6 @@ export default function ConfigGenerator() {
         }[];
       } else if (path === "tgfs.download.chunk_size_kb") {
         newConfig.tgfs.download.chunk_size_kb = value as number;
-      } else if (path === "webdav.host") {
-        newConfig.webdav.host = value as string;
-      } else if (path === "webdav.port") {
-        newConfig.webdav.port = value as number;
-      } else if (path === "webdav.path") {
-        newConfig.webdav.path = value as string;
       } else if (path === "tgfs.jwt.secret") {
         newConfig.tgfs.jwt.secret = value as string;
       } else if (path === "tgfs.jwt.algorithm") {
@@ -223,16 +201,16 @@ export default function ConfigGenerator() {
           };
         }
         newConfig.tgfs.metadata.github_repo.access_token = value as string;
-      } else if (path === "manager.host") {
-        if (!newConfig.manager) {
-          newConfig.manager = { host: "0.0.0.0", port: 1901 };
+      } else if (path === "tgfs.server.host") {
+        if (!newConfig.tgfs.server) {
+          newConfig.tgfs.server = { host: "0.0.0.0", port: 1900 };
         }
-        newConfig.manager.host = value as string;
-      } else if (path === "manager.port") {
-        if (!newConfig.manager) {
-          newConfig.manager = { host: "0.0.0.0", port: 1901 };
+        newConfig.tgfs.server.host = value as string;
+      } else if (path === "tgfs.server.port") {
+        if (!newConfig.tgfs.server) {
+          newConfig.tgfs.server = { host: "0.0.0.0", port: 1900 };
         }
-        newConfig.manager.port = value as number;
+        newConfig.tgfs.server.port = value as number;
       }
 
       setConfig(newConfig);
@@ -285,15 +263,6 @@ export default function ConfigGenerator() {
       },
     };
 
-    // Include manager section if enabled
-    if (includeManager) {
-      configForYaml.manager = {
-        host: config.manager?.host || "0.0.0.0",
-        port: config.manager?.port || 1901,
-      };
-    } else {
-      configForYaml.manager = undefined;
-    }
     return yaml.dump(configForYaml, { indent: 2 });
   };
 
@@ -369,7 +338,7 @@ export default function ConfigGenerator() {
       >
         <Box sx={{ flex: 1 }}>
           <Paper sx={{ p: 3 }}>
-            <FormSection title="Telegram Configuration" showDivider={false}>
+            <FormSection title="Telegram" showDivider={false}>
               <Box
                 sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}
               >
@@ -659,88 +628,35 @@ export default function ConfigGenerator() {
                   </FieldRow>
                 </Box>
               )}
-            </FormSection>
-
-            <FormSection title="WebDAV Server">
+              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
+                Server
+              </Typography>
               <FieldRow>
                 <ConfigTextField
                   label="Host"
-                  value={config.webdav.host}
-                  onChange={(e) => updateConfig("webdav.host", e.target.value)}
+                  value={config.tgfs.server.host}
+                  onChange={(e) =>
+                    updateConfig("tgfs.server.host", e.target.value)
+                  }
                   width={200}
                 />
                 <ConfigTextField
                   label="Port"
                   type="number"
-                  value={config.webdav.port}
+                  value={config.tgfs.server.port}
                   onChange={(e) =>
-                    updateConfig("webdav.port", parseInt(e.target.value))
+                    updateConfig("tgfs.server.port", parseInt(e.target.value))
                   }
                   width={120}
-                />
-                <ConfigTextField
-                  label="Path"
-                  value={config.webdav.path}
-                  onChange={(e) => updateConfig("webdav.path", e.target.value)}
                 />
               </FieldRow>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 Your WebDAV server will be at{" "}
                 <code>
-                  http://{config.webdav.host}:{config.webdav.port}
-                  {config.webdav.path}
+                  http://{config.tgfs.server.host}:{config.tgfs.server.port}
+                  /webdav
                 </code>
               </Typography>
-            </FormSection>
-
-            <FormSection title="Task Manager Server (Optional)">
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Configure the task manager server to track upload/download
-                progress in real-time.
-              </Typography>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={includeManager}
-                    onChange={(e) => setIncludeManager(e.target.checked)}
-                  />
-                }
-                label="Include Task Manager Server"
-                sx={{ mb: 2 }}
-              />
-              {includeManager && (
-                <>
-                  <FieldRow>
-                    <ConfigTextField
-                      label="Host"
-                      value={config.manager?.host || "0.0.0.0"}
-                      onChange={(e) =>
-                        updateConfig("manager.host", e.target.value)
-                      }
-                      width={200}
-                    />
-                    <ConfigTextField
-                      label="Port"
-                      type="number"
-                      value={config.manager?.port || 1901}
-                      onChange={(e) =>
-                        updateConfig("manager.port", parseInt(e.target.value))
-                      }
-                      width={120}
-                    />
-                  </FieldRow>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 2 }}
-                  >
-                    Your task manager server will be at{" "}
-                    <code>
-                      http://{config.manager?.host}:{config.manager?.port}
-                    </code>
-                  </Typography>
-                </>
-              )}
             </FormSection>
           </Paper>
         </Box>

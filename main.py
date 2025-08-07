@@ -8,7 +8,7 @@ logging.basicConfig(
 from uvicorn.config import Config as UvicornConfig
 from uvicorn.server import Server
 
-from tgfs.app import create_manager_app, create_webdav_app
+from tgfs.app import create_app
 from tgfs.config import Config, get_config
 from tgfs.core import Client
 from tgfs.telegram import login_as_account, login_as_bots
@@ -39,36 +39,11 @@ async def run_server(app, host: str, port: int, name: str):
 
 async def main():
     config = get_config()
-    logger = logging.getLogger(__name__)
 
     client = await create_client(config)
 
-    # Create WebDAV app
-    webdav_app = create_webdav_app(client, config)
-
-    # Start WebDAV server
-    webdav_task = asyncio.create_task(
-        run_server(webdav_app, config.webdav.host, config.webdav.port, "WebDAV")
-    )
-
-    # Start manager server if configured
-    tasks = [webdav_task]
-    if config.manager:
-        manager_app = create_manager_app(client, config)
-        manager_task = asyncio.create_task(
-            run_server(
-                manager_app, config.manager.host, config.manager.port, "TGFS Manager"
-            )
-        )
-        tasks.append(manager_task)
-        logger.info(
-            f"TGFS Manager server will start on {config.manager.host}:{config.manager.port}"
-        )
-    else:
-        logger.info("TGFS Manager not configured, skipping...")
-
-    # Wait for all servers to complete
-    await asyncio.gather(*tasks)
+    app = create_app(client, config)
+    await run_server(app, config.tgfs.server.host, config.tgfs.server.port, "TGFS")
 
 
 if __name__ == "__main__":

@@ -416,7 +416,10 @@ export default function FileExplorer({
           key={item.path}
           itemId={item.path}
           label={
-            <Box sx={{ display: "flex", alignItems: "center", py: 1 }}>
+            <Box
+              sx={{ display: "flex", alignItems: "center", py: 1 }}
+              onClick={() => handleItemClick(item)}
+            >
               <Box sx={{ mr: 1 }}>{getFileIcon(item)}</Box>
               <Box sx={{ flexGrow: 1 }}>
                 <Typography
@@ -425,7 +428,6 @@ export default function FileExplorer({
                     cursor: "pointer",
                     fontWeight: item.isDirectory ? 500 : 400,
                   }}
-                  onClick={() => handleItemClick(item)}
                 >
                   {item.name}
                 </Typography>

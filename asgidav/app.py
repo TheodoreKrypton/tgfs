@@ -1,17 +1,12 @@
 import asyncio
 import logging
-import uuid
 from collections.abc import Awaitable
-from contextvars import ContextVar
-from dataclasses import dataclass
 from http import HTTPStatus
-from typing import Any, Callable, Literal, Optional
+from typing import Callable, Optional
 from urllib.parse import unquote, urlparse
 
 from fastapi import FastAPI, Request, Response
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 
 from .folder import Folder
 from .member import Member
@@ -38,19 +33,27 @@ def extract_path_from_destination(destination: str) -> str:
     return unquote(path)
 
 
-Permission = Literal["admin", "readonly"]
-
-
-@dataclass
-class User:
-    username: str
-    permission: Permission
+METHODS = frozenset(
+    {
+        "GET",
+        "HEAD",
+        "POST",
+        "PUT",
+        "DELETE",
+        "OPTIONS",
+        "PROPFIND",
+        "COPY",
+        "MOVE",
+        "MKCOL",
+        "LOCK",
+        "UNLOCK",
+    }
+)
 
 
 def create_app(
     get_member: Callable[[str], Awaitable[Optional[Member]]],
-    login_callback: Callable[[str, str], str],
-    auth_callback: Callable[[str], User],
+    base_path: str = "",
 ) -> FastAPI:
     async def root() -> Folder:
         res = await get_member("/")
@@ -65,46 +68,9 @@ def create_app(
         "Access-Control-Allow-Origin": "*",
     }
 
-    allowed_methods = [
-        "GET",
-        "HEAD",
-        "POST",
-        "PUT",
-        "DELETE",
-        "OPTIONS",
-        "PROPFIND",
-        "COPY",
-        "MOVE",
-        "MKCOL",
-        "LOCK",
-        "UNLOCK",
-    ]
-
-    readonly_methods = {"GET", "HEAD", "OPTIONS", "PROPFIND"}
-
     NOT_FOUND = Response(status_code=HTTPStatus.NOT_FOUND, headers=common_headers)
     CREATED = Response(status_code=HTTPStatus.CREATED.value, headers=common_headers)
     NO_CONTENT = Response(status_code=HTTPStatus.NO_CONTENT, headers=common_headers)
-
-    def UNAUTHORIZED(detail: str) -> Response:
-        return Response(
-            status_code=HTTPStatus.UNAUTHORIZED,
-            content=detail,
-            headers=common_headers
-            | {
-                "Content-Type": "text/html",
-            },
-        )
-
-    def FORBIDDEN(detail: str) -> Response:
-        return Response(
-            status_code=HTTPStatus.FORBIDDEN,
-            content=detail,
-            headers=common_headers
-            | {
-                "Content-Type": "text/html",
-            },
-        )
 
     def CONFLICT(detail: str) -> Response:
         return Response(status_code=HTTPStatus.CONFLICT, content=detail)
@@ -114,62 +80,13 @@ def create_app(
 
     app = FastAPI()
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
-        allow_methods=allowed_methods,
-        allow_headers=["*"],
-    )
-
-    uuid_context = ContextVar("uuid", default="")
-
-    @app.middleware("http")
-    async def add_uuid_middleware(
-        request: Request, call_next: Callable[[Any], Any]
-    ) -> Any:
-        uuid_context.set(str(uuid.uuid4()))
-        return await call_next(request)
-
-    def has_permission(request: Request, user: User) -> bool:
-        if request.method not in readonly_methods and user.permission == "readonly":
-            return False
-        return True
-
-    @app.middleware("http")
-    async def auth_middleware(request: Request, call_next: Callable[[Any], Any]) -> Any:
-        if request.method == "OPTIONS" or request.url.path == "/login":
-            return await call_next(request)
-
-        auth_header = request.headers.get("Authorization")
-        if not auth_header:
-            return UNAUTHORIZED("Authorization header is missing")
-        try:
-            if (user := auth_callback(auth_header)) and has_permission(request, user):
-                return await call_next(request)
-            return FORBIDDEN("Readonly user cannot perform this action")
-        except Exception as e:
-            return UNAUTHORIZED(str(e))
-
-    class LoginRequest(BaseModel):
-        username: str
-        password: str = ""
-
-    @app.post(path="/login")
-    async def login(request: Request, body: LoginRequest):
-        try:
-            return {"token": login_callback(body.username, body.password)}
-        except Exception as e:
-            return UNAUTHORIZED(str(e))
-
     @app.options(path="/{path:path}")
     async def options():
         return Response(
             status_code=HTTPStatus.OK,
             headers=common_headers
             | {
-                "Allow": ", ".join(allowed_methods),
-                "Content-Length": "0",
+                "Allow": ", ".join(METHODS),
                 "Cache-Control": "no-cache",
             },
         )
@@ -178,7 +95,7 @@ def create_app(
     async def handle_propfind(request: Request, path: str):
         r = await PropfindRequest.from_request(request)
         if member := await get_member(path):
-            resp = await propfind((member,), r.depth, r.props)
+            resp = await propfind((member,), r.depth, r.props, base_path)
             return Response(
                 resp,
                 status_code=HTTPStatus.MULTI_STATUS,

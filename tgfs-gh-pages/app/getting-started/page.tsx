@@ -20,7 +20,6 @@ export default function GettingStarted() {
   const [dockerConfig, setDockerConfig] = useState({
     tgfsPort: 1900,
     mountedVolume: "/home/username/.tgfs",
-    managerPort: 1901,
   });
 
   return (
@@ -263,20 +262,7 @@ export default function GettingStarted() {
                         tgfsPort: parseInt(e.target.value) || 1900,
                       }))
                     }
-                    helperText="Port for TGFS WebDAV server"
-                  />
-
-                  <TextField
-                    label="Manager Port"
-                    type="number"
-                    value={dockerConfig.managerPort}
-                    onChange={(e) =>
-                      setDockerConfig((prev) => ({
-                        ...prev,
-                        managerPort: parseInt(e.target.value) || 1901,
-                      }))
-                    }
-                    helperText="Port for TGFS manager server"
+                    helperText="Configured port for TGFS server"
                   />
 
                   <TextField
@@ -298,8 +284,7 @@ export default function GettingStarted() {
                   <code className="text-sm text-slate-700 dark:text-slate-300 block break-all">
                     docker run -it -v {dockerConfig.mountedVolume}
                     :/home/tgfs/.tgfs -p {dockerConfig.tgfsPort}:
-                    {dockerConfig.tgfsPort} -p {dockerConfig.managerPort}:
-                    {dockerConfig.managerPort} wheatcarrier/tgfs
+                    {dockerConfig.tgfsPort} wheatcarrier/tgfs
                   </code>
                 </div>
 
