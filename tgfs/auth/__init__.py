@@ -1,5 +1,6 @@
 from .basic import authenticate as auth_basic
-from .bearer import login, authenticate as auth_bearer
+from .bearer import authenticate as auth_bearer
+from .bearer import login
 from .user import User
 
 __all__ = [

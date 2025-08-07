@@ -9,7 +9,7 @@ from tgfs.reqres import (
     FileMessageEmpty,
     UploadableFileMessage,
 )
-from tgfs.tasks import create_download_task, create_upload_task
+from tgfs.tasks import create_upload_task
 
 from .file_desc import FileDescApi
 from .metadata import MetaDataApi

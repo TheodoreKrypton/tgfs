@@ -1,18 +1,17 @@
-from typing import Callable, Any
-from http import HTTPStatus
 import base64
 import uuid
 from contextvars import ContextVar
+from http import HTTPStatus
+from typing import Any, Callable
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-
 from pydantic import BaseModel
 
-from tgfs.core.client import Client
+from tgfs.auth import auth_basic, auth_bearer
+from tgfs.auth import login as login_bearer
 from tgfs.config import Config
-from tgfs.auth import auth_bearer, auth_basic, login as login_bearer
-
+from tgfs.core.client import Client
 
 from .manager import create_manager_app
 from .webdav import create_webdav_app
@@ -86,7 +85,6 @@ def create_app(client: Client, config: Config) -> FastAPI:
 
     @app.options("/{full_path:path}")
     async def handle_options(request: Request, full_path: str):
-        print(f"🎯 Handling OPTIONS for: {full_path}")
         return Response(
             status_code=200,
             headers={
