@@ -115,22 +115,14 @@ class FileApi:
             return empty_file()
         fv = fd.get_latest_version()
 
-        task_tracker = await create_download_task(
-            os.path.join(fr.location.absolute_path, as_name or fr.name),
-            file_size=fv.size,
-        )
-
         async def chunks():
             try:
                 async for chunk in await self.__file_desc_api.download_file_at_version(
                     fv, begin, end, as_name or fr.name
                 ):
-                    await task_tracker.update_progress(size_delta=len(chunk))
                     yield chunk
 
-                await task_tracker.mark_completed()
             except Exception as ex:
-                await task_tracker.mark_failed(str(ex))
                 raise ex
 
         return chunks()

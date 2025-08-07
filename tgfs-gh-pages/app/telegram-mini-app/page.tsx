@@ -180,15 +180,19 @@ export default function TelegramMiniApp() {
       );
 
       // Create WebDAV client with JWT token
-      const client = new WebDAVClient(formData.webdavUrl, token, handleError);
+      const client = new WebDAVClient(
+        `${formData.webdavUrl}/webdav`,
+        token,
+        handleError
+      );
       await client.connect();
       setWebdavClient(client);
 
-      // Initialize manager client if enabled
-      if (formData.enableManager) {
-        const managerClient = new ManagerClient(formData.managerUrl, token);
-        setManagerClient(managerClient);
-      }
+      const managerClient = new ManagerClient(
+        `${formData.webdavUrl}/api`,
+        token
+      );
+      setManagerClient(managerClient);
 
       setIsLoggedIn(true);
     } catch (err) {
