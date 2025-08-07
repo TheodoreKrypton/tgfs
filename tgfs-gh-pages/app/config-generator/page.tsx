@@ -8,8 +8,10 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Container,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Paper,
@@ -98,6 +100,8 @@ const generateRandomSecret = (): string => {
 };
 
 export default function ConfigGenerator() {
+  const [withUserAccount, setWithUserAccount] = useState(false);
+
   const [config, setConfig] = useState<ConfigData>({
     telegram: {
       api_id: "",
@@ -253,6 +257,12 @@ export default function ConfigGenerator() {
 
     const configForYaml = {
       ...config,
+      telegram: {
+        ...config.telegram,
+        account: withUserAccount
+          ? { session_file: "account.session" }
+          : undefined,
+      },
       tgfs: {
         ...config.tgfs,
         users: config.tgfs.users.reduce((acc, user) => {
@@ -385,6 +395,16 @@ export default function ConfigGenerator() {
                 helperText="Channel ID (numeric, e.g., 1234567). Click the Copy Post Link button of any message in the channel to get the ID."
                 style={{ width: "100%" }}
                 required
+              />
+
+              <FormControlLabel
+                label="Use User Account to Upload Files"
+                control={
+                  <Checkbox
+                    checked={withUserAccount}
+                    onChange={(e) => setWithUserAccount(e.target.checked)}
+                  />
+                }
               />
 
               <Box>
