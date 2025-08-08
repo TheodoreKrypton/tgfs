@@ -14,6 +14,22 @@ Refer to [getting started](https://theodorekrypton.github.io/tgfs/) for installa
 
 Refer to the [wiki page](https://github.com/TheodoreKrypton/tgfs/wiki/TGFS-Wiki) for technical detail.
 
+## Tested Clients
+* [rclone](https://rclone.org/)
+* [Cyberduck](https://cyberduck.io/)
+* [WinSCP](https://winscp.net/)
+* [Documents](https://readdle.com/documents) by Readdle
+* [VidHub](https://okaapps.com/product/1659622164)
+
+## Features
+* Upload and download files to/from a private Telegram channel via WebDAV
+* Group files on Telegram channels into folders
+* Infinite versioning of files and folders (Folder versioning is only available when Metadata is maintained on Github repository)
+* Importing files that are already on Telegram (Only via the Telegram Mini App)
+* File size is unlimited (larger files are chunked into parts but appear as a single file to the user)
+* Live streaming of videos
+
+
 ## Demo Server
 * WebDAV URL: `https://tgfs-demo.wheatcarrier.site`
 * `username` and `password` can be any
