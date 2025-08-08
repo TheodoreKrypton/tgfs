@@ -1,0 +1,25 @@
+telegram:
+  api_id: hidden
+  api_hash: hidden
+  bot:
+    session_file: bot.session
+    tokens:
+      - hidden
+  private_file_channel: 'tgfsdemo'
+tgfs:
+  users:
+  download:
+    chunk_size_kb: 1024
+  jwt:
+    secret: hidden
+    algorithm: HS256
+    life: 604800
+  metadata:
+    type: github_repo
+    github_repo:
+      repo: 'tgfs-demo/tgfs-demo'
+      commit: 'master'
+      access_token: hidden
+  server:
+    host: 0.0.0.0
+    port: 1900

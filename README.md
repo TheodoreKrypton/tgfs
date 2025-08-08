@@ -31,10 +31,11 @@ Refer to the [wiki page](https://github.com/TheodoreKrypton/tgfs/wiki/TGFS-Wiki)
 
 
 ## Demo Server
-* WebDAV URL: `https://tgfs-demo.wheatcarrier.site`
+* WebDAV URL: `https://tgfs-demo.wheatcarrier.site/webdav`
 * `username` and `password` can be any
 * File channel on Telegram: [@tgfsdemo](https://t.me/tgfsdemo)
 * Github repository for metadata: [https://github.com/tgfs-demo/tgfs-demo](https://github.com/tgfs-demo/tgfs-demo)
+* Config file: [config.yaml](https://github.com/TheodoreKrypton/tgfs/blob/master/demo-config.yaml)
 
 ## Development
 
