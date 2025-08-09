@@ -63,9 +63,7 @@ def create_app(
 
     common_headers = {
         "DAV": "1, 2",
-        "WWW-Authenticate": 'Basic realm="WebDAV"',
         "MS-Author-Via": "DAV",
-        "Access-Control-Allow-Origin": "*",
     }
 
     NOT_FOUND = Response(status_code=HTTPStatus.NOT_FOUND, headers=common_headers)
