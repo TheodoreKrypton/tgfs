@@ -18,6 +18,7 @@ export interface ChannelMessage {
   file_size: number;
   caption: string;
   has_document: boolean;
+  mime_type: string;
 }
 
 export interface ManagerError {

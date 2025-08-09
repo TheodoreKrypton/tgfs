@@ -1,7 +1,6 @@
 import asyncio
-import hashlib
 import logging
-from typing import Generator, List, Optional
+from typing import Generator, List
 
 from tgfs.core.api import MessageApi
 from tgfs.core.model import EMPTY_FILE_MESSAGE, TGFSFileVersion
@@ -13,7 +12,6 @@ from tgfs.reqres import (
     FileMessage,
     FileMessageFromBuffer,
     FileMessageFromPath,
-    FileTags,
     SentFileMessage,
     UploadableFileMessage,
 )
@@ -29,34 +27,12 @@ class TGMsgFileContentRepository(IFileContentRepository):
         self.__message_api = message_api
 
     @staticmethod
-    async def __sha256(
-        file_msg: FileMessageFromPath | FileMessageFromBuffer,
-    ) -> str:
-        if isinstance(file_msg, FileMessageFromPath):
-            sha256 = hashlib.sha256()
-            with open(file_msg.path, "rb") as f:
-                while True:
-                    chunk = f.read(8192)
-                    if not chunk:
-                        break
-                    sha256.update(chunk)
-            return sha256.hexdigest()
-
-        # file_msg is FileMessageFromBuffer
-        sha256 = hashlib.sha256(file_msg.buffer)
-        return sha256.hexdigest()
-
-    @staticmethod
     def __get_file_caption(
         file_msg: FileMessage,
     ) -> str:
         if not isinstance(file_msg, UploadableFileMessage):
             return ""
-
-        caption = f"{file_msg.caption}\n" if file_msg.caption else ""
-        if file_msg.tags and file_msg.tags.sha256:
-            caption += f"#sha256IS{file_msg.tags.sha256}"
-        return caption
+        return file_msg.caption
 
     async def __send_file(self, file_msg: UploadableFileMessage) -> SentFileMessage:
         message_id: int = EMPTY_FILE_MESSAGE
@@ -74,34 +50,6 @@ class TGMsgFileContentRepository(IFileContentRepository):
         size = await uploader.upload(file_msg, file_msg.name)
 
         return SentFileMessage(message_id=message_id, size=size)
-
-    async def _check_sha256(
-        self, file_msg: FileMessageFromPath | FileMessageFromBuffer
-    ) -> Optional[SentFileMessage]:
-        sha256 = await self.__sha256(file_msg)
-        file_msg.tags = FileTags(sha256=sha256)
-
-        existing_file_msg = await self.__message_api.search_messages(
-            f"#sha256IS{sha256}"
-        )
-
-        for msg in existing_file_msg:
-            if not msg.document:
-                continue
-            logger.info(f"File with SHA256 {sha256} already exists, skipping upload")
-            return SentFileMessage(
-                message_id=msg.message_id,
-                size=msg.document.size,
-            )
-
-        return None
-
-    async def _save(self, file_msg: UploadableFileMessage) -> SentFileMessage:
-        if isinstance(file_msg, FileMessageFromPath | FileMessageFromBuffer) and (
-            msg := await self._check_sha256(file_msg)
-        ):
-            return msg
-        return await self.__send_file(file_msg)
 
     @staticmethod
     def _size_for_parts(size: int) -> Generator[int]:
@@ -121,7 +69,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
         for i, part_size in enumerate(self._size_for_parts(size)):
             file_msg.name = f"{file_name}.part{i + 1}"
             file_msg.size = part_size
-            res.append(await self._save(file_msg))
+            res.append(await self.__send_file(file_msg))
 
             logger.info(f"Saving {file_msg.name}")
             if isinstance(file_msg, FileMessageFromBuffer | FileMessageFromPath):

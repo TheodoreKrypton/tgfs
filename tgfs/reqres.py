@@ -33,6 +33,7 @@ class Document:
     id: int
     access_hash: int
     file_reference: bytes
+    mime_type: Optional[str]
 
 
 @dataclass
@@ -132,7 +133,7 @@ class DownloadFileResp:
 
 @dataclass
 class FileTags:
-    sha256: Optional[str] = None
+    pass
 
 
 @dataclass

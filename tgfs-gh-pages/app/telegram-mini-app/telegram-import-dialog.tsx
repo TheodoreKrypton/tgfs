@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle, Storage, Warning } from "@mui/icons-material";
+import { Attachment, CheckCircle, Storage, Warning } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -13,7 +13,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ManagerClient, { ChannelMessage } from "./manager-client";
 
 interface TelegramImportDialogProps {
@@ -44,27 +44,28 @@ export default function TelegramImportDialog({
   const [messageId, setMessageId] = useState<number | null>(null);
   const [asName, setAsName] = useState<string>("unnamed");
 
-  const extractMessageInfo = (
-    telegramLink: string
-  ): { messageId: number; channelId: number } => {
-    const url = new URL(telegramLink);
-    const pathParts = url.pathname.split("/");
+  const extractMessageInfo = useCallback(
+    (telegramLink: string): { messageId: number; channelId: number } => {
+      const url = new URL(telegramLink);
+      const pathParts = url.pathname.split("/");
 
-    // Find channel ID (after /c/)
-    const cIndex = pathParts.findIndex((part) => part === "c");
-    if (cIndex === -1 || cIndex >= pathParts.length - 2) {
-      throw new Error("Invalid Telegram message link format");
-    }
+      // Find channel ID (after /c/)
+      const cIndex = pathParts.findIndex((part) => part === "c");
+      if (cIndex === -1 || cIndex >= pathParts.length - 2) {
+        throw new Error("Invalid Telegram message link format");
+      }
 
-    const channelId = parseInt(pathParts[cIndex + 1]);
-    const messageId = parseInt(pathParts[pathParts.length - 1]);
+      const channelId = parseInt(pathParts[cIndex + 1]);
+      const messageId = parseInt(pathParts[pathParts.length - 1]);
 
-    if (isNaN(channelId) || isNaN(messageId)) {
-      throw new Error("Invalid Telegram message link format");
-    }
+      if (isNaN(channelId) || isNaN(messageId)) {
+        throw new Error("Invalid Telegram message link format");
+      }
 
-    return { messageId, channelId };
-  };
+      return { messageId, channelId };
+    },
+    []
+  );
 
   // Debounced preview function
   useEffect(() => {
@@ -114,16 +115,9 @@ export default function TelegramImportDialog({
     return () => {
       clearTimeout(debounceTimer);
     };
-  }, [telegramLink, managerClient]);
+  }, [telegramLink, managerClient, extractMessageInfo]);
 
-  const handleImport = async () => {
-    if (channelId && messageId && asName.trim().length > 0) {
-      await onImport(channelId, messageId, asName);
-      resetDialog();
-    }
-  };
-
-  const resetDialog = () => {
+  const resetDialog = useCallback(() => {
     setTelegramLink("");
     setMessagePreview(null);
     setPreviewLoading(false);
@@ -131,7 +125,31 @@ export default function TelegramImportDialog({
     setMessageId(null);
     setAsName("unnamed");
     onClose();
-  };
+  }, [onClose]);
+
+  const handleImport = useCallback(async () => {
+    if (channelId && messageId && asName.trim().length > 0) {
+      await onImport(channelId, messageId, asName);
+      resetDialog();
+    }
+  }, [channelId, messageId, asName, onImport, resetDialog]);
+
+  const sanitizeFileName = useCallback((name: string): string => {
+    // remove spaces and special characters, unicode characters are permitted
+    return name
+      .replace(/[^a-zA-Z0-9_\u00A0-\uFFFF]/g, "_")
+      .replace(/_{2,}/g, "_") // replace multiple underscores with single
+      .trim();
+  }, []);
+
+  useEffect(() => {
+    if (messagePreview) {
+      const fileType = messagePreview.mime_type.split("/")[1] || "unknown";
+      setAsName(
+        (sanitizeFileName(messagePreview.caption) || "unnamed") + `.${fileType}`
+      );
+    }
+  }, [messagePreview, sanitizeFileName]);
 
   return (
     <Dialog open={open} onClose={resetDialog}>
@@ -225,21 +243,38 @@ export default function TelegramImportDialog({
 
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
               {messagePreview.has_document && (
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <Storage
-                    sx={{ color: "text.secondary", mr: 1, fontSize: 18 }}
-                  />
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mr: 1 }}
-                  >
-                    Size:
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {managerClient?.formatFileSize(messagePreview.file_size)}
-                  </Typography>
-                </Box>
+                <>
+                  <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <Storage
+                      sx={{ color: "text.secondary", mr: 1, fontSize: 18 }}
+                    />
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mr: 1 }}
+                    >
+                      Size:
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {managerClient?.formatFileSize(messagePreview.file_size)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: "flex", alignItems: "center" }}>
+                    <Attachment
+                      sx={{ color: "text.secondary", mr: 1, fontSize: 18 }}
+                    />
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ mr: 1 }}
+                    >
+                      Type:
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {messagePreview.mime_type}
+                    </Typography>
+                  </Box>
+                </>
               )}
 
               {messagePreview.caption && (

@@ -357,7 +357,7 @@ export default function TelegramMiniApp() {
           </Link>
         </Button>
       )}
-      {isLoggedIn && webdavClient ? (
+      {isLoggedIn && webdavClient && managerClient ? (
         <Container maxWidth="sm" sx={{ py: 2, minHeight: "100vh" }}>
           <Box
             sx={{
@@ -386,7 +386,7 @@ export default function TelegramMiniApp() {
           </Box>
           <FileExplorer
             webdavClient={webdavClient}
-            managerClient={managerClient ?? undefined}
+            managerClient={managerClient}
           />
         </Container>
       ) : (
