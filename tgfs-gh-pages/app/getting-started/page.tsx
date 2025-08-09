@@ -262,11 +262,9 @@ export default function GettingStarted() {
                         tgfsPort: parseInt(e.target.value) || 1900,
                       }))
                     }
-                    helperText="Configured port for TGFS server"
                   />
-
                   <TextField
-                    label="Mounted Volume Path"
+                    label="Path of config.yaml"
                     value={dockerConfig.mountedVolume}
                     onChange={(e) =>
                       setDockerConfig((prev) => ({
@@ -274,7 +272,15 @@ export default function GettingStarted() {
                         mountedVolume: e.target.value,
                       }))
                     }
-                    helperText="Place of config.yaml file"
+                    slotProps={{
+                      input: {
+                        endAdornment: (
+                          <span className="text-slate-500 dark:text-slate-400">
+                            /config.yaml
+                          </span>
+                        ),
+                      },
+                    }}
                   />
                 </Box>
                 <div
