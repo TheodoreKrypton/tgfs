@@ -134,17 +134,22 @@ export default function TelegramImportDialog({
     }
   }, [channelId, messageId, asName, onImport, resetDialog]);
 
-  const sanitizeFileName = useCallback((name: string): string => {
-    // remove spaces and special characters, unicode characters are permitted
-    return name
-      .replace(/[^a-zA-Z0-9_\u00A0-\uFFFF]/g, "_")
-      .replace(/_{2,}/g, "_") // replace multiple underscores with single
-      .trim();
-  }, []);
+  const sanitizeFileName = useCallback(
+    (name: string | null | undefined): string => {
+      // remove spaces and special characters, unicode characters are permitted
+      return (
+        name
+          ?.replace(/[^a-zA-Z0-9_\u00A0-\uFFFF]/g, "_")
+          .replace(/_{2,}/g, "_") // replace multiple underscores with single
+          .trim() ?? "unnamed"
+      );
+    },
+    []
+  );
 
   useEffect(() => {
     if (messagePreview) {
-      const fileType = messagePreview.mime_type.split("/")[1] || "unknown";
+      const fileType = messagePreview.mime_type?.split("/")[1] || "unknown";
       setAsName(
         (sanitizeFileName(messagePreview.caption) || "unnamed") + `.${fileType}`
       );
