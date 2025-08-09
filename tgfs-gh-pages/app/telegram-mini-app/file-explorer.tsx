@@ -42,7 +42,7 @@ import WebDAVClient, { WebDAVItem } from "./webdav-client";
 
 interface FileExplorerProps {
   webdavClient: WebDAVClient;
-  managerClient?: ManagerClient;
+  managerClient: ManagerClient;
 }
 
 export default function FileExplorer({
@@ -258,7 +258,7 @@ export default function FileExplorer({
 
   const handleTelegramImport = useCallback(
     async (channelId: number, messageId: number, asName: string) => {
-      if (!messageId || !managerClient || !currentPath) return;
+      if (!messageId || !currentPath) return;
 
       try {
         await managerClient.importTelegramMessage(

@@ -70,12 +70,17 @@ class TelethonAPI(ITDLibClient):
             if m.message:
                 obj.text = m.message
 
-            if (doc := getattr(m, "document", None)) and isinstance(doc, tlt.Document):
+            if (
+                isinstance(m.media, tlt.MessageMediaDocument)
+                and (doc := m.media.document)
+                and not isinstance(doc, tlt.DocumentEmpty)
+            ):
                 obj.document = Document(
                     size=doc.size,
                     id=doc.id,
                     access_hash=doc.access_hash,
                     file_reference=doc.file_reference,
+                    mime_type=doc.mime_type,
                 )
 
             res.append(obj)
