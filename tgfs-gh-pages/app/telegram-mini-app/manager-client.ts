@@ -17,7 +17,6 @@ export interface ChannelMessage {
   id: number;
   file_size: number;
   caption: string;
-  has_document: boolean;
   mime_type: string;
 }
 

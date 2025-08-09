@@ -1,6 +1,6 @@
 "use client";
 
-import { Attachment, CheckCircle, Storage, Warning } from "@mui/icons-material";
+import { Attachment, CheckCircle, Storage } from "@mui/icons-material";
 import {
   Box,
   Button,
@@ -208,74 +208,56 @@ export default function TelegramImportDialog({
               p: 3,
               borderRadius: 2,
               border: 1,
-              borderColor: messagePreview.has_document
-                ? "success.main"
-                : "warning.main",
-              bgcolor: messagePreview.has_document
-                ? "success.50"
-                : "warning.50",
+              borderColor: "success.main",
+              bgcolor: "success.50",
               position: "relative",
             }}
           >
             <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-              {messagePreview.has_document ? (
-                <>
-                  <CheckCircle sx={{ color: "success.main", mr: 1 }} />
-                  <Typography
-                    variant="h6"
-                    sx={{ color: "success.main", fontWeight: 600 }}
-                  >
-                    File Ready for Import
-                  </Typography>
-                </>
-              ) : (
-                <>
-                  <Warning sx={{ color: "warning.main", mr: 1 }} />
-                  <Typography
-                    variant="h6"
-                    sx={{ color: "warning.main", fontWeight: 600 }}
-                  >
-                    Text Message - No File to Import
-                  </Typography>
-                </>
-              )}
+              <>
+                <CheckCircle sx={{ color: "success.main", mr: 1 }} />
+                <Typography
+                  variant="h6"
+                  sx={{ color: "success.main", fontWeight: 600 }}
+                >
+                  File Ready for Import
+                </Typography>
+              </>
             </Box>
 
             <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-              {messagePreview.has_document && (
-                <>
-                  <Box sx={{ display: "flex", alignItems: "center" }}>
-                    <Storage
-                      sx={{ color: "text.secondary", mr: 1, fontSize: 18 }}
-                    />
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mr: 1 }}
-                    >
-                      Size:
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {managerClient?.formatFileSize(messagePreview.file_size)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: "flex", alignItems: "center" }}>
-                    <Attachment
-                      sx={{ color: "text.secondary", mr: 1, fontSize: 18 }}
-                    />
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mr: 1 }}
-                    >
-                      Type:
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {messagePreview.mime_type}
-                    </Typography>
-                  </Box>
-                </>
-              )}
+              <>
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                  <Storage
+                    sx={{ color: "text.secondary", mr: 1, fontSize: 18 }}
+                  />
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mr: 1 }}
+                  >
+                    Size:
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {managerClient?.formatFileSize(messagePreview.file_size)}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: "flex", alignItems: "center" }}>
+                  <Attachment
+                    sx={{ color: "text.secondary", mr: 1, fontSize: 18 }}
+                  />
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mr: 1 }}
+                  >
+                    Type:
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                    {messagePreview.mime_type}
+                  </Typography>
+                </Box>
+              </>
 
               {messagePreview.caption && (
                 <Box sx={{ mt: 1 }}>
@@ -284,7 +266,7 @@ export default function TelegramImportDialog({
                     color="text.secondary"
                     sx={{ mb: 0.5, fontWeight: 500 }}
                   >
-                    {messagePreview.has_document ? "Caption:" : "Message:"}
+                    Caption:
                   </Typography>
                   <Typography
                     variant="body2"
@@ -310,7 +292,7 @@ export default function TelegramImportDialog({
         <Button onClick={resetDialog}>Cancel</Button>
         <Button
           onClick={handleImport}
-          disabled={!messagePreview?.has_document}
+          disabled={!messagePreview}
           variant="contained"
         >
           Import File

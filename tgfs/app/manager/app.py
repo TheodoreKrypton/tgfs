@@ -84,8 +84,7 @@ def create_manager_app(client: Client, config: Config) -> FastAPI:
             "id": message.message_id,
             "file_size": message.document.size,
             "caption": message.text or "",
-            "has_document": message.document is not None,
-            "mime_type": message.document.mime_type if message.document else None,
+            "mime_type": message.document.mime_type,
         }
 
     class ImportTelegramMessageData(BaseModel):
