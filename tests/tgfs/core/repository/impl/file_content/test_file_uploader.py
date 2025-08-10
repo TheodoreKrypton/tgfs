@@ -1,8 +1,5 @@
-import asyncio
 import os
 import tempfile
-from io import BytesIO
-from unittest.mock import AsyncMock, Mock, patch
 from typing import AsyncIterator
 
 import pytest
@@ -10,23 +7,19 @@ from telethon.tl.types import PeerChannel
 
 from tgfs.core.repository.impl.file_content.file_uploader import (
     FileChunk,
-    IFileUploader,
     UploaderFromBuffer,
     UploaderFromPath,
     UploaderFromStream,
     WorkersConfig,
     create_uploader,
 )
-from tgfs.errors import TaskCancelled, TechnicalError
+from tgfs.errors import TaskCancelled
 from tgfs.reqres import (
     FileMessageFromBuffer,
     FileMessageFromPath,
     FileMessageFromStream,
-    SaveBigFilePartReq,
-    SaveFilePartReq,
     SaveFilePartResp,
     SendMessageResp,
-    UploadedFile,
 )
 from tgfs.tasks.integrations import TaskTracker
 from tgfs.telegram.interface import ITDLibClient, TDLibApi
@@ -56,12 +49,12 @@ class TestFileChunk:
 
 class TestUploaderFromPath:
     @pytest.fixture
-    def mock_client(self) -> AsyncMock:
-        client = AsyncMock(spec=ITDLibClient)
-        client.save_file_part = AsyncMock(return_value=SaveFilePartResp(success=True))
-        client.save_big_file_part = AsyncMock(return_value=SaveFilePartResp(success=True))
-        client.send_small_file = AsyncMock(return_value=SendMessageResp(message_id=123))
-        client.send_big_file = AsyncMock(return_value=SendMessageResp(message_id=124))
+    def mock_client(self, mocker):
+        client = mocker.AsyncMock(spec=ITDLibClient)
+        client.save_file_part = mocker.AsyncMock(return_value=SaveFilePartResp(success=True))
+        client.save_big_file_part = mocker.AsyncMock(return_value=SaveFilePartResp(success=True))
+        client.send_small_file = mocker.AsyncMock(return_value=SendMessageResp(message_id=123))
+        client.send_big_file = mocker.AsyncMock(return_value=SendMessageResp(message_id=124))
         return client
 
     @pytest.fixture
@@ -75,10 +68,10 @@ class TestUploaderFromPath:
         os.unlink(f.name)
 
     @pytest.fixture
-    def mock_task_tracker(self) -> AsyncMock:
-        tracker = AsyncMock(spec=TaskTracker)
-        tracker.cancelled = AsyncMock(return_value=False)
-        tracker.update_progress = AsyncMock()
+    def mock_task_tracker(self, mocker):
+        tracker = mocker.AsyncMock(spec=TaskTracker)
+        tracker.cancelled = mocker.AsyncMock(return_value=False)
+        tracker.update_progress = mocker.AsyncMock()
         return tracker
 
     @pytest.mark.asyncio
@@ -191,11 +184,11 @@ class TestUploaderFromPath:
         assert mock_client.save_file_part.call_count >= 1
 
     @pytest.mark.asyncio
-    async def test_task_cancellation(self, mock_client, test_file, mock_task_tracker):
+    async def test_task_cancellation(self, mock_client, test_file, mock_task_tracker, mocker):
         file_path, expected_content = test_file
         
         # Simulate cancellation
-        mock_task_tracker.cancelled = AsyncMock(return_value=True)
+        mock_task_tracker.cancelled = mocker.AsyncMock(return_value=True)
         
         file_msg = FileMessageFromPath.new(path=file_path, name="cancelled.txt")
         file_msg.task_tracker = mock_task_tracker
@@ -255,10 +248,10 @@ class TestUploaderFromPath:
 
 class TestUploaderFromBuffer:
     @pytest.fixture
-    def mock_client(self) -> AsyncMock:
-        client = AsyncMock(spec=ITDLibClient)
-        client.save_file_part = AsyncMock(return_value=SaveFilePartResp(success=True))
-        client.save_big_file_part = AsyncMock(return_value=SaveFilePartResp(success=True))
+    def mock_client(self, mocker):
+        client = mocker.AsyncMock(spec=ITDLibClient)
+        client.save_file_part = mocker.AsyncMock(return_value=SaveFilePartResp(success=True))
+        client.save_big_file_part = mocker.AsyncMock(return_value=SaveFilePartResp(success=True))
         return client
 
     @pytest.mark.asyncio
@@ -317,12 +310,13 @@ class TestUploaderFromBuffer:
 
 class TestUploaderFromStream:
     @pytest.fixture
-    def mock_client(self) -> AsyncMock:
-        client = AsyncMock(spec=ITDLibClient)
-        client.save_file_part = AsyncMock(return_value=SaveFilePartResp(success=True))
+    def mock_client(self, mocker):
+        client = mocker.AsyncMock(spec=ITDLibClient)
+        client.save_file_part = mocker.AsyncMock(return_value=SaveFilePartResp(success=True))
         return client
 
-    async def create_test_stream(self, chunks: list[bytes]) -> AsyncIterator[bytes]:
+    @staticmethod
+    async def create_test_stream(chunks: list[bytes]) -> AsyncIterator[bytes]:
         """Create a test async stream from chunks"""
         for chunk in chunks:
             yield chunk
@@ -388,9 +382,9 @@ class TestUploaderFromStream:
 
 class TestCreateUploaderFactory:
     @pytest.fixture
-    def mock_tdlib(self) -> Mock:
-        tdlib = Mock(spec=TDLibApi)
-        tdlib.next_bot = AsyncMock(spec=ITDLibClient)
+    def mock_tdlib(self, mocker):
+        tdlib = mocker.Mock(spec=TDLibApi)
+        tdlib.next_bot = mocker.AsyncMock(spec=ITDLibClient)
         return tdlib
 
     def test_create_path_uploader(self, mock_tdlib):
@@ -435,8 +429,8 @@ class TestCreateUploaderFactory:
             
             assert isinstance(uploader, UploaderFromPath)
 
-    def test_create_uploader_invalid_type(self, mock_tdlib):
-        invalid_msg = Mock()  # Not one of the expected types
+    def test_create_uploader_invalid_type(self, mock_tdlib, mocker):
+        invalid_msg = mocker.Mock()  # Not one of the expected types
         
         with pytest.raises(ValueError, match="Unsupported file message type"):
             create_uploader(mock_tdlib, invalid_msg)
@@ -444,12 +438,12 @@ class TestCreateUploaderFactory:
 
 class TestErrorHandling:
     @pytest.fixture
-    def mock_client(self) -> AsyncMock:
-        client = AsyncMock(spec=ITDLibClient)
+    def mock_client(self, mocker):
+        client = mocker.AsyncMock(spec=ITDLibClient)
         return client
 
     @pytest.mark.asyncio
-    async def test_upload_response_failure(self, mock_client):
+    async def test_upload_response_failure(self, mock_client, mocker):
         """Test handling of failed upload response"""
         # Mock to fail 5 times, then succeed
         failure_count = 0
@@ -460,7 +454,7 @@ class TestErrorHandling:
                 return SaveFilePartResp(success=False)
             return SaveFilePartResp(success=True)
         
-        mock_client.save_file_part = AsyncMock(side_effect=side_effect)
+        mock_client.save_file_part = mocker.AsyncMock(side_effect=side_effect)
         
         test_data = b"test data"
         file_msg = FileMessageFromBuffer.new(buffer=test_data, name="fail_test.txt")
@@ -478,9 +472,9 @@ class TestErrorHandling:
 
 class TestConcurrencyAndWorkers:
     @pytest.fixture
-    def mock_client(self) -> AsyncMock:
-        client = AsyncMock(spec=ITDLibClient)
-        client.save_file_part = AsyncMock(return_value=SaveFilePartResp(success=True))
+    def mock_client(self, mocker):
+        client = mocker.AsyncMock(spec=ITDLibClient)
+        client.save_file_part = mocker.AsyncMock(return_value=SaveFilePartResp(success=True))
         return client
 
     @pytest.mark.asyncio

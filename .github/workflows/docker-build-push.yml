@@ -1,14 +1,21 @@
 name: docker-build-push
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Test and Coverage"]
+    types:
+      - completed
     branches:
       - master
 
 jobs:
   docker:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
       - name: Set up Docker
         uses: docker/setup-docker-action@v4
         with:

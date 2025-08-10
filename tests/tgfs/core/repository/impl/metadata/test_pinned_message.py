@@ -1,7 +1,5 @@
 import json
 import pytest
-from unittest.mock import AsyncMock, Mock
-from typing import AsyncIterator
 
 from tgfs.core.api import MessageApi
 from tgfs.core.model import TGFSDirectory, TGFSFileVersion, TGFSMetadata
@@ -18,12 +16,12 @@ from tgfs.reqres import (
 
 class TestTGMsgMetadataRepository:
     @pytest.fixture
-    def mock_message_api(self) -> AsyncMock:
-        return AsyncMock(spec=MessageApi)
+    def mock_message_api(self, mocker):
+        return mocker.AsyncMock(spec=MessageApi)
 
     @pytest.fixture
-    def mock_fc_repo(self) -> AsyncMock:
-        return AsyncMock(spec=IFileContentRepository)
+    def mock_fc_repo(self, mocker):
+        return mocker.AsyncMock(spec=IFileContentRepository)
 
     @pytest.fixture
     def repository(self, mock_message_api, mock_fc_repo) -> TGMsgMetadataRepository:

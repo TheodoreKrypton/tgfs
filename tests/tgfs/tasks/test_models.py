@@ -1,4 +1,3 @@
-import pytest
 from tgfs.tasks.models import Task, TaskStatus, TaskType
 
 

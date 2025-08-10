@@ -1,21 +1,20 @@
 import pytest
-from unittest.mock import Mock, AsyncMock, patch
 from main import create_client, run_server, main
 
 
 class TestMain:
     @pytest.mark.asyncio
-    @patch('main.login_as_account')
-    @patch('main.login_as_bots')
-    @patch('main.Client.create')
-    async def test_create_client_with_account(self, mock_client_create, mock_login_bots, mock_login_account):
+    async def test_create_client_with_account(self, mocker):
         # Setup mocks
-        mock_config = Mock()
-        mock_config.telegram.account = Mock()  # Account is configured
+        mock_login_account = mocker.patch('main.login_as_account')
+        mock_login_bots = mocker.patch('main.login_as_bots')
+        mock_client_create = mocker.patch('main.Client.create')
+        mock_config = mocker.Mock()
+        mock_config.telegram.account = mocker.Mock()  # Account is configured
         
-        mock_account = Mock()
-        mock_bots = [Mock()]
-        mock_client = Mock()
+        mock_account = mocker.Mock()
+        mock_bots = [mocker.Mock()]
+        mock_client = mocker.Mock()
         
         mock_login_account.return_value = mock_account
         mock_login_bots.return_value = mock_bots
@@ -31,16 +30,16 @@ class TestMain:
         assert result == mock_client
 
     @pytest.mark.asyncio
-    @patch('main.login_as_account')
-    @patch('main.login_as_bots')
-    @patch('main.Client.create')
-    async def test_create_client_without_account(self, mock_client_create, mock_login_bots, mock_login_account):
+    async def test_create_client_without_account(self, mocker):
         # Setup mocks
-        mock_config = Mock()
+        mock_login_account = mocker.patch('main.login_as_account')
+        mock_login_bots = mocker.patch('main.login_as_bots')
+        mock_client_create = mocker.patch('main.Client.create')
+        mock_config = mocker.Mock()
         mock_config.telegram.account = None  # No account configured
         
-        mock_bots = [Mock()]
-        mock_client = Mock()
+        mock_bots = [mocker.Mock()]
+        mock_client = mocker.Mock()
         
         mock_login_bots.return_value = mock_bots
         mock_client_create.return_value = mock_client
@@ -55,16 +54,16 @@ class TestMain:
         assert result == mock_client
 
     @pytest.mark.asyncio
-    @patch('main.Server')
-    @patch('main.UvicornConfig')
-    @patch('main.logging.getLogger')
-    async def test_run_server(self, mock_get_logger, mock_uvicorn_config, mock_server_class):
+    async def test_run_server(self, mocker):
         # Setup mocks
-        mock_app = Mock()
-        mock_logger = Mock()
-        mock_config = Mock()
-        mock_server = Mock()
-        mock_server.serve = AsyncMock()
+        mock_get_logger = mocker.patch('main.logging.getLogger')
+        mock_uvicorn_config = mocker.patch('main.UvicornConfig')
+        mock_server_class = mocker.patch('main.Server')
+        mock_app = mocker.Mock()
+        mock_logger = mocker.Mock()
+        mock_config = mocker.Mock()
+        mock_server = mocker.Mock()
+        mock_server.serve = mocker.AsyncMock()
         
         mock_get_logger.return_value = mock_logger
         mock_uvicorn_config.return_value = mock_config
@@ -86,18 +85,18 @@ class TestMain:
         mock_server.serve.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch('main.get_config')
-    @patch('main.create_client')
-    @patch('main.create_app')
-    @patch('main.run_server')
-    async def test_main(self, mock_run_server, mock_create_app, mock_create_client, mock_get_config):
+    async def test_main(self, mocker):
         # Setup mocks
-        mock_config = Mock()
+        mock_get_config = mocker.patch('main.get_config')
+        mock_create_client = mocker.patch('main.create_client')
+        mock_create_app = mocker.patch('main.create_app')
+        mock_run_server = mocker.patch('main.run_server')
+        mock_config = mocker.Mock()
         mock_config.tgfs.server.host = "0.0.0.0"
         mock_config.tgfs.server.port = 9000
         
-        mock_client = Mock()
-        mock_app = Mock()
+        mock_client = mocker.Mock()
+        mock_app = mocker.Mock()
         
         mock_get_config.return_value = mock_config
         mock_create_client.return_value = mock_client

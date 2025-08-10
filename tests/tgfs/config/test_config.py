@@ -1,5 +1,4 @@
 import pytest
-from unittest.mock import patch
 from tgfs.config import (
     WebDAVConfig, ManagerConfig, DownloadConfig, UserConfig, 
     JWTConfig, ServerConfig, TGFSConfig, Config,
@@ -197,10 +196,10 @@ class TestConfig:
 
 
 class TestConfigFunctions:
-    @patch('tgfs.config.open')
-    @patch('tgfs.config.yaml.safe_load')
-    @patch('tgfs.config.__config', None)
-    def test_get_config_loads_file(self, mock_yaml_load, mock_open):
+    def test_get_config_loads_file(self, mocker):
+        mock_open = mocker.patch('tgfs.config.open')
+        mock_yaml_load = mocker.patch('tgfs.config.yaml.safe_load')
+        mocker.patch('tgfs.config.__config', None)
         from tgfs.config import get_config
         mock_yaml_load.return_value = {
             "telegram": {

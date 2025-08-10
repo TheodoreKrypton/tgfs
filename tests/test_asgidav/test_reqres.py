@@ -12,7 +12,7 @@ class TestPropfindRequest:
         mock_request.body = mocker.AsyncMock(return_value=b"")
         
         result = await PropfindRequest.from_request(mock_request)
-        
+
         assert result.depth == 1
         assert result.props == (
             "displayname",
@@ -59,6 +59,7 @@ class TestPropfindRequest:
                 <D:prop>
                     <D:displayname/>
                     <D:getcontentlength/>
+                    <D:invalidprop/>
                 </D:prop>
             </D:propfind>""")
         

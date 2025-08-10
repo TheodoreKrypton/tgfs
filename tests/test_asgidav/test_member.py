@@ -1,7 +1,7 @@
 import datetime
 import email.utils
 import pytest
-from asgidav.member import Member, Properties, ResourceType
+from asgidav.member import Member, ResourceType
 
 
 class MockMember(Member):

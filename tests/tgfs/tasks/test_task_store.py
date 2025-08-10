@@ -1,15 +1,14 @@
 import pytest
 import asyncio
 import datetime
-from unittest.mock import patch, Mock
-from tgfs.tasks.task_store import TaskStore, task_store, utcnow
-from tgfs.tasks.models import Task, TaskStatus, TaskType
+from tgfs.tasks.task_store import TaskStore, utcnow
+from tgfs.tasks.models import TaskStatus, TaskType
 
 
 class TestUtcNow:
-    @patch('tgfs.tasks.task_store.datetime')
-    def test_utcnow(self, mock_datetime):
-        mock_now = Mock()
+    def test_utcnow(self, mocker):
+        mock_datetime = mocker.patch('tgfs.tasks.task_store.datetime')
+        mock_now = mocker.Mock()
         mock_datetime.datetime.now.return_value = mock_now
         mock_datetime.UTC = datetime.UTC
         
@@ -159,24 +158,24 @@ class TestTaskStore:
         assert task.progress == 1.0
 
     @pytest.mark.asyncio
-    async def test_update_task_progress_speed_calculation(self, task_store_instance):
-        with patch('tgfs.tasks.task_store.utcnow') as mock_utcnow:
-            # Create task at time T0
-            time_t0 = datetime.datetime(2023, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
-            mock_utcnow.return_value = time_t0
-            
-            task_id = await task_store_instance.add_task(
-                TaskType.UPLOAD, "/test/file.txt", "file.txt", size_total=1000
-            )
-            
-            # First update at T0 + 1 second
-            time_t1 = time_t0 + datetime.timedelta(seconds=1)
-            mock_utcnow.return_value = time_t1
-            
-            await task_store_instance.update_task_progress(task_id, size_delta=100)
-            
-            task = await task_store_instance.get_task(task_id)
-            assert task.speed_bytes_per_sec == 100.0  # 100 bytes in 1 second
+    async def test_update_task_progress_speed_calculation(self, task_store_instance, mocker):
+        mock_utcnow = mocker.patch('tgfs.tasks.task_store.utcnow')
+        # Create task at time T0
+        time_t0 = datetime.datetime(2023, 1, 1, 12, 0, 0, tzinfo=datetime.UTC)
+        mock_utcnow.return_value = time_t0
+        
+        task_id = await task_store_instance.add_task(
+            TaskType.UPLOAD, "/test/file.txt", "file.txt", size_total=1000
+        )
+        
+        # First update at T0 + 1 second
+        time_t1 = time_t0 + datetime.timedelta(seconds=1)
+        mock_utcnow.return_value = time_t1
+        
+        await task_store_instance.update_task_progress(task_id, size_delta=100)
+        
+        task = await task_store_instance.get_task(task_id)
+        assert task.speed_bytes_per_sec == 100.0  # 100 bytes in 1 second
 
     @pytest.mark.asyncio
     async def test_update_task_progress_speed_calculation_invalid_timestamp(self, task_store_instance):

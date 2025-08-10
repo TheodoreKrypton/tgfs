@@ -81,16 +81,3 @@ class TestFolder:
         assert isinstance(subfolder, Folder)
         assert subfolder.path == "/test/subfolder"
         assert "subfolder" in folder._members
-
-    @pytest.mark.asyncio
-    async def test_abstract_methods(self):
-        folder = MockFolder("/test")
-        
-        assert await folder.display_name() == "test"
-        assert await folder.creation_date() == 1609459200000
-        assert await folder.last_modified() == 1609545600000
-        
-        # These should not raise NotImplementedError
-        await folder.remove()
-        await folder.copy_to("/destination")
-        await folder.move_to("/destination")

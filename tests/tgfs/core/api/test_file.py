@@ -1,6 +1,5 @@
 import os
 import pytest
-from unittest.mock import AsyncMock, Mock, patch
 import datetime
 
 from tgfs.core.api.file import FileApi
@@ -17,12 +16,12 @@ from tgfs.reqres import (
 
 class TestFileApi:
     @pytest.fixture
-    def mock_metadata_api(self) -> AsyncMock:
-        return AsyncMock(spec=MetaDataApi)
+    def mock_metadata_api(self, mocker):
+        return mocker.AsyncMock(spec=MetaDataApi)
 
     @pytest.fixture
-    def mock_file_desc_api(self) -> AsyncMock:
-        return AsyncMock(spec=FileDescApi)
+    def mock_file_desc_api(self, mocker):
+        return mocker.AsyncMock(spec=FileDescApi)
 
     @pytest.fixture
     def file_api(self, mock_metadata_api, mock_file_desc_api) -> FileApi:
@@ -41,9 +40,9 @@ class TestFileApi:
         )
 
     @pytest.fixture
-    def sample_file_desc(self) -> TGFSFileDesc:
+    def sample_file_desc(self, mocker) -> TGFSFileDesc:
         # Create a mock TGFSFileDesc with necessary attributes
-        file_desc = Mock(spec=TGFSFileDesc)
+        file_desc = mocker.Mock(spec=TGFSFileDesc)
         file_desc.get_latest_version.return_value = TGFSFileVersion(
             id="v1",
             updated_at=datetime.datetime.now(),
@@ -67,10 +66,10 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_copy_with_custom_name(
-        self, file_api, mock_metadata_api, sample_directory, sample_file_ref
+        self, file_api, mock_metadata_api, sample_directory, sample_file_ref, mocker
     ):
         new_name = "copied_file.txt"
-        sample_directory.create_file_ref = Mock(return_value=sample_file_ref)
+        sample_directory.create_file_ref = mocker.Mock(return_value=sample_file_ref)
         
         result = await file_api.copy(sample_directory, sample_file_ref, new_name)
         
@@ -80,9 +79,9 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_copy_with_default_name(
-        self, file_api, mock_metadata_api, sample_directory, sample_file_ref
+        self, file_api, mock_metadata_api, sample_directory, sample_file_ref, mocker
     ):
-        sample_directory.create_file_ref = Mock(return_value=sample_file_ref)
+        sample_directory.create_file_ref = mocker.Mock(return_value=sample_file_ref)
         
         result = await file_api.copy(sample_directory, sample_file_ref)
         
@@ -94,13 +93,13 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_create_new_file(
-        self, file_api, mock_metadata_api, mock_file_desc_api, sample_directory, sample_file_message
+        self, file_api, mock_metadata_api, mock_file_desc_api, sample_directory, sample_file_message, mocker
     ):
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.message_id = 456
-        mock_response.fd = Mock(spec=TGFSFileDesc)
+        mock_response.fd = mocker.Mock(spec=TGFSFileDesc)
         mock_file_desc_api.create_file_desc.return_value = mock_response
-        sample_directory.create_file_ref = Mock()
+        sample_directory.create_file_ref = mocker.Mock()
         
         result = await file_api._create_new_file(sample_directory, sample_file_message)
         
@@ -128,8 +127,7 @@ class TestFileApi:
         self, file_api, mock_metadata_api, sample_file_ref
     ):
         new_message_id = 999
-        original_message_id = sample_file_ref.message_id
-        
+
         await file_api._update_file_ref_message_id_if_necessary(
             sample_file_ref, new_message_id
         )
@@ -139,12 +137,12 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_update_existing_file_with_version_id(
-        self, file_api, mock_file_desc_api, sample_file_ref, sample_file_message
+        self, file_api, mock_file_desc_api, sample_file_ref, sample_file_message, mocker
     ):
         version_id = "v2"
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.message_id = sample_file_ref.message_id  # Same ID, no update needed
-        mock_response.fd = Mock(spec=TGFSFileDesc)
+        mock_response.fd = mocker.Mock(spec=TGFSFileDesc)
         mock_file_desc_api.update_file_version.return_value = mock_response
         
         result = await file_api._update_existing_file(
@@ -159,11 +157,11 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_update_existing_file_without_version_id(
-        self, file_api, mock_file_desc_api, sample_file_ref, sample_file_message
+        self, file_api, mock_file_desc_api, sample_file_ref, sample_file_message, mocker
     ):
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.message_id = sample_file_ref.message_id  # Same ID, no update needed
-        mock_response.fd = Mock(spec=TGFSFileDesc)
+        mock_response.fd = mocker.Mock(spec=TGFSFileDesc)
         mock_file_desc_api.append_file_version.return_value = mock_response
         
         result = await file_api._update_existing_file(
@@ -178,9 +176,9 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_rm_without_version_id(
-        self, file_api, mock_metadata_api, sample_file_ref
+        self, file_api, mock_metadata_api, sample_file_ref, mocker
     ):
-        sample_file_ref.delete = Mock()
+        sample_file_ref.delete = mocker.Mock()
         
         await file_api.rm(sample_file_ref)
         
@@ -189,13 +187,13 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_rm_with_version_id(
-        self, file_api, mock_file_desc_api, sample_file_ref
+        self, file_api, mock_file_desc_api, sample_file_ref, mocker
     ):
         version_id = "v1"
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.message_id = sample_file_ref.message_id  # Same ID, no update needed
         mock_file_desc_api.delete_file_version.return_value = mock_response
-        sample_file_ref.delete = Mock()
+        sample_file_ref.delete = mocker.Mock()
         
         await file_api.rm(sample_file_ref, version_id)
         
@@ -206,18 +204,18 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_upload_non_uploadable_message_new_file(
-        self, file_api, mock_file_desc_api, mock_metadata_api, sample_directory
+        self, file_api, mock_file_desc_api, mock_metadata_api, sample_directory, mocker
     ):
         # Create a non-uploadable file message (regular FileMessage)
-        file_msg = Mock(spec=FileMessage)
+        file_msg = mocker.Mock(spec=FileMessage)
         file_msg.name = "test_file.txt"
-        sample_directory.find_file = Mock(side_effect=FileOrDirectoryDoesNotExist("Not found"))
+        sample_directory.find_file = mocker.Mock(side_effect=FileOrDirectoryDoesNotExist("Not found"))
         
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.message_id = 789
-        mock_response.fd = Mock(spec=TGFSFileDesc)
+        mock_response.fd = mocker.Mock(spec=TGFSFileDesc)
         mock_file_desc_api.create_file_desc.return_value = mock_response
-        sample_directory.create_file_ref = Mock()
+        sample_directory.create_file_ref = mocker.Mock()
         
         result = await file_api.upload(sample_directory, file_msg)
         
@@ -229,16 +227,16 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_upload_non_uploadable_message_existing_file(
-        self, file_api, mock_file_desc_api, sample_directory, sample_file_ref
+        self, file_api, mock_file_desc_api, sample_directory, sample_file_ref, mocker
     ):
         # Create a non-uploadable file message (regular FileMessage)
-        file_msg = Mock(spec=FileMessage)
+        file_msg = mocker.Mock(spec=FileMessage)
         file_msg.name = "test_file.txt"
-        sample_directory.find_file = Mock(return_value=sample_file_ref)
+        sample_directory.find_file = mocker.Mock(return_value=sample_file_ref)
         
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.message_id = sample_file_ref.message_id  # Same ID, no update needed
-        mock_response.fd = Mock(spec=TGFSFileDesc)
+        mock_response.fd = mocker.Mock(spec=TGFSFileDesc)
         mock_file_desc_api.append_file_version.return_value = mock_response
         
         result = await file_api.upload(sample_directory, file_msg)
@@ -248,64 +246,65 @@ class TestFileApi:
         assert result == mock_response.fd
 
     @pytest.mark.asyncio
-    @patch('tgfs.core.api.file.create_upload_task')
     async def test_upload_uploadable_message_success(
-        self, mock_create_task, file_api, mock_file_desc_api, mock_metadata_api, sample_directory, sample_file_message
+        self, file_api, mock_file_desc_api, mock_metadata_api, sample_directory, sample_file_message, mocker
     ):
         # Mock the task tracker
-        mock_task_tracker = AsyncMock()
-        mock_task_tracker.mark_completed = AsyncMock()
+        mock_task_tracker = mocker.AsyncMock()
+        mock_task_tracker.mark_completed = mocker.AsyncMock()
+        mock_create_task = mocker.patch('tgfs.core.api.file.create_upload_task')
         mock_create_task.return_value = mock_task_tracker
         
         # Mock directory behavior for new file creation
-        sample_directory.find_file = Mock(side_effect=FileOrDirectoryDoesNotExist("Not found"))
-        sample_directory.create_file_ref = Mock()
+        sample_directory.find_file = mocker.Mock(side_effect=FileOrDirectoryDoesNotExist("Not found"))
+        sample_directory.create_file_ref = mocker.Mock()
         
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.message_id = 789
-        mock_response.fd = Mock(spec=TGFSFileDesc)
+        mock_response.fd = mocker.Mock(spec=TGFSFileDesc)
         mock_file_desc_api.create_file_desc.return_value = mock_response
         
         # Mock absolute_path property
-        with patch.object(type(sample_directory), 'absolute_path', new="/test/path"):
-            result = await file_api.upload(sample_directory, sample_file_message)
-            
-            # Verify task creation
-            mock_create_task.assert_called_once_with(
-                os.path.join("/test/path", sample_file_message.name),
-                sample_file_message.get_size()
-            )
-            
-            # Verify task tracker was assigned and marked completed
-            assert sample_file_message.task_tracker == mock_task_tracker
-            mock_task_tracker.mark_completed.assert_called_once()
-            
-            # Verify file creation
-            sample_directory.find_file.assert_called_once_with(sample_file_message.name)
-            mock_file_desc_api.create_file_desc.assert_called_once_with(sample_file_message)
-            assert result == mock_response.fd
+        mocker.patch.object(type(sample_directory), 'absolute_path', new_callable=mocker.PropertyMock, return_value="/test/path")
+        result = await file_api.upload(sample_directory, sample_file_message)
+        
+        # Verify task creation
+        mock_create_task.assert_called_once_with(
+            os.path.join("/test/path", sample_file_message.name),
+            sample_file_message.get_size()
+        )
+        
+        # Verify task tracker was assigned and marked completed
+        assert sample_file_message.task_tracker == mock_task_tracker
+        mock_task_tracker.mark_completed.assert_called_once()
+        
+        # Verify file creation
+        sample_directory.find_file.assert_called_once_with(sample_file_message.name)
+        mock_file_desc_api.create_file_desc.assert_called_once_with(sample_file_message)
+        assert result == mock_response.fd
 
     @pytest.mark.asyncio
-    @patch('tgfs.core.api.file.create_upload_task')
     async def test_upload_uploadable_message_failure(
-        self, mock_create_task, file_api, mock_file_desc_api, sample_directory, sample_file_message
+        self, file_api, mock_file_desc_api, sample_directory, sample_file_message, mocker
     ):
         # Mock the task tracker
-        mock_task_tracker = AsyncMock()
-        mock_task_tracker.mark_failed = AsyncMock()
+        mock_task_tracker = mocker.AsyncMock()
+        mock_task_tracker.mark_failed = mocker.AsyncMock()
+        mock_create_task = mocker.patch('tgfs.core.api.file.create_upload_task')
         mock_create_task.return_value = mock_task_tracker
         
         # Mock directory behavior for new file creation
-        sample_directory.find_file = Mock(side_effect=FileOrDirectoryDoesNotExist("Not found"))
+        sample_directory.find_file = mocker.Mock(side_effect=FileOrDirectoryDoesNotExist("Not found"))
         
         # Mock file creation failure
         test_exception = Exception("Upload failed")
         mock_file_desc_api.create_file_desc.side_effect = test_exception
         
         # Mock absolute_path property
-        with patch.object(type(sample_directory), 'absolute_path', new="/test/path"):
-            with pytest.raises(Exception, match="Upload failed"):
-                await file_api.upload(sample_directory, sample_file_message)
+        mocker.patch.object(type(sample_directory), 'absolute_path', new_callable=mocker.PropertyMock, return_value="/test/path")
+        
+        with pytest.raises(Exception, match="Upload failed"):
+            await file_api.upload(sample_directory, sample_file_message)
         
         # Verify task tracker was assigned and marked as failed
         assert sample_file_message.task_tracker == mock_task_tracker
@@ -427,14 +426,14 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_upload_with_version_id(
-        self, file_api, mock_file_desc_api, sample_directory, sample_file_ref, sample_file_message
+        self, file_api, mock_file_desc_api, sample_directory, sample_file_ref, sample_file_message, mocker
     ):
         version_id = "v3"
-        sample_directory.find_file = Mock(return_value=sample_file_ref)
+        sample_directory.find_file = mocker.Mock(return_value=sample_file_ref)
         
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.message_id = sample_file_ref.message_id  # Same ID, no update needed
-        mock_response.fd = Mock(spec=TGFSFileDesc)
+        mock_response.fd = mocker.Mock(spec=TGFSFileDesc)
         mock_file_desc_api.update_file_version.return_value = mock_response
         
         result = await file_api.upload(sample_directory, sample_file_message, version_id)
@@ -447,15 +446,14 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_rm_with_version_id_message_id_update(
-        self, file_api, mock_metadata_api, mock_file_desc_api, sample_file_ref
+        self, file_api, mock_metadata_api, mock_file_desc_api, sample_file_ref, mocker
     ):
         version_id = "v1"
         new_message_id = 999
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.message_id = new_message_id  # Different ID, update needed
         mock_file_desc_api.delete_file_version.return_value = mock_response
-        original_message_id = sample_file_ref.message_id
-        
+
         await file_api.rm(sample_file_ref, version_id)
         
         mock_file_desc_api.delete_file_version.assert_called_once_with(
@@ -467,15 +465,14 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_update_existing_file_message_id_update(
-        self, file_api, mock_metadata_api, mock_file_desc_api, sample_file_ref, sample_file_message
+        self, file_api, mock_metadata_api, mock_file_desc_api, sample_file_ref, sample_file_message, mocker
     ):
         new_message_id = 888
-        mock_response = Mock()
+        mock_response = mocker.Mock()
         mock_response.message_id = new_message_id  # Different ID, update needed
-        mock_response.fd = Mock(spec=TGFSFileDesc)
+        mock_response.fd = mocker.Mock(spec=TGFSFileDesc)
         mock_file_desc_api.append_file_version.return_value = mock_response
-        original_message_id = sample_file_ref.message_id
-        
+
         result = await file_api._update_existing_file(
             sample_file_ref, sample_file_message, None
         )
