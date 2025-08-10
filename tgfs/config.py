@@ -9,6 +9,7 @@ import yaml
 logger = logging.getLogger(__name__)
 
 DATA_DIR = os.environ.get("TGFS_DATA_DIR", os.path.expanduser("~/.tgfs"))
+CONFIG_FILE = os.environ.get("TGFS_CONFIG_FILE", "config.yaml")
 
 
 @dataclass
@@ -203,13 +204,8 @@ class Config:
         )
 
 
-__config_file_path = expand_path(os.path.join(DATA_DIR, "config.yaml"))
+__config_file_path = expand_path(os.path.join(DATA_DIR, CONFIG_FILE))
 __config: Config | None = None
-
-
-def set_config_file(file_path: str) -> None:
-    global __config_file_path
-    __config_file_path = file_path
 
 
 def __load_config(file_path: str) -> "Config":

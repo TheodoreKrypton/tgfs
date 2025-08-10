@@ -65,7 +65,6 @@ class Member(ABC):
     async def move_to(self, destination: str) -> None:
         raise NotImplementedError
 
-    @abstractmethod
     async def get_properties(self) -> Properties:
         getlastmodified, creationdate, displayname, getcontenttype = (
             await asyncio.gather(

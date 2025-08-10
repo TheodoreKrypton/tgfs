@@ -5,7 +5,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
-from tgfs.app.cache import fs_cache
+from asgidav.cache import fs_cache
 from tgfs.config import Config
 from tgfs.core import Client
 from tgfs.core.ops import Ops
