@@ -17,17 +17,17 @@ from .model import TGFSDirectory, TGFSFileDesc, TGFSFileRef
 
 class Ops:
     def __init__(self, client: Client):
-        self.__client = client
+        self._client = client
 
     @staticmethod
-    def __validate_path(path: str) -> None:
+    def _validate_path(path: str) -> None:
         if path[-1] == "/" or path[0] != "/":
             raise InvalidPath(path)
 
     def cd(self, path: str) -> TGFSDirectory:
         path_parts = filter(lambda x: x, path.split("/"))
 
-        current_dir = self.__client.dir_api.root
+        current_dir = self._client.dir_api.root
 
         for part in path_parts:
             if part == "..":
@@ -51,20 +51,20 @@ class Ops:
                 next_dir = None
 
         if next_dir:
-            return self.__client.dir_api.ls(next_dir)
+            return self._client.dir_api.ls(next_dir)
         # cannot find a subdirectory with the given name, so assume it's a file_content
-        return self.__client.dir_api.get_fr(d, basename)
+        return self._client.dir_api.get_fr(d, basename)
 
     async def desc(self, path: str) -> TGFSFileDesc:
         file_ref = self.ls(path)
         if not isinstance(file_ref, TGFSFileRef):
             raise FileOrDirectoryDoesNotExist(path)
-        return await self.__client.file_api.desc(file_ref)
+        return await self._client.file_api.desc(file_ref)
 
     async def cp_dir(
         self, path_from: str, path_to: str
     ) -> tuple[TGFSDirectory, TGFSDirectory]:
-        self.__validate_path(path_from)
+        self._validate_path(path_from)
 
         dirname_from, basename_from = os.path.dirname(path_from), os.path.basename(
             path_from
@@ -76,7 +76,7 @@ class Ops:
         dirname_to, basename_to = os.path.dirname(path_to), os.path.basename(path_to)
         d2 = self.cd(dirname_to)
 
-        res = await self.__client.dir_api.create(
+        res = await self._client.dir_api.create(
             basename_to or basename_from, d2, dir_to_copy
         )
 
@@ -85,7 +85,7 @@ class Ops:
     async def cp_file(
         self, path_from: str, path_to: str
     ) -> tuple[TGFSFileRef, TGFSFileRef]:
-        self.__validate_path(path_from)
+        self._validate_path(path_from)
 
         dirname_from, basename_from = os.path.dirname(path_from), os.path.basename(
             path_from
@@ -97,14 +97,14 @@ class Ops:
         dirname_to, basename_to = os.path.dirname(path_to), os.path.basename(path_to)
         d2 = self.cd(dirname_to)
 
-        res = await self.__client.file_api.copy(
+        res = await self._client.file_api.copy(
             d2, file_to_copy, basename_to or basename_from
         )
 
         return file_to_copy, res
 
     async def mkdir(self, path: str, parents: bool) -> TGFSDirectory:
-        self.__validate_path(path)
+        self._validate_path(path)
         dirname, basename = os.path.dirname(path), os.path.basename(path)
 
         d = self.cd(dirname)
@@ -116,11 +116,11 @@ class Ops:
                     d = d.find_dir(part)
                 except FileOrDirectoryDoesNotExist:
                     # If the directory does not exist, create it
-                    d = await self.__client.dir_api.create(part, d)
-        return await self.__client.dir_api.create(basename, d)
+                    d = await self._client.dir_api.create(part, d)
+        return await self._client.dir_api.create(basename, d)
 
     async def touch(self, path: str) -> None:
-        self.__validate_path(path)
+        self._validate_path(path)
         dirname, basename = os.path.dirname(path), os.path.basename(path)
 
         d = self.cd(dirname)
@@ -128,40 +128,40 @@ class Ops:
         try:
             d.find_file(basename)
         except FileOrDirectoryDoesNotExist:
-            await self.__client.file_api.upload(d, FileMessageEmpty.new(name=basename))
+            await self._client.file_api.upload(d, FileMessageEmpty.new(name=basename))
 
     async def mv_dir(self, path_from: str, path_to: str) -> TGFSDirectory:
         dir_from, dir_to = await self.cp_dir(path_from, path_to)
-        await self.__client.dir_api.rm_dangerously(dir_from)
+        await self._client.dir_api.rm_dangerously(dir_from)
         return dir_to
 
     async def mv_file(self, path_from: str, path_to: str) -> TGFSFileRef:
         file_from, file_to = await self.cp_file(path_from, path_to)
-        await self.__client.file_api.rm(file_from)
+        await self._client.file_api.rm(file_from)
         return file_to
 
     async def rm_dir(self, path: str, recursive: bool) -> TGFSDirectory:
-        self.__validate_path(path)
+        self._validate_path(path)
         dirname, basename = os.path.dirname(path), os.path.basename(path)
 
         d = self.cd(dirname)
         dir_to_remove = d.find_dir(basename)
 
         if recursive:
-            await self.__client.dir_api.rm_dangerously(dir_to_remove)
+            await self._client.dir_api.rm_dangerously(dir_to_remove)
         else:
-            await self.__client.dir_api.rm_empty(dir_to_remove)
+            await self._client.dir_api.rm_empty(dir_to_remove)
 
         return dir_to_remove
 
     async def rm_file(self, path: str) -> TGFSFileRef:
-        self.__validate_path(path)
+        self._validate_path(path)
         dirname, basename = os.path.dirname(path), os.path.basename(path)
 
         d = self.cd(dirname)
         file_to_remove = d.find_file(basename)
 
-        await self.__client.file_api.rm(file_to_remove)
+        await self._client.file_api.rm(file_to_remove)
 
         return file_to_remove
 
@@ -169,12 +169,12 @@ class Ops:
         if not os.path.exists(local) or not os.path.isfile(local):
             raise FileOrDirectoryDoesNotExist(local)
 
-        self.__validate_path(remote)
+        self._validate_path(remote)
         dirname, basename = os.path.dirname(remote), os.path.basename(remote)
 
         d = self.cd(dirname)
 
-        return await self.__client.file_api.upload(
+        return await self._client.file_api.upload(
             d,
             FileMessageFromPath.new(
                 path=local,
@@ -183,12 +183,12 @@ class Ops:
         )
 
     async def upload_from_bytes(self, data: bytes, remote: str) -> TGFSFileDesc:
-        self.__validate_path(remote)
+        self._validate_path(remote)
         dirname, basename = os.path.dirname(remote), os.path.basename(remote)
 
         d = self.cd(dirname)
 
-        return await self.__client.file_api.upload(
+        return await self._client.file_api.upload(
             d,
             FileMessageFromBuffer.new(
                 buffer=data,
@@ -199,12 +199,12 @@ class Ops:
     async def upload_from_stream(
         self, stream: AsyncIterator[bytes], size: int, remote: str
     ) -> TGFSFileDesc:
-        self.__validate_path(remote)
+        self._validate_path(remote)
         dirname, basename = os.path.dirname(remote), os.path.basename(remote)
 
         d = self.cd(dirname)
 
-        return await self.__client.file_api.upload(
+        return await self._client.file_api.upload(
             d,
             FileMessageFromStream.new(
                 name=basename,
@@ -216,11 +216,11 @@ class Ops:
     async def import_from_existing_file_message(
         self, message: MessageRespWithDocument, remote: str
     ) -> TGFSFileDesc:
-        self.__validate_path(remote)
+        self._validate_path(remote)
         dirname, basename = os.path.dirname(remote), os.path.basename(remote)
         d = self.cd(dirname)
 
-        return await self.__client.file_api.upload(
+        return await self._client.file_api.upload(
             d,
             FileMessageImported.new(
                 name=basename,
@@ -236,7 +236,7 @@ class Ops:
         end: int,
         as_name: str,
     ) -> AsyncIterator[bytes]:
-        self.__validate_path(path)
+        self._validate_path(path)
         dirname, basename = os.path.dirname(path), os.path.basename(path)
 
         d = self.cd(dirname)
@@ -245,7 +245,7 @@ class Ops:
         if not file_ref:
             raise FileOrDirectoryDoesNotExist(path)
 
-        return await self.__client.file_api.retrieve(
+        return await self._client.file_api.retrieve(
             file_ref,
             begin,
             end,

@@ -1,0 +1,24 @@
+telegram:
+  api_id: 123456
+  api_hash: test_api_hash
+  bot:
+    session_file: test_bot.session
+    tokens:
+      - test_bot_token
+  private_file_channel: 'test_channel'
+tgfs:
+  users:
+    test_user:
+      password: test_password
+      readonly: false
+  download:
+    chunk_size_kb: 512
+  jwt:
+    secret: test_jwt_secret
+    algorithm: HS256
+    life: 3600
+  metadata:
+    type: pinned_message
+  server:
+    host: localhost
+    port: 8080

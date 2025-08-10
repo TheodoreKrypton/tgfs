@@ -2,7 +2,7 @@ import asyncio
 import logging
 import os
 from getpass import getpass
-from typing import List, Optional, Tuple  # noqa: F401
+from typing import List, Optional, Sequence
 
 from telethon import TelegramClient
 from telethon import functions as tlf
@@ -46,14 +46,14 @@ class TelethonAPI(ITDLibClient):
     def __init__(self, client: TelegramClient):
         self._client = client
 
-    async def __get_messages(self, *args, **kwargs) -> List[tlt.Message]:
+    async def __get_messages(self, *args, **kwargs) -> Sequence[tlt.Message]:
         messages = await self._client.get_messages(*args, **kwargs)
         if not isinstance(messages, TotalList):
             raise TechnicalError("Unexpected response type from get_messages")
         return messages
 
     @staticmethod
-    def __transform_messages(messages: List[tlt.Message]) -> GetMessagesResp:
+    def _transform_messages(messages: Sequence[Optional[tlt.Message]]) -> GetMessagesResp:
         res = GetMessagesResp()
 
         for m in messages:
@@ -92,7 +92,7 @@ class TelethonAPI(ITDLibClient):
                 entity=req.chat, ids=message_id_to_fetch
             )
 
-            for message in exclude_none(self.__transform_messages(fetched_messages)):
+            for message in exclude_none(self._transform_messages(fetched_messages)):
                 message_cache_by_id[message.message_id] = message
 
         return GetMessagesResp(message_cache_by_id.gets(req.message_ids))
@@ -126,7 +126,7 @@ class TelethonAPI(ITDLibClient):
         if req.search not in message_cache_by_search:
             messages = await self.__get_messages(entity=req.chat, search=req.search)
             message_cache_by_search[req.search] = tuple(
-                exclude_none(self.__transform_messages(messages))
+                exclude_none(self._transform_messages(messages))
             )
         return GetMessagesRespNoNone(message_cache_by_search[req.search])
 
@@ -136,7 +136,7 @@ class TelethonAPI(ITDLibClient):
         return GetMessagesRespNoNone(
             list(
                 exclude_none(
-                    self.__transform_messages(
+                    self._transform_messages(
                         await self.__get_messages(
                             entity=req.chat, filter=tlt.InputMessagesFilterPinned()
                         )
@@ -302,7 +302,7 @@ async def login_as_account(config: Config) -> TelegramClient:
             raise
         session.save(client.session.save())  # type: ignore
 
-    if (me := await client.get_me()) and isinstance(me, tlt.User):
+    if (me := await client.get_me()) and isinstance(me, tlt.User) and me.username:
         logger.info(f"logged in as @{me.username}")
     else:
         logger.warning("logged in as account, but no username found")
@@ -332,7 +332,7 @@ async def login_as_bots(config: Config) -> List[TelegramClient]:
             await client.start(bot_token=token)  # type: ignore
             session.save_multibot(client.session.save())  # type: ignore
 
-        if (me := await client.get_me()) and isinstance(me, tlt.User):
+        if (me := await client.get_me()) and isinstance(me, tlt.User) and me.username:
             logger.info(f"logged in as @{me.username}")
         else:
             logger.warning("logged in as bot, but no username found")

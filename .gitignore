@@ -4,3 +4,5 @@ config.yaml
 .vscode/
 CLAUDE.md
 dist/
+coverage.xml
+.coverage

@@ -21,35 +21,35 @@ class TGMsgMetadataRepository(IMetaDataRepository):
     def __init__(self, message_api: MessageApi, fc_repo: IFileContentRepository):
         super().__init__()
 
-        self.__message_api = message_api
-        self.__fc_repo = fc_repo
+        self._message_api = message_api
+        self._fc_repo = fc_repo
 
-        self.__message_id: Optional[int] = None
+        self._message_id: Optional[int] = None
 
     async def push(self) -> None:
         if not self.metadata:
             raise MetadataNotInitialized()
 
         buffer = json.dumps(self.metadata.to_dict()).encode()
-        if self.__message_id is not None:
-            await self.__fc_repo.update(
-                self.__message_id,
+        if self._message_id is not None:
+            await self._fc_repo.update(
+                self._message_id,
                 buffer,
                 self.METADATA_FILE_NAME,
             )
         else:
-            resp = await self.__fc_repo.save(
+            resp = await self._fc_repo.save(
                 FileMessageFromBuffer.new(
                     name=self.METADATA_FILE_NAME,
                     buffer=buffer,
                 )
             )
             message_id = resp[0].message_id
-            await self.__message_api.pin_message(message_id=message_id)
-            self.__message_id = message_id
+            await self._message_api.pin_message(message_id=message_id)
+            self._message_id = message_id
 
     @staticmethod
-    async def __read_all(async_iter: AsyncIterator[bytes]) -> bytes:
+    async def _read_all(async_iter: AsyncIterator[bytes]) -> bytes:
         result = bytearray()
         async for chunk in async_iter:
             result.extend(chunk)
@@ -58,13 +58,13 @@ class TGMsgMetadataRepository(IMetaDataRepository):
     async def new_metadata(self) -> MessageRespWithDocument:
         root = TGFSDirectory.root_dir()
         self.metadata = TGFSMetadata(root)
-        self.__message_id = None
+        self._message_id = None
         await self.push()
-        return await self.__message_api.get_pinned_message()
+        return await self._message_api.get_pinned_message()
 
     async def get(self) -> TGFSMetadata:
         try:
-            pinned_message = await self.__message_api.get_pinned_message()
+            pinned_message = await self._message_api.get_pinned_message()
         except NoPinnedMessage:
             pinned_message = await self.new_metadata()
 
@@ -74,8 +74,8 @@ class TGMsgMetadataRepository(IMetaDataRepository):
 
         metadata = TGFSMetadata.from_dict(
             json.loads(
-                await self.__read_all(
-                    await self.__fc_repo.get(
+                await self._read_all(
+                    await self._fc_repo.get(
                         temp_fv,
                         begin=0,
                         end=-1,
@@ -85,5 +85,5 @@ class TGMsgMetadataRepository(IMetaDataRepository):
             )
         )
 
-        self.__message_id = pinned_message.message_id
+        self._message_id = pinned_message.message_id
         return metadata
