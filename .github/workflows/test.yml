@@ -55,12 +55,32 @@ jobs:
         TGFS_DATA_DIR: .
         TGFS_CONFIG_FILE: config-test.yaml
       run: |
-        poetry run pytest --cov --cov-report=xml --cov-report=term-missing
+        poetry run pytest --cov=tgfs --cov=asgidav --cov-report=xml --cov-report=term-missing
+        
+    - name: Debug coverage file
+      run: |
+        echo "Working directory:"
+        pwd
+        echo "Directory contents:"
+        ls -la
+        echo "Checking if coverage.xml exists..."
+        ls -la coverage.xml || echo "coverage.xml not found"
+        if [ -f coverage.xml ]; then
+          echo "Coverage file size:"
+          wc -l coverage.xml
+          echo "First few lines of coverage.xml:"
+          head -10 coverage.xml
+          echo "Coverage file absolute path:"
+          readlink -f coverage.xml
+        fi
         
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
-        files: ./coverage.xml
+        files: coverage.xml
         token: ${{ secrets.CODECOV_TOKEN }}
         fail_ci_if_error: false
         verbose: true
+        flags: unittests
+        name: codecov-umbrella
+        root_dir: ${{ github.workspace }}
