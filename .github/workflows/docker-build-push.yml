@@ -35,4 +35,7 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
           load: true
-          tags: wheatcarrier/tgfs:latest
+          push: true
+          tags: |
+            wheatcarrier/tgfs:latest
+            wheatcarrier/tgfs:${{ github.sha }}
