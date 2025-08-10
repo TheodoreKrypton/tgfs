@@ -1,7 +1,8 @@
 from typing import Optional
 
 from asgidav.app import METHODS, create_app
-from tgfs.app.cache import Member, fs_cache
+from asgidav.cache import fs_cache
+from asgidav.member import Member
 from tgfs.core import Client
 
 from .folder import Folder

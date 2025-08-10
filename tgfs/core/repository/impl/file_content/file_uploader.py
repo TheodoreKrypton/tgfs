@@ -72,8 +72,6 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
         self.__read_size = 0
         self.__uploaded_size = 0
 
-        self.__errors: dict[int, Exception] = {}
-
         self.__num_workers = (
             self.__workers.big if self.__is_big else self.__workers.small
         )
@@ -200,7 +198,6 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
 
             except Exception as e:
                 logger.error(f"Worker {worker_id} failed: {e}")
-                self.__errors[worker_id] = e
                 return False
 
         while self.__uploaded_size < self._file_size:
@@ -223,10 +220,6 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
 
         await self._close()
         return self._file_size
-
-    @property
-    def errors(self) -> list[Exception]:
-        return list(self.__errors.values())
 
     def get_uploaded_file(self) -> UploadedFile:
         return UploadedFile(

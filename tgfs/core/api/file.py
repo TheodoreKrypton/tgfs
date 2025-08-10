@@ -17,25 +17,25 @@ from .metadata import MetaDataApi
 
 class FileApi:
     def __init__(self, metadata_api: MetaDataApi, file_desc_api: FileDescApi):
-        self.__metadata_api = metadata_api
-        self.__file_desc_api = file_desc_api
+        self._metadata_api = metadata_api
+        self._file_desc_api = file_desc_api
 
     async def copy(
         self, where: TGFSDirectory, fr: TGFSFileRef, name: Optional[str] = None
     ) -> TGFSFileRef:
         copied_fr = where.create_file_ref(name or fr.name, fr.message_id)
-        await self.__metadata_api.push()
+        await self._metadata_api.push()
         return copied_fr
 
-    async def __create_new_file(
+    async def _create_new_file(
         self, where: TGFSDirectory, file_msg: FileMessage
     ) -> TGFSFileDesc:
-        resp = await self.__file_desc_api.create_file_desc(file_msg)
+        resp = await self._file_desc_api.create_file_desc(file_msg)
         where.create_file_ref(file_msg.name, resp.message_id)
-        await self.__metadata_api.push()
+        await self._metadata_api.push()
         return resp.fd
 
-    async def __update_file_ref_message_id_if_necessary(
+    async def _update_file_ref_message_id_if_necessary(
         self, fr: TGFSFileRef, message_id: int
     ) -> None:
         """
@@ -44,27 +44,27 @@ class FileApi:
         """
         if fr.message_id != message_id:
             fr.message_id = message_id
-            await self.__metadata_api.push()
+            await self._metadata_api.push()
 
-    async def __update_existing_file(
+    async def _update_existing_file(
         self, fr: TGFSFileRef, file_msg: FileMessage, version_id: Optional[str]
     ) -> TGFSFileDesc:
         if version_id:
-            resp = await self.__file_desc_api.update_file_version(
+            resp = await self._file_desc_api.update_file_version(
                 fr, file_msg, version_id
             )
         else:
-            resp = await self.__file_desc_api.append_file_version(file_msg, fr)
-        await self.__update_file_ref_message_id_if_necessary(fr, resp.message_id)
+            resp = await self._file_desc_api.append_file_version(file_msg, fr)
+        await self._update_file_ref_message_id_if_necessary(fr, resp.message_id)
         return resp.fd
 
     async def rm(self, fr: TGFSFileRef, version_id: Optional[str] = None) -> None:
         if not version_id:
             fr.delete()
-            await self.__metadata_api.push()
+            await self._metadata_api.push()
         else:
-            resp = await self.__file_desc_api.delete_file_version(fr, version_id)
-            await self.__update_file_ref_message_id_if_necessary(fr, resp.message_id)
+            resp = await self._file_desc_api.delete_file_version(fr, version_id)
+            await self._update_file_ref_message_id_if_necessary(fr, resp.message_id)
 
     async def upload(
         self,
@@ -76,9 +76,9 @@ class FileApi:
         async def update_or_create() -> TGFSFileDesc:
             try:
                 fr = under.find_file(file_msg.name)
-                return await self.__update_existing_file(fr, file_msg, version_id)
+                return await self._update_existing_file(fr, file_msg, version_id)
             except FileOrDirectoryDoesNotExist:
-                return await self.__create_new_file(under, file_msg)
+                return await self._create_new_file(under, file_msg)
 
         if isinstance(file_msg, UploadableFileMessage):
             task_tracker = await create_upload_task(
@@ -97,7 +97,7 @@ class FileApi:
             return await update_or_create()
 
     async def desc(self, fr: TGFSFileRef) -> TGFSFileDesc:
-        return await self.__file_desc_api.get_file_desc(fr)
+        return await self._file_desc_api.get_file_desc(fr)
 
     async def retrieve(
         self,
@@ -117,7 +117,7 @@ class FileApi:
 
         async def chunks():
             try:
-                async for chunk in await self.__file_desc_api.download_file_at_version(
+                async for chunk in await self._file_desc_api.download_file_at_version(
                     fv, begin, end, as_name or fr.name
                 ):
                     yield chunk
@@ -134,7 +134,7 @@ class FileApi:
         end: int,
         as_name: str,
     ) -> FileContent:
-        return await self.__file_desc_api.download_file_at_version(
+        return await self._file_desc_api.download_file_at_version(
             fv,
             begin,
             end,

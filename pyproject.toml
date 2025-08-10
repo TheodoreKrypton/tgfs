@@ -32,10 +32,16 @@ mypy = "^1.17.1"
 ruff = "^0.12.8"
 black = "^25.1.0"
 pytest = "^8.4.1"
+pytest-asyncio = "^0.25.1"
 pytest-mock = "^3.14.1"
+pytest-cov = "^6.2.1"
 types-pyyaml = "^6.0.12.20250809"
 pre-commit = "^4.3.0"
 lxml-stubs = "^0.5.1"
+httpx = "^0.28.1"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
 
 [tool.ruff]
 fix = true
@@ -50,4 +56,27 @@ select = [
 ]
 ignore = [
     "E501",  # Line too long
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "*/tests/*",
+    "test_*.py",
+    "*_test.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
 ]
