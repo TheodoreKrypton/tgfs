@@ -50,5 +50,4 @@ select = [
 ]
 ignore = [
     "E501",  # Line too long
-    "S320",  # Using `lxml` to parse untrusted data is known to be vulnerable to XML attacks
 ]
