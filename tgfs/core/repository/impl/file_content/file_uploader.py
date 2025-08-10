@@ -197,7 +197,10 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
                 return True
 
             except Exception as e:
-                logger.error(f"Worker {worker_id} failed: {e}")
+                logger.error(
+                    f"Worker {worker_id} failed while uploading file '{self.__file_name}' (file_id={self._file_id}, uploaded_size={self.__uploaded_size}/{self._file_size}): {e}",
+                    exc_info=True
+                )
                 return False
 
         while self.__uploaded_size < self._file_size:

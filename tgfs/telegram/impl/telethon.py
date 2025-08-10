@@ -302,11 +302,8 @@ async def login_as_account(config: Config) -> TelegramClient:
             raise
         session.save(client.session.save())  # type: ignore
 
-    if (me := await client.get_me()) and isinstance(me, tlt.User):
-        if me.username:
-            logger.info(f"logged in as @{me.username}")
-        else:
-            logger.warning("logged in as account, but no username found")
+    if (me := await client.get_me()) and isinstance(me, tlt.User) and me.username:
+        logger.info(f"logged in as @{me.username}")
     else:
         logger.warning("logged in as account, but no username found")
 
@@ -335,11 +332,8 @@ async def login_as_bots(config: Config) -> List[TelegramClient]:
             await client.start(bot_token=token)  # type: ignore
             session.save_multibot(client.session.save())  # type: ignore
 
-        if (me := await client.get_me()) and isinstance(me, tlt.User):
-            if me.username:
-                logger.info(f"logged in as @{me.username}")
-            else:
-                logger.warning("logged in as bot, but no username found")
+        if (me := await client.get_me()) and isinstance(me, tlt.User) and me.username:
+            logger.info(f"logged in as @{me.username}")
         else:
             logger.warning("logged in as bot, but no username found")
 
