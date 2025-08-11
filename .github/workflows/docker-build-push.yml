@@ -12,6 +12,15 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    strategy:
+      matrix:
+        include:
+          - name: tgfs
+            dockerfile: Dockerfile
+            repository: wheatcarrier/tgfs
+          - name: tgfs-fe
+            dockerfile: Dockerfile.frontend
+            repository: wheatcarrier/tgfs-fe
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -36,11 +45,13 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
-      - name: Build and push
+      - name: Build and push ${{ matrix.name }}
         uses: docker/build-push-action@v6
         with:
+          context: .
+          file: ./${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            wheatcarrier/tgfs:latest
-            wheatcarrier/tgfs:${{ github.sha }}
+            ${{ matrix.repository }}:latest
+            ${{ matrix.repository }}:${{ github.sha }}

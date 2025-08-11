@@ -1,0 +1,33 @@
+# Multi-stage build
+# Stage 1: Build the Next.js application
+FROM node:18-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY tgfs-gh-pages/package*.json ./
+
+# Install dependencies (including devDependencies for build)
+RUN npm ci
+
+# Copy source code
+COPY tgfs-gh-pages/ .
+
+# Build the application
+RUN npm run build
+
+# Stage 2: Serve with nginx
+FROM nginx:alpine
+
+# Copy the built static files from the builder stage
+COPY --from=builder /app/out /usr/share/nginx/html/tgfs
+
+# Copy nginx configuration
+COPY tgfs-fe-nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose port 80
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
