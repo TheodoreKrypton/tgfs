@@ -2,27 +2,23 @@ import asyncio
 import os.path
 from typing import Optional
 
-from asgidav.cache import fs_cache
 from asgidav.resource import Resource as _Resource
 from tgfs.core import Client, Ops
 from tgfs.core.model import TGFSFileDesc, TGFSFileRef
 from tgfs.errors import TechnicalError
 from tgfs.reqres import FileContent
+from tgfs.app.global_fs_cache import gfc
 
 
 class Resource(_Resource):
     def __init__(self, path: str, client: Client):
         super().__init__(path)
         self.__client = client
+        self.__fs_cache = gfc[client.name]
         self.__ops = Ops(client)
 
-        if not (fr := self.__ops.ls(path)):
+        if not (fr := self.__ops.stat_file(path)):
             raise TechnicalError(f"Resource {path} does not exist")
-
-        if not isinstance(fr, TGFSFileRef):
-            raise TechnicalError(
-                "Resource must be a file_content, not a directory or other type"
-            )
 
         self.__fr: TGFSFileRef = fr
         self.__fd_value: Optional[TGFSFileDesc] = None
@@ -58,18 +54,18 @@ class Resource(_Resource):
         )
 
     async def overwrite(self, content: FileContent, size: int) -> None:
-        fs_cache.reset(self.path)
+        self.__fs_cache.reset(self.path)
         await self.__ops.upload_from_stream(content, size, self.path)
 
     async def remove(self) -> None:
-        fs_cache.reset_parent(self.path)
+        self.__fs_cache.reset_parent(self.path)
         await self.__ops.rm_file(self.path)
 
     async def copy_to(self, destination: str) -> None:
-        fs_cache.reset_parent(destination)
+        self.__fs_cache.reset_parent(destination)
         await self.__ops.cp_file(self.path, destination)
 
     async def move_to(self, destination: str) -> None:
-        fs_cache.reset_parent(self.path)
-        fs_cache.reset_parent(destination)
+        self.__fs_cache.reset_parent(self.path)
+        self.__fs_cache.reset_parent(destination)
         await self.__ops.mv_file(self.path, destination)

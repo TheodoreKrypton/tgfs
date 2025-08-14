@@ -1,10 +1,10 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 import telethon.tl.types as tlt
 from telethon import TelegramClient
 from telethon.tl.types import PeerChannel
 
-from tgfs.config import MetadataType, get_config
+from tgfs.config import MetadataType, get_config, MetadataConfig
 from tgfs.core.api import DirectoryApi, FileApi, FileDescApi, MessageApi, MetaDataApi
 from tgfs.core.repository.impl import (
     TGMsgFDRepository,
@@ -23,47 +23,53 @@ config = get_config()
 
 class Client:
     def __init__(
-        self, message_api: MessageApi, file_api: FileApi, dir_api: DirectoryApi
+        self,
+        name: str,
+        message_api: MessageApi,
+        file_api: FileApi,
+        dir_api: DirectoryApi,
     ):
+        self.name = name
         self.message_api = message_api
         self.file_api = file_api
         self.dir_api = dir_api
 
     @classmethod
+    async def get_peer_channel(cls, channel_id: str, bot: TelegramClient):
+        try:
+            return PeerChannel(int(channel_id))
+        except ValueError:
+            entity = await bot.get_entity(f"@{channel_id}")
+            if not isinstance(entity, tlt.Channel):
+                raise TechnicalError("Expected a Telegram channel")
+            return PeerChannel(entity.id)
+
+    @classmethod
     async def create(
         cls,
+        channel_id: str,
+        metadata_cfg: MetadataConfig,
         bots: List[TelegramClient],
         account: Optional[TelegramClient] = None,
     ) -> "Client":
-        try:
-            private_file_channel = PeerChannel(
-                int(config.telegram.private_file_channel)
-            )
-        except ValueError:
-            entity = await bots[0].get_entity(
-                f"@{config.telegram.private_file_channel}"
-            )
-            if not isinstance(entity, tlt.Channel):
-                raise TechnicalError("Expected a Telegram channel")
-            private_file_channel = PeerChannel(entity.id)
-
+        channel = await cls.get_peer_channel(channel_id, bots[0])
         message_api = MessageApi(
             TDLibApi(
                 account=TelethonAPI(account) if account else None,
                 bots=[TelethonAPI(bot) for bot in bots],
             ),
-            private_file_channel,
+            channel,
         )
 
         fc_repo = TGMsgFileContentRepository(message_api)
         fd_repo = TGMsgFDRepository(message_api)
 
-        if config.tgfs.metadata.type == MetadataType.PINNED_MESSAGE:
+        if metadata_cfg.type == MetadataType.PINNED_MESSAGE:
             metadata_repo: IMetaDataRepository = TGMsgMetadataRepository(
                 message_api, fc_repo
             )
         else:
-            if (github_repo_config := config.tgfs.metadata.github_repo) is None:
+            if (github_repo_config := metadata_cfg.github_repo) is None:
                 raise ValueError(
                     "configuration tgfs -> metadata -> github is required."
                 )
@@ -81,4 +87,12 @@ class Client:
         file_api = FileApi(metadata_api, fd_api)
         dir_api = DirectoryApi(metadata_api)
 
-        return cls(message_api=message_api, file_api=file_api, dir_api=dir_api)
+        return cls(
+            name=metadata_cfg.name,
+            message_api=message_api,
+            file_api=file_api,
+            dir_api=dir_api,
+        )
+
+
+Clients = Dict[str, Client]

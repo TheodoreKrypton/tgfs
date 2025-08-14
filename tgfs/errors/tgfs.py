@@ -64,3 +64,12 @@ class LoginFailed(BusinessError):
             code=ErrorCode.LOGIN_FAILED,
             cause=None,
         )
+
+
+class DuplicatedChannelIdOrName(BusinessError):
+    def __init__(self, channel_id_or_name: str):
+        super().__init__(
+            message=f"Channel ID or name {channel_id_or_name} is already used",
+            code=ErrorCode.DUPLICATED_CHANNEL_ID_OR_NAME,
+            cause=None,
+        )

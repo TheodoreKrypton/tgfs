@@ -1,36 +1,34 @@
 import logging
 from typing import Optional
+from dataclasses import dataclass
 
 from github import Github
+from github.Repository import Repository
 
-from tgfs.config import get_config
 from tgfs.core.model import TGFSDirectory, TGFSFileRef
-from tgfs.errors import TechnicalError
 
 logger = logging.getLogger(__name__)
 
-config = get_config()
-github_config = config.tgfs.metadata.github_repo
 
-
-if github_config is None:
-    raise TechnicalError("This file should not be imported")
-
-GH = Github(github_config.access_token)
-REPO_NAME = github_config.repo
-REPO = GH.get_repo(REPO_NAME)
-COMMIT = github_config.commit
+@dataclass
+class GithubConfig:
+    gh: Github
+    repo_name: str
+    repo: Repository
+    commit: str
 
 
 class GithubDirectory(TGFSDirectory):
     def __init__(
         self,
+        ghc: GithubConfig,
         name: str,
         parent: Optional[TGFSDirectory],
         children: Optional[list[TGFSDirectory]] = None,
         files: Optional[list[TGFSFileRef]] = None,
     ):
         super().__init__(name, parent, children or [], files or [])
+        self._ghc = ghc
 
     @staticmethod
     def join_path(*args: str) -> str:
@@ -51,7 +49,7 @@ class GithubDirectory(TGFSDirectory):
         return self.join_path(parent_path, self.name)
 
     def create_dir_skip_github_ops(self, name: str) -> "GithubDirectory":
-        res = GithubDirectory(name, self)
+        res = GithubDirectory(self._ghc, name, self)
         self.children.append(res)
         return res
 
@@ -63,11 +61,11 @@ class GithubDirectory(TGFSDirectory):
         # Create directory in GitHub by creating a placeholder file
         dir_path = self.join_path(self._github_path, name, ".gitkeep")
         try:
-            REPO.create_file(
+            self._ghc.repo.create_file(
                 path=dir_path,
                 message=f"Create directory {name}",
                 content="",
-                branch=COMMIT,
+                branch=self._ghc.commit,
             )
             logger.info(f"Created directory {name} in GitHub repository at {dir_path}")
         except Exception as ex:
@@ -77,7 +75,11 @@ class GithubDirectory(TGFSDirectory):
 
         # Convert the child to GithubDirectory
         github_child = GithubDirectory(
-            name=child.name, parent=self, children=child.children, files=child.files
+            ghc=self._ghc,
+            name=child.name,
+            parent=self,
+            children=child.children,
+            files=child.files,
         )
 
         # Replace the child in the parent's children list
@@ -98,15 +100,19 @@ class GithubDirectory(TGFSDirectory):
         # Create file reference in GitHub
         file_path = self.join_path(self._github_path, f"{name}.{file_message_id}")
         try:
-            REPO.create_file(
+            self._ghc.repo.create_file(
                 path=file_path,
                 message=f"Create file reference for {name}",
                 content="",
-                branch=COMMIT,
+                branch=self._ghc.commit,
             )
-            logger.info(f"Created file reference {name} in {REPO_NAME} at {file_path}")
+            logger.info(
+                f"Created file reference {name} in {self._ghc.repo_name} at {file_path}"
+            )
         except Exception as ex:
-            logger.error(f"Failed to create file reference {name} in {REPO_NAME}: {ex}")
+            logger.error(
+                f"Failed to create file reference {name} in {self._ghc.repo_name}: {ex}"
+            )
             self.files.remove(file_ref)
             raise
 
@@ -116,19 +122,19 @@ class GithubDirectory(TGFSDirectory):
         # Remove file reference from GitHub
         file_path = self.join_path(self._github_path, f"{fr.name}.{fr.message_id}")
         try:
-            file_content = REPO.get_contents(file_path, ref=COMMIT)
+            file_content = self._ghc.repo.get_contents(file_path, ref=self._ghc.commit)
             if isinstance(file_content, list):
                 file_content = file_content[0]
-            REPO.delete_file(
+            self._ghc.repo.delete_file(
                 path=file_path,
                 message=f"Delete file reference for {fr.name}",
                 sha=file_content.sha,
-                branch=COMMIT,
+                branch=self._ghc.commit,
             )
-            logger.info(f"Deleted file reference {fr.name} from {REPO_NAME}")
+            logger.info(f"Deleted file reference {fr.name} from {self._ghc.repo_name}")
         except Exception as ex:
             logger.error(
-                f"Failed to delete file reference {fr.name} from {REPO_NAME}: {ex}"
+                f"Failed to delete file reference {fr.name} from {self._ghc.repo_name}: {ex}"
             )
 
         super().delete_file_ref(fr)
@@ -137,26 +143,28 @@ class GithubDirectory(TGFSDirectory):
         """Delete all contents of this directory from GitHub"""
         try:
             # Get all contents in this directory
-            contents = REPO.get_contents(self._github_path, ref=COMMIT)
+            contents = self._ghc.repo.get_contents(
+                self._github_path, ref=self._ghc.commit
+            )
             if not isinstance(contents, list):
                 contents = [contents]
 
             # Delete all files and subdirectories
             for content in contents:
                 try:
-                    REPO.delete_file(
+                    self._ghc.repo.delete_file(
                         path=content.path,
                         message=f"Delete {content.path}",
                         sha=content.sha,
-                        branch=COMMIT,
+                        branch=self._ghc.commit,
                     )
-                    logger.info(f"Deleted {content.path} from {REPO_NAME}")
+                    logger.info(f"Deleted {content.path} from {self._ghc.repo_name}")
                 except Exception as ex:
                     logger.error(
-                        f"Failed to delete {content.path} from {REPO_NAME}: {ex}"
+                        f"Failed to delete {content.path} from {self._ghc.repo_name}: {ex}"
                     )
 
         except Exception as ex:
             logger.error(
-                f"Failed to delete directory {self._github_path} from {REPO_NAME}: {ex}"
+                f"Failed to delete directory {self._github_path} from {self._ghc.repo_name}: {ex}"
             )

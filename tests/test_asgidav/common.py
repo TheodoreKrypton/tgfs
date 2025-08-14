@@ -26,6 +26,7 @@ class MockResource(Resource):
     async def get_content(self, begin: int = 0, end: int = -1) -> AsyncIterator[bytes]:
         async def dummy_iterator():
             yield b"content"
+
         return dummy_iterator()
 
     async def overwrite(self, content: AsyncIterator[bytes], size: int) -> None:
@@ -39,6 +40,7 @@ class MockResource(Resource):
 
     async def move_to(self, destination: str) -> None:
         pass
+
 
 class MockFolder(Folder):
     def __init__(self, path: str, members: Optional[Mapping[str, Member]] = None):

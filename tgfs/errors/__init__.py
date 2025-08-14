@@ -15,6 +15,7 @@ from .tgfs import (
     PinnedMessageNotSupported,
     TaskCancelled,
     UnDownloadableMessage,
+    DuplicatedChannelIdOrName,
 )
 
 __all__ = [
@@ -33,4 +34,5 @@ __all__ = [
     "PinnedMessageNotSupported",
     "TaskCancelled",
     "LoginFailed",
+    "DuplicatedChannelIdOrName",
 ]

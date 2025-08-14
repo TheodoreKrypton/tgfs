@@ -7,7 +7,7 @@ import telethon.types as tlt
 
 from tgfs.reqres import GetMessagesReq, GetMessagesResp, MessageResp
 from tgfs.telegram.interface import TDLibApi
-from tgfs.utils.message_cache import message_cache_by_id
+from tgfs.utils.message_cache import channel_cache
 
 DELAY = 0.5
 
@@ -27,7 +27,7 @@ class MessageBroker:
         self.private_file_channel = private_file_channel
 
     async def get_messages(self, ids: list[int]) -> list[Optional[MessageResp]]:
-        if cached_messages := message_cache_by_id.gets(ids):
+        if cached_messages := channel_cache(self.private_file_channel).id.gets(ids):
             if all(msg is not None for msg in cached_messages):
                 return cached_messages
 

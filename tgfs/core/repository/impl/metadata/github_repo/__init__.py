@@ -7,7 +7,7 @@ from tgfs.config import GithubRepoConfig
 from tgfs.core.model import TGFSDirectory, TGFSMetadata
 from tgfs.core.repository.interface import IMetaDataRepository
 
-from .gh_directory import GithubDirectory
+from .gh_directory import GithubDirectory, GithubConfig
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +16,14 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
     def __init__(self, config: GithubRepoConfig):
         super().__init__()
 
-        self.__gh = Github(config.access_token)
-        self.__repo = self.__gh.get_repo(config.repo)
-        self.__commit = config.commit
+        gh = Github(config.access_token)
+
+        self._ghc = GithubConfig(
+            gh=gh,
+            repo_name=config.repo,
+            repo=gh.get_repo(config.repo),
+            commit=config.commit,
+        )
 
     async def push(self) -> None:
         pass
@@ -28,19 +33,22 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
         return TGFSMetadata(dir=root_dir)
 
     def _build_directory_structure(self) -> GithubDirectory:
-        root = GithubDirectory.root_dir()
+        root = GithubDirectory(
+            self._ghc, name="root", parent=None, children=[], files=[]
+        )
 
         try:
-            contents = self.__repo.get_contents("", ref=self.__commit)
+            contents = self._ghc.repo.get_contents("", ref=self._ghc.commit)
             self._process_contents(contents, root)
         except Exception as ex:
             logger.error(ex)
 
         return root
 
-    @staticmethod
-    def _create_child_dir(name: str, parent_dir: GithubDirectory) -> GithubDirectory:
-        child_dir = GithubDirectory(name, parent_dir)
+    def _create_child_dir(
+        self, name: str, parent_dir: GithubDirectory
+    ) -> GithubDirectory:
+        child_dir = GithubDirectory(self._ghc, name, parent_dir)
         parent_dir.children.append(child_dir)
         return child_dir
 
@@ -54,8 +62,8 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
             if content.type == "dir":
                 child_dir = self._create_child_dir(content.name, parent_dir)
                 try:
-                    child_contents = self.__repo.get_contents(
-                        content.path, ref=self.__commit
+                    child_contents = self._ghc.repo.get_contents(
+                        content.path, ref=self._ghc.commit
                     )
                     self._process_contents(child_contents, child_dir)
                 except Exception as ex:

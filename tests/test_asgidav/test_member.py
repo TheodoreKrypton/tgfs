@@ -52,7 +52,7 @@ class TestMember:
         member.is_hidden = True
         member.is_readonly = True
         member.is_root = True
-        
+
         assert member.is_hidden is True
         assert member.is_readonly is True
         assert member.is_root is True
@@ -61,7 +61,7 @@ class TestMember:
     async def test_get_properties(self):
         member = MockMember("/test.txt")
         properties = await member.get_properties()
-        
+
         assert properties["displayname"] == "test.txt"
         assert properties["getcontenttype"] == "text/plain"
         assert properties["resourcetype"] == ""
@@ -89,13 +89,13 @@ class TestMember:
     @pytest.mark.asyncio
     async def test_abstract_methods_implemented(self):
         member = MockMember("/test")
-        
+
         assert await member.content_type() == "text/plain"
         assert await member.content_length() == 100
         assert await member.display_name() == "test.txt"
         assert await member.creation_date() == 1609459200000
         assert await member.last_modified() == 1609545600000
-        
+
         # These should not raise NotImplementedError
         await member.remove()
         await member.copy_to("/destination")

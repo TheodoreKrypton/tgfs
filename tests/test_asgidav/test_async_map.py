@@ -31,6 +31,7 @@ class TestAsyncMap:
     async def test_async_map_preserves_order(self):
         async def slow_process(x):
             import asyncio
+
             # Simulate different processing times
             await asyncio.sleep(0.01 * (5 - x))
             return x * 10

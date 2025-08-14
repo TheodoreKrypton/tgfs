@@ -36,7 +36,7 @@ from tgfs.reqres import (
     SendTextReq,
 )
 from tgfs.telegram.interface import ITDLibClient
-from tgfs.utils.message_cache import message_cache_by_id, message_cache_by_search
+from tgfs.utils.message_cache import channel_cache
 from tgfs.utils.others import exclude_none
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,9 @@ class TelethonAPI(ITDLibClient):
         return messages
 
     @staticmethod
-    def _transform_messages(messages: Sequence[Optional[tlt.Message]]) -> GetMessagesResp:
+    def _transform_messages(
+        messages: Sequence[Optional[tlt.Message]],
+    ) -> GetMessagesResp:
         res = GetMessagesResp()
 
         for m in messages:
@@ -87,29 +89,30 @@ class TelethonAPI(ITDLibClient):
         return res
 
     async def get_messages(self, req: GetMessagesReq) -> GetMessagesResp:
-        if message_id_to_fetch := message_cache_by_id.find_nonexistent(req.message_ids):
+        cache = channel_cache(req.chat).id
+        if message_id_to_fetch := cache.find_nonexistent(req.message_ids):
             fetched_messages = await self.__get_messages(
                 entity=req.chat, ids=message_id_to_fetch
             )
 
             for message in exclude_none(self._transform_messages(fetched_messages)):
-                message_cache_by_id[message.message_id] = message
+                cache[message.message_id] = message
 
-        return GetMessagesResp(message_cache_by_id.gets(req.message_ids))
+        return GetMessagesResp(cache.gets(req.message_ids))
 
     async def send_text(self, req: SendTextReq) -> SendMessageResp:
         message = await self._client.send_message(entity=req.chat, message=req.text)
         return SendMessageResp(message_id=message.id)
 
     async def edit_message_text(self, req: EditMessageTextReq) -> SendMessageResp:
-        message_cache_by_id[req.message_id] = None
+        channel_cache(req.chat).id[req.message_id] = None
         message = await self._client.edit_message(
             entity=req.chat, message=req.message_id, text=req.text
         )
         return SendMessageResp(message_id=message.id)
 
     async def edit_message_media(self, req: EditMessageMediaReq) -> Message:
-        message_cache_by_id[req.message_id] = None
+        channel_cache(req.chat).id[req.message_id] = None
         message = await self._client.edit_message(
             entity=req.chat,
             message=req.message_id,
@@ -123,12 +126,11 @@ class TelethonAPI(ITDLibClient):
         return Message(message_id=message.id)
 
     async def search_messages(self, req: SearchMessageReq) -> GetMessagesRespNoNone:
-        if req.search not in message_cache_by_search:
+        cache = channel_cache(req.chat).search
+        if req.search not in cache:
             messages = await self.__get_messages(entity=req.chat, search=req.search)
-            message_cache_by_search[req.search] = tuple(
-                exclude_none(self._transform_messages(messages))
-            )
-        return GetMessagesRespNoNone(message_cache_by_search[req.search])
+            cache[req.search] = tuple(exclude_none(self._transform_messages(messages)))
+        return GetMessagesRespNoNone(cache[req.search])
 
     async def get_pinned_messages(
         self, req: GetPinnedMessageReq

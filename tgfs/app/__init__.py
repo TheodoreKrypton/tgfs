@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from tgfs.auth import auth_basic, auth_bearer
 from tgfs.auth import login as login_bearer
 from tgfs.config import Config
-from tgfs.core.client import Client
+from tgfs.core.client import Clients
 
 from .manager import create_manager_app
 from .webdav import METHODS, create_webdav_app
@@ -30,7 +30,7 @@ def cors(app: FastAPI):
     return app
 
 
-def create_app(client: Client, config: Config) -> FastAPI:
+def create_app(clients: Clients, config: Config) -> FastAPI:
     app = FastAPI()
     cors(app)
 
@@ -95,10 +95,10 @@ def create_app(client: Client, config: Config) -> FastAPI:
         except Exception as e:
             return UNAUTHORIZED(str(e))
 
-    manager_app = cors(create_manager_app(client, config))
+    manager_app = cors(create_manager_app(clients, config))
     app.mount("/api", manager_app)
 
-    webdav_app = cors(create_webdav_app(client, "/webdav"))
+    webdav_app = cors(create_webdav_app(clients, "/webdav"))
     app.mount("/webdav", webdav_app)
 
     return app

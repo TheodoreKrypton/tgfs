@@ -5,8 +5,9 @@ from typing import Iterable, List
 from uuid import uuid4 as uuid
 
 from tgfs.reqres import SentFileMessage
+from tgfs.utils.time import ts, FIRST_DAY_OF_EPOCH
 
-from .common import FIRST_DAY_OF_EPOCH, ts, validate_name
+from .common import validate_name
 from .serialized import TGFSFileDescSerialized, TGFSFileVersionSerialized
 
 EMPTY_FILE_MESSAGE = -1

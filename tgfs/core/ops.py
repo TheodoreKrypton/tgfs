@@ -1,5 +1,5 @@
 import os.path
-from typing import AsyncIterator, Optional
+from typing import AsyncIterator
 
 from tgfs.errors import FileOrDirectoryDoesNotExist, InvalidPath
 from tgfs.reqres import (
@@ -25,41 +25,33 @@ class Ops:
             raise InvalidPath(path)
 
     def cd(self, path: str) -> TGFSDirectory:
-        path_parts = filter(lambda x: x, path.split("/"))
-
         current_dir = self._client.dir_api.root
 
-        for part in path_parts:
+        for part in path.split("/"):
             if part == "..":
                 current_dir = current_dir.parent
-            elif part == ".":
+            elif part == "." or not part:
                 continue
             else:
                 current_dir = current_dir.find_dir(part)
+
         return current_dir
 
-    def ls(self, path: str) -> TGFSFileRef | list[TGFSDirectory | TGFSFileRef]:
+    def stat_file(self, path: str) -> TGFSFileRef:
+        self._validate_path(path)
+
         dirname, basename = os.path.dirname(path), os.path.basename(path)
-
         d = self.cd(dirname)
-        next_dir: Optional[TGFSDirectory] = d
 
-        if basename:
-            try:
-                next_dir = d.find_dir(basename)
-            except FileOrDirectoryDoesNotExist:
-                next_dir = None
-
-        if next_dir:
-            return self._client.dir_api.ls(next_dir)
         # cannot find a subdirectory with the given name, so assume it's a file_content
-        return self._client.dir_api.get_fr(d, basename)
+        res = self._client.dir_api.get_fr(d, basename)
+
+        return res
 
     async def desc(self, path: str) -> TGFSFileDesc:
-        file_ref = self.ls(path)
-        if not isinstance(file_ref, TGFSFileRef):
-            raise FileOrDirectoryDoesNotExist(path)
-        return await self._client.file_api.desc(file_ref)
+        file_ref = self.stat_file(path)
+        res = await self._client.file_api.desc(file_ref)
+        return res
 
     async def cp_dir(
         self, path_from: str, path_to: str

@@ -44,4 +44,4 @@ class FSCache:
         self.__set(parts[:-1], None)
 
 
-fs_cache = FSCache()
+gfc: Dict[str, FSCache] = {}

@@ -5,9 +5,9 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
-from asgidav.cache import fs_cache
+from tgfs.app.utils import split_global_path
 from tgfs.config import Config
-from tgfs.core import Client
+from tgfs.core import Clients
 from tgfs.core.ops import Ops
 from tgfs.reqres import MessageRespWithDocument
 from tgfs.tasks import task_store
@@ -15,8 +15,11 @@ from tgfs.tasks import task_store
 logger = logging.getLogger(__name__)
 
 
-def create_manager_app(client: Client, config: Config) -> FastAPI:
-    ops = Ops(client)
+def create_manager_app(clients: Clients, config: Config) -> FastAPI:
+    ops = {channel_id: Ops(client) for channel_id, client in clients.items()}
+
+    def get_name_by_channel_id(channel_id: int) -> str:
+        return config.tgfs.metadata[str(channel_id)].name
 
     app = FastAPI()
 
@@ -47,14 +50,14 @@ def create_manager_app(client: Client, config: Config) -> FastAPI:
         return {"message": "Task deleted successfully"}
 
     async def get_message(channel_id: int, message_id: int) -> MessageRespWithDocument:
-        """Helper function to get a message from the Telegram client."""
-        expected_channel_id = int(config.telegram.private_file_channel)
-
-        if channel_id != expected_channel_id:
+        if str(channel_id) not in config.telegram.private_file_channel:
             raise HTTPException(
                 status_code=400,
-                detail="The message is not in the configured file channel. Please forward the message to the file channel first.",
+                detail="The message is not one of the configured file channels. "
+                "Please forward the message to the file channel of your importing location first.",
             )
+
+        client = clients[get_name_by_channel_id(channel_id)]
 
         message = (await client.message_api.get_messages([message_id]))[0]
 
@@ -95,13 +98,15 @@ def create_manager_app(client: Client, config: Config) -> FastAPI:
 
     @app.post("/import")
     async def import_telegram_message(body: ImportTelegramMessageData):
-        path = os.path.join(body.directory, body.name)
-        fs_cache.reset_parent(path)
-
         message = await get_message(body.channel_id, body.message_id)
+        if not body.directory.endswith("/"):
+            directory = body.directory + "/"
+        else:
+            directory = body.directory
+        client_name, sub_path = split_global_path(directory)
 
-        await ops.import_from_existing_file_message(
-            message, os.path.join(body.directory, body.name)
+        await ops[client_name].import_from_existing_file_message(
+            message, os.path.join(f"/{sub_path}", body.name)
         )
 
         return {"message": "Document imported successfully"}

@@ -1,6 +1,10 @@
-from typing import Generic, Iterable, List, Optional, Tuple, TypeVar
+from typing import Generic, Iterable, List, Optional, Tuple, TypeVar, DefaultDict
+from dataclasses import dataclass
 
 from lru import LRU  # type: ignore
+from collections import defaultdict
+
+from telethon.tl.types import PeerChannel
 
 from tgfs.reqres import MessageResp
 
@@ -31,5 +35,19 @@ class MessageCache(Generic[K, V]):
         return [key for key in keys if self.get(key) is None]
 
 
-message_cache_by_id = MessageCache[int, Optional[MessageResp]]()
-message_cache_by_search = MessageCache[str, Tuple[MessageResp, ...]]()
+@dataclass
+class ChannelMessageCache:
+    id: MessageCache[int, Optional[MessageResp]]
+    search: MessageCache[str, Tuple[MessageResp, ...]]
+
+
+global_message_cache: DefaultDict[int, ChannelMessageCache] = defaultdict(
+    lambda: ChannelMessageCache(
+        id=MessageCache[int, Optional[MessageResp]](),
+        search=MessageCache[str, Tuple[MessageResp, ...]](),
+    )
+)
+
+
+def channel_cache(channel: PeerChannel) -> ChannelMessageCache:
+    return global_message_cache[channel.channel_id]
