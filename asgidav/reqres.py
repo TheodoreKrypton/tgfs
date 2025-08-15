@@ -78,8 +78,8 @@ async def _propfind_response(
 ) -> List[Element]:
     root = et.Element(_tag("response"))
 
-    href_elem = et.SubElement(root, _tag("href"))
-    href_elem.text = quote(f"{base_path}{member.path}", safe="/")
+    href = et.SubElement(root, _tag("href"))
+    href.text = quote(f"{base_path}{member.path}", safe="/")
 
     propstat_elem = await _propstat(
         member=member,

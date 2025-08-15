@@ -47,14 +47,14 @@ class ReadonlyFolder(_Folder):
 
 class Folder(_Folder):
     def __init__(self, path: str, client: Client):
-        super().__init__(path)
+        super().__init__(f"/{client.name}{path}")
+
+        self.__relative_path = path
         self.__client = client
         self.__ops = Ops(client)
         self.__folder = client.dir_api.root if path == "/" else self.__ops.cd(path)
         self.__sub_folders = frozenset([d.name for d in self.__folder.find_dirs()])
         self.__sub_files = frozenset([f.name for f in self.__folder.find_files()])
-
-        self.__is_root = path == "/"
 
     @property
     def fs_cache(self) -> FSCache:
@@ -84,10 +84,10 @@ class Folder(_Folder):
         return None
 
     def _sub_path(self, name: str):
-        return f"{self.path}{name}"
+        return f"{self.__relative_path}{name}"
 
     async def create_empty_resource(self, path: str):
-        self.fs_cache.reset(self.path)
+        self.fs_cache.reset(self.__relative_path)
         names = path.split("/", 1)
 
         if len(names) > 1:
@@ -105,7 +105,7 @@ class Folder(_Folder):
         return Resource(self._sub_path(names[0]), self.__client)
 
     async def create_folder(self, name: str):
-        self.fs_cache.reset(self.path)
+        self.fs_cache.reset(self.__relative_path)
         return await self.__ops.mkdir(self._sub_path(name), False)
 
     async def creation_date(self) -> int:
@@ -115,14 +115,18 @@ class Folder(_Folder):
         return self.__folder.created_at_timestamp
 
     async def remove(self) -> None:
-        self.fs_cache.reset_parent(self.path)
-        await self.__ops.rm_dir(self.path.rstrip("/"), True)
+        self.fs_cache.reset_parent(self.__relative_path)
+        await self.__ops.rm_dir(self.__relative_path.rstrip("/"), True)
 
     async def copy_to(self, destination: str) -> None:
         self.fs_cache.reset_parent(destination)
-        await self.__ops.cp_dir(self.path.rstrip("/"), destination.rstrip("/"))
+        await self.__ops.cp_dir(
+            self.__relative_path.rstrip("/"), destination.rstrip("/")
+        )
 
     async def move_to(self, destination: str) -> None:
-        self.fs_cache.reset_parent(self.path)
+        self.fs_cache.reset_parent(self.__relative_path)
         self.fs_cache.reset_parent(destination)
-        await self.__ops.mv_dir(self.path.rstrip("/"), destination.rstrip("/"))
+        await self.__ops.mv_dir(
+            self.__relative_path.rstrip("/"), destination.rstrip("/")
+        )
