@@ -1,10 +1,10 @@
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
 
 import telethon.tl.types as tlt
 from telethon import TelegramClient
 from telethon.tl.types import PeerChannel
 
-from tgfs.config import MetadataType, get_config, MetadataConfig
+from tgfs.config import MetadataConfig, MetadataType, get_config
 from tgfs.core.api import DirectoryApi, FileApi, FileDescApi, MessageApi, MetaDataApi
 from tgfs.core.repository.impl import (
     TGMsgFDRepository,

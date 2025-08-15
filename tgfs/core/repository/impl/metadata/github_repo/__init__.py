@@ -7,7 +7,7 @@ from tgfs.config import GithubRepoConfig
 from tgfs.core.model import TGFSDirectory, TGFSMetadata
 from tgfs.core.repository.interface import IMetaDataRepository
 
-from .gh_directory import GithubDirectory, GithubConfig
+from .gh_directory import GithubConfig, GithubDirectory
 
 logger = logging.getLogger(__name__)
 

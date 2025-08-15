@@ -2,11 +2,11 @@ from typing import Optional
 
 from asgidav.app import METHODS, create_app
 from asgidav.member import Member
-from tgfs.core import Clients
-from tgfs.app.fs_cache import gfc, FSCache
+from tgfs.app.fs_cache import FSCache, gfc
 from tgfs.app.utils import split_global_path
+from tgfs.core import Clients
 
-from .folder import ReadonlyFolder, Folder
+from .folder import Folder, ReadonlyFolder
 
 
 async def _get_member(path: str, clients: Clients) -> Optional[Member]:

@@ -5,7 +5,7 @@ from typing import Iterable, List
 from uuid import uuid4 as uuid
 
 from tgfs.reqres import SentFileMessage
-from tgfs.utils.time import ts, FIRST_DAY_OF_EPOCH
+from tgfs.utils.time import FIRST_DAY_OF_EPOCH, ts
 
 from .common import validate_name
 from .serialized import TGFSFileDescSerialized, TGFSFileVersionSerialized
@@ -113,9 +113,7 @@ class TGFSFileDesc:
 
     @staticmethod
     def from_dict(data: TGFSFileDescSerialized, name: str) -> "TGFSFileDesc":
-        versions = {
-            v["id"]: TGFSFileVersion.from_dict(v) for v in data["versions"] if v
-        }
+        versions = {v["id"]: TGFSFileVersion.from_dict(v) for v in data["versions"]}
         if versions:
             latest_version_id = max(
                 versions, key=lambda k: versions[k].updated_at_timestamp

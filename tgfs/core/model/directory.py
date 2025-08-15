@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Self
 
 from tgfs.errors import FileOrDirectoryAlreadyExists, FileOrDirectoryDoesNotExist
-from tgfs.utils.time import ts, FIRST_DAY_OF_EPOCH
+from tgfs.utils.time import FIRST_DAY_OF_EPOCH, ts
 
 from .common import validate_name
 from .serialized import TGFSDirectorySerialized

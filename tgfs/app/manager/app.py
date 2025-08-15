@@ -5,8 +5,8 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
-from tgfs.app.utils import split_global_path
 from tgfs.app.fs_cache import gfc
+from tgfs.app.utils import split_global_path
 from tgfs.config import Config
 from tgfs.core import Clients
 from tgfs.core.ops import Ops

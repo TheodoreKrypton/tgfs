@@ -1,6 +1,6 @@
 import logging
-from typing import Optional
 from dataclasses import dataclass
+from typing import Optional
 
 from github import Github
 from github.Repository import Repository

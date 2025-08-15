@@ -10,7 +10,7 @@ from uvicorn.server import Server
 
 from tgfs.app import create_app
 from tgfs.config import Config, get_config
-from tgfs.core import Clients, Client
+from tgfs.core import Client, Clients
 from tgfs.telegram import login_as_account, login_as_bots
 
 

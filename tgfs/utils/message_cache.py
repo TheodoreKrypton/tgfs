@@ -1,9 +1,8 @@
-from typing import Generic, Iterable, List, Optional, Tuple, TypeVar, DefaultDict
+from collections import defaultdict
 from dataclasses import dataclass
+from typing import DefaultDict, Generic, Iterable, List, Optional, Tuple, TypeVar
 
 from lru import LRU  # type: ignore
-from collections import defaultdict
-
 from telethon.tl.types import PeerChannel
 
 from tgfs.reqres import MessageResp

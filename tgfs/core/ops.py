@@ -44,14 +44,11 @@ class Ops:
         d = self.cd(dirname)
 
         # cannot find a subdirectory with the given name, so assume it's a file_content
-        res = self._client.dir_api.get_fr(d, basename)
-
-        return res
+        return self._client.dir_api.get_fr(d, basename)
 
     async def desc(self, path: str) -> TGFSFileDesc:
         file_ref = self.stat_file(path)
-        res = await self._client.file_api.desc(file_ref)
-        return res
+        return await self._client.file_api.desc(file_ref)
 
     async def cp_dir(
         self, path_from: str, path_to: str

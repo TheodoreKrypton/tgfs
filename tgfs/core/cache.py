@@ -1,8 +1,7 @@
-from typing import Optional, Dict, List, Union
 from collections import defaultdict
+from typing import Dict, List, Optional, Union
 
 from tgfs.core.model import TGFSDirectory, TGFSFileRef
-
 
 CacheItem = Union[TGFSFileRef, TGFSDirectory]
 

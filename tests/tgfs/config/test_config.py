@@ -141,32 +141,35 @@ class TestGithubRepoConfig:
 
 class TestMetadataConfig:
     def test_from_dict_pinned_message(self):
-        data = {"type": "pinned_message"}
-        config = MetadataConfig.from_dict(MetadataConfigDict(**data))
+        config = MetadataConfig.from_dict(
+            MetadataConfigDict(type="pinned_message", name="name", github_repo=None)
+        )
 
         assert config.type == MetadataType.PINNED_MESSAGE
         assert config.github_repo is None
 
     def test_from_dict_github_repo(self):
-        data = {
-            "type": "github_repo",
-            "github_repo": {
-                "repo": "owner/repo",
-                "commit": "main",
-                "access_token": "token123",
-            },
-        }
-        config = MetadataConfig.from_dict(MetadataConfigDict(**data))
+        config = MetadataConfig.from_dict(
+            MetadataConfigDict(
+                type="github_repo",
+                name="name",
+                github_repo={
+                    "repo": "owner/repo",
+                    "commit": "main",
+                    "access_token": "token123",
+                },
+            )
+        )
 
         assert config.type == MetadataType.GITHUB_REPO
         assert config.github_repo is not None
         assert config.github_repo.repo == "owner/repo"
 
     def test_from_dict_unknown_type(self):
-        data = {"type": "unknown_type"}
-
         with pytest.raises(ValueError, match="Unknown metadata type: unknown_type"):
-            MetadataConfig.from_dict(MetadataConfigDict(**data))
+            MetadataConfig.from_dict(
+                MetadataConfigDict(type="unknown_type", name="name", github_repo=None)
+            )
 
 
 class TestConfig:
