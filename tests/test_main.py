@@ -1,16 +1,22 @@
 import pytest
-from main import create_client, run_server, main
+from main import create_clients, run_server, main
 
 
 class TestMain:
     @pytest.mark.asyncio
-    async def test_create_client_with_account(self, mocker):
+    async def test_create_clients_with_account(self, mocker):
         # Setup mocks
         mock_login_account = mocker.patch("main.login_as_account")
         mock_login_bots = mocker.patch("main.login_as_bots")
         mock_client_create = mocker.patch("main.Client.create")
         mock_config = mocker.Mock()
         mock_config.telegram.account = mocker.Mock()  # Account is configured
+        mock_config.telegram.private_file_channel = [12345]
+        
+        # Mock metadata config
+        mock_metadata_cfg = mocker.Mock()
+        mock_metadata_cfg.name = "test_client"
+        mock_config.tgfs.metadata = {12345: mock_metadata_cfg}
 
         mock_account = mocker.Mock()
         mock_bots = [mocker.Mock()]
@@ -21,22 +27,33 @@ class TestMain:
         mock_client_create.return_value = mock_client
 
         # Call function
-        result = await create_client(mock_config)
+        result = await create_clients(mock_config)
 
         # Assertions
         mock_login_account.assert_called_once_with(mock_config)
         mock_login_bots.assert_called_once_with(mock_config)
-        mock_client_create.assert_called_once_with(mock_bots, mock_account)
-        assert result == mock_client
+        mock_client_create.assert_called_once_with(
+            12345,
+            mock_metadata_cfg,
+            mock_bots,
+            mock_account
+        )
+        assert result == {"test_client": mock_client}
 
     @pytest.mark.asyncio
-    async def test_create_client_without_account(self, mocker):
+    async def test_create_clients_without_account(self, mocker):
         # Setup mocks
         mock_login_account = mocker.patch("main.login_as_account")
         mock_login_bots = mocker.patch("main.login_as_bots")
         mock_client_create = mocker.patch("main.Client.create")
         mock_config = mocker.Mock()
         mock_config.telegram.account = None  # No account configured
+        mock_config.telegram.private_file_channel = [67890]
+        
+        # Mock metadata config
+        mock_metadata_cfg = mocker.Mock()
+        mock_metadata_cfg.name = "test_client"
+        mock_config.tgfs.metadata = {67890: mock_metadata_cfg}
 
         mock_bots = [mocker.Mock()]
         mock_client = mocker.Mock()
@@ -45,13 +62,18 @@ class TestMain:
         mock_client_create.return_value = mock_client
 
         # Call function
-        result = await create_client(mock_config)
+        result = await create_clients(mock_config)
 
         # Assertions
         mock_login_account.assert_not_called()
         mock_login_bots.assert_called_once_with(mock_config)
-        mock_client_create.assert_called_once_with(mock_bots, None)
-        assert result == mock_client
+        mock_client_create.assert_called_once_with(
+            67890,
+            mock_metadata_cfg,
+            mock_bots,
+            None
+        )
+        assert result == {"test_client": mock_client}
 
     @pytest.mark.asyncio
     async def test_run_server(self, mocker):
@@ -90,18 +112,18 @@ class TestMain:
     async def test_main(self, mocker):
         # Setup mocks
         mock_get_config = mocker.patch("main.get_config")
-        mock_create_client = mocker.patch("main.create_client")
+        mock_create_clients = mocker.patch("main.create_clients")
         mock_create_app = mocker.patch("main.create_app")
         mock_run_server = mocker.patch("main.run_server")
         mock_config = mocker.Mock()
         mock_config.tgfs.server.host = "0.0.0.0"
         mock_config.tgfs.server.port = 9000
 
-        mock_client = mocker.Mock()
+        mock_clients = mocker.Mock()
         mock_app = mocker.Mock()
 
         mock_get_config.return_value = mock_config
-        mock_create_client.return_value = mock_client
+        mock_create_clients.return_value = mock_clients
         mock_create_app.return_value = mock_app
         mock_run_server.return_value = None
 
@@ -110,6 +132,6 @@ class TestMain:
 
         # Assertions
         mock_get_config.assert_called_once()
-        mock_create_client.assert_called_once_with(mock_config)
-        mock_create_app.assert_called_once_with(mock_client, mock_config)
+        mock_create_clients.assert_called_once_with(mock_config)
+        mock_create_app.assert_called_once_with(mock_clients, mock_config)
         mock_run_server.assert_called_once_with(mock_app, "0.0.0.0", 9000, "TGFS")

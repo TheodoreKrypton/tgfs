@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
 from tgfs.app.utils import split_global_path
+from tgfs.app.fs_cache import gfc
 from tgfs.config import Config
 from tgfs.core import Clients
 from tgfs.core.ops import Ops
@@ -53,7 +54,7 @@ def create_manager_app(clients: Clients, config: Config) -> FastAPI:
         if str(channel_id) not in config.telegram.private_file_channel:
             raise HTTPException(
                 status_code=400,
-                detail="The message is not one of the configured file channels. "
+                detail="The message is not in one of the configured file channels. "
                 "Please forward the message to the file channel of your importing location first.",
             )
 
@@ -104,6 +105,8 @@ def create_manager_app(clients: Clients, config: Config) -> FastAPI:
         else:
             directory = body.directory
         client_name, sub_path = split_global_path(directory)
+
+        gfc[client_name].reset(f"/{sub_path}")
 
         await ops[client_name].import_from_existing_file_message(
             message, os.path.join(f"/{sub_path}", body.name)

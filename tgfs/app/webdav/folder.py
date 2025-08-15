@@ -3,7 +3,7 @@ from typing import List
 from asgidav.folder import Folder as _Folder
 from asgidav.member import Member
 from tgfs.core import Client, Ops
-from tgfs.app.global_fs_cache import gfc, FSCache
+from tgfs.app.fs_cache import gfc, FSCache
 from tgfs.utils.time import ts, FIRST_DAY_OF_EPOCH
 from .resource import Resource
 

@@ -7,7 +7,7 @@ from tgfs.core import Client, Ops
 from tgfs.core.model import TGFSFileDesc, TGFSFileRef
 from tgfs.errors import TechnicalError
 from tgfs.reqres import FileContent
-from tgfs.app.global_fs_cache import gfc
+from tgfs.app.fs_cache import gfc
 
 
 class Resource(_Resource):

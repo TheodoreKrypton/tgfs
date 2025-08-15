@@ -112,7 +112,10 @@ class TestTelethonAPI:
         mock_cache.__setitem__ = mocker.Mock()
         mock_cache.gets.return_value = []
 
-        mocker.patch("tgfs.telegram.impl.telethon.message_cache_by_id", mock_cache)
+        mock_channel_cache = mocker.patch("tgfs.telegram.impl.telethon.channel_cache")
+        mock_cache_instance = mocker.Mock()
+        mock_cache_instance.id = mock_cache
+        mock_channel_cache.return_value = mock_cache_instance
 
         result = await telethon_api.get_messages(req)
 
@@ -133,7 +136,10 @@ class TestTelethonAPI:
             MessageResp(message_id=12345, text="cached", document=None)
         ]
 
-        mocker.patch("tgfs.telegram.impl.telethon.message_cache_by_id", mock_cache)
+        mock_channel_cache = mocker.patch("tgfs.telegram.impl.telethon.channel_cache")
+        mock_cache_instance = mocker.Mock()
+        mock_cache_instance.id = mock_cache
+        mock_channel_cache.return_value = mock_cache_instance
 
         result = await telethon_api.get_messages(req)
 
@@ -221,7 +227,10 @@ class TestTelethonAPI:
         mock_cache = mocker.Mock()
         mock_cache.__setitem__ = mocker.Mock()
 
-        mocker.patch("tgfs.telegram.impl.telethon.message_cache_by_id", mock_cache)
+        mock_channel_cache = mocker.patch("tgfs.telegram.impl.telethon.channel_cache")
+        mock_cache_instance = mocker.Mock()
+        mock_cache_instance.id = mock_cache
+        mock_channel_cache.return_value = mock_cache_instance
         result = await telethon_api.edit_message_text(req)
 
         telethon_api._client.edit_message.assert_called_once_with(
@@ -242,7 +251,10 @@ class TestTelethonAPI:
         mock_cache = mocker.Mock()
         mock_cache.__setitem__ = mocker.Mock()
 
-        mocker.patch("tgfs.telegram.impl.telethon.message_cache_by_id", mock_cache)
+        mock_channel_cache = mocker.patch("tgfs.telegram.impl.telethon.channel_cache")
+        mock_cache_instance = mocker.Mock()
+        mock_cache_instance.id = mock_cache
+        mock_channel_cache.return_value = mock_cache_instance
         result = await telethon_api.edit_message_media(req)
 
         telethon_api._client.edit_message.assert_called_once()
@@ -260,9 +272,16 @@ class TestTelethonAPI:
 
         req = SearchMessageReq(chat=mock_chat, search="test query")
 
-        mock_cache = mocker.patch("tgfs.telegram.impl.telethon.message_cache_by_search")
-        mock_cache.__contains__ = mocker.Mock(return_value=False)
-        mock_cache.__setitem__ = mocker.Mock()
+        mock_channel_cache = mocker.patch("tgfs.telegram.impl.telethon.channel_cache")
+        mock_search_cache = mocker.Mock()
+        mock_search_cache.__contains__ = mocker.Mock(return_value=False)
+        mock_search_cache.__setitem__ = mocker.Mock()
+        expected_result = (mocker.Mock(),)  # Tuple of transformed messages
+        mock_search_cache.__getitem__ = mocker.Mock(return_value=expected_result)
+        
+        mock_cache_instance = mocker.Mock()
+        mock_cache_instance.search = mock_search_cache
+        mock_channel_cache.return_value = mock_cache_instance
 
         result = await telethon_api.search_messages(req)
 
@@ -276,9 +295,14 @@ class TestTelethonAPI:
         req = SearchMessageReq(chat=mock_chat, search="cached query")
         cached_result = (MessageResp(message_id=1, text="cached", document=None),)
 
-        mock_cache = mocker.patch("tgfs.telegram.impl.telethon.message_cache_by_search")
-        mock_cache.__contains__ = mocker.Mock(return_value=True)
-        mock_cache.__getitem__ = mocker.Mock(return_value=cached_result)
+        mock_channel_cache = mocker.patch("tgfs.telegram.impl.telethon.channel_cache")
+        mock_search_cache = mocker.Mock()
+        mock_search_cache.__contains__ = mocker.Mock(return_value=True)
+        mock_search_cache.__getitem__ = mocker.Mock(return_value=cached_result)
+        
+        mock_cache_instance = mocker.Mock()
+        mock_cache_instance.search = mock_search_cache
+        mock_channel_cache.return_value = mock_cache_instance
 
         result = await telethon_api.search_messages(req)
 

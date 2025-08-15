@@ -5,7 +5,9 @@ telegram:
     session_file: test_bot.session
     tokens:
       - test_bot_token
-  private_file_channel: 'test_channel'
+  private_file_channel:
+    - '114514'
+    - '1919810'
 tgfs:
   users:
     test_user:
@@ -18,7 +20,16 @@ tgfs:
     algorithm: HS256
     life: 3600
   metadata:
-    type: pinned_message
+    '114514':
+      name: test-notes-1
+      type: pinned_message
+    '1919810':
+      name: test-notes-2
+      type: github_repo
+      github_repo:
+          repo: test_user/test_repo
+          commit: branch
+          access_token: test_github_access_token
   server:
     host: localhost
     port: 8080

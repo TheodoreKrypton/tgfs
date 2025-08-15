@@ -11,6 +11,7 @@ from tgfs.config import (
     GithubRepoConfig,
     MetadataConfig,
     MetadataType,
+    MetadataConfigDict,
 )
 
 
@@ -139,15 +140,9 @@ class TestGithubRepoConfig:
 
 
 class TestMetadataConfig:
-    def test_from_dict_none(self):
-        config = MetadataConfig.from_dict(None)
-
-        assert config.type == MetadataType.PINNED_MESSAGE
-        assert config.github_repo is None
-
     def test_from_dict_pinned_message(self):
         data = {"type": "pinned_message"}
-        config = MetadataConfig.from_dict(data)
+        config = MetadataConfig.from_dict(MetadataConfigDict(**data))
 
         assert config.type == MetadataType.PINNED_MESSAGE
         assert config.github_repo is None
@@ -161,7 +156,7 @@ class TestMetadataConfig:
                 "access_token": "token123",
             },
         }
-        config = MetadataConfig.from_dict(data)
+        config = MetadataConfig.from_dict(MetadataConfigDict(**data))
 
         assert config.type == MetadataType.GITHUB_REPO
         assert config.github_repo is not None
@@ -171,7 +166,7 @@ class TestMetadataConfig:
         data = {"type": "unknown_type"}
 
         with pytest.raises(ValueError, match="Unknown metadata type: unknown_type"):
-            MetadataConfig.from_dict(data)
+            MetadataConfig.from_dict(MetadataConfigDict(**data))
 
 
 class TestConfig:

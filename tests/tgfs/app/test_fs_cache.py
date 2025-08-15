@@ -1,4 +1,4 @@
-from asgidav.cache import FSCache
+from tgfs.core.cache import FSCache
 
 
 class TestFSCache:

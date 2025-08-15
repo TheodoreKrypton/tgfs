@@ -107,44 +107,19 @@ class TestOps:
         mock_root_directory.find_dir.assert_called_once_with("subdir")
         assert result == mock_subdir
 
-    def test_ls_directory(self, ops, mock_root_directory, mocker):
-        mock_subdir = mocker.Mock(spec=TGFSDirectory)
-        mock_listing = [mocker.Mock(spec=TGFSDirectory), mocker.Mock(spec=TGFSFileRef)]
 
-        mock_root_directory.find_dir.return_value = mock_subdir
-        ops._client.dir_api.ls.return_value = mock_listing
-
-        result = ops.ls("/subdir")
-
-        mock_root_directory.find_dir.assert_called_once_with("subdir")
-        ops._client.dir_api.ls.assert_called_once_with(mock_subdir)
-        assert result == mock_listing
-
-    def test_ls_file(self, ops, mock_root_directory, mocker):
+    def test_stat_file(self, ops, mock_root_directory, mocker):
         mock_file_ref = mocker.Mock(spec=TGFSFileRef)
-
-        # When find_dir fails, it should try to get file
-        mock_root_directory.find_dir.side_effect = FileOrDirectoryDoesNotExist(
-            "not found"
-        )
+        
         ops._client.dir_api.get_fr.return_value = mock_file_ref
 
-        result = ops.ls("/file.txt")
+        result = ops.stat_file("/file.txt")
 
-        mock_root_directory.find_dir.assert_called_once_with("file.txt")
         ops._client.dir_api.get_fr.assert_called_once_with(
             mock_root_directory, "file.txt"
         )
         assert result == mock_file_ref
 
-    def test_ls_root_directory(self, ops, mock_root_directory, mocker):
-        mock_listing = [mocker.Mock(spec=TGFSDirectory)]
-        ops._client.dir_api.ls.return_value = mock_listing
-
-        result = ops.ls("/")
-
-        ops._client.dir_api.ls.assert_called_once_with(mock_root_directory)
-        assert result == mock_listing
 
     @pytest.mark.asyncio
     async def test_desc_success(self, ops, mock_root_directory, mocker):
@@ -165,10 +140,8 @@ class TestOps:
 
     @pytest.mark.asyncio
     async def test_desc_directory_raises_error(self, ops, mock_root_directory, mocker):
-        # Mock ls to return a directory (list) instead of file reference
-        mock_listing = [mocker.Mock(spec=TGFSDirectory)]
-        mock_root_directory.find_dir.return_value = mocker.Mock(spec=TGFSDirectory)
-        ops._client.dir_api.ls.return_value = mock_listing
+        # Mock get_fr to raise exception when trying to get file reference for directory
+        ops._client.dir_api.get_fr.side_effect = FileOrDirectoryDoesNotExist("not a file")
 
         with pytest.raises(FileOrDirectoryDoesNotExist):
             await ops.desc("/directory")

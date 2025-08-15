@@ -3,7 +3,6 @@ from fastapi.testclient import TestClient
 from tgfs.app.manager.app import create_manager_app
 from tgfs.config import Config
 from tgfs.core.client import Client
-from tgfs.reqres import MessageRespWithDocument
 
 
 class TestManagerApp:
@@ -15,18 +14,26 @@ class TestManagerApp:
         return client
 
     @pytest.fixture
+    def mock_clients(self, mock_client):
+        return {"Test-Channel": mock_client}
+
+    @pytest.fixture
     def mock_config(self, mocker):
         config = mocker.Mock(spec=Config)
         config.telegram = mocker.Mock()
-        config.telegram.private_file_channel = "123456"
+        config.telegram.private_file_channel = ["123456"]
+        config.tgfs = mocker.Mock()
+        channel = mocker.Mock()
+        channel.name = "Test-Channel"
+        config.tgfs.metadata = {"123456": channel}
         return config
 
     @pytest.fixture
     def manager_app(self, mock_client, mock_config):
-        return create_manager_app(mock_client, mock_config)
+        return create_manager_app({"channel": mock_client}, mock_config)
 
     def test_create_manager_app_returns_fastapi(self, mock_client, mock_config):
-        app = create_manager_app(mock_client, mock_config)
+        app = create_manager_app({"channel": mock_client}, mock_config)
         assert hasattr(app, "get")
         assert hasattr(app, "post")
         assert hasattr(app, "delete")
@@ -113,7 +120,9 @@ class TestManagerApp:
         assert "Task not found" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_get_telegram_message_success(self, mock_client, mock_config, mocker):
+    async def test_get_telegram_message_success(
+        self, mock_client, mock_clients, mock_config, mocker
+    ):
         # Mock the message response
         mock_message = mocker.Mock()
         mock_message.message_id = 456
@@ -121,7 +130,7 @@ class TestManagerApp:
         mock_message.text = "Test caption"
         mock_client.message_api.get_messages.return_value = [mock_message]
 
-        app = create_manager_app(mock_client, mock_config)
+        app = create_manager_app(mock_clients, mock_config)
         client = TestClient(app)
 
         response = client.get("/message/123456/456")
@@ -137,20 +146,23 @@ class TestManagerApp:
         mock_client.message_api.get_messages.assert_called_once_with([456])
 
     @pytest.mark.asyncio
-    async def test_get_telegram_message_wrong_channel(self, mock_client, mock_config):
-        app = create_manager_app(mock_client, mock_config)
+    async def test_get_telegram_message_wrong_channel(self, mock_clients, mock_config):
+        app = create_manager_app(mock_clients, mock_config)
         client = TestClient(app)
 
         response = client.get("/message/999999/456")
 
         assert response.status_code == 400
-        assert "not in the configured file channel" in response.json()["detail"]
+        print(response.json())
+        assert "not in one of the configured file channels" in response.json()["detail"]
 
     @pytest.mark.asyncio
-    async def test_get_telegram_message_not_found(self, mock_client, mock_config):
+    async def test_get_telegram_message_not_found(
+        self, mock_client, mock_clients, mock_config
+    ):
         mock_client.message_api.get_messages.return_value = [None]
 
-        app = create_manager_app(mock_client, mock_config)
+        app = create_manager_app(mock_clients, mock_config)
         client = TestClient(app)
 
         response = client.get("/message/123456/456")
@@ -160,14 +172,14 @@ class TestManagerApp:
 
     @pytest.mark.asyncio
     async def test_get_telegram_message_no_document(
-        self, mock_client, mock_config, mocker
+        self, mock_client, mock_clients, mock_config, mocker
     ):
         mock_message = mocker.Mock()
         mock_message.message_id = 456
         mock_message.document = None
         mock_client.message_api.get_messages.return_value = [mock_message]
 
-        app = create_manager_app(mock_client, mock_config)
+        app = create_manager_app(mock_clients, mock_config)
         client = TestClient(app)
 
         response = client.get("/message/123456/456")
@@ -177,10 +189,11 @@ class TestManagerApp:
 
     @pytest.mark.asyncio
     async def test_import_telegram_message_success(
-        self, mock_client, mock_config, mocker
+        self, mock_client, mock_clients, mock_config, mocker
     ):
         # Mock the message response
-        mock_fs_cache = mocker.patch("tgfs.app.manager.app.fs_cache")
+        mock_gfc = mocker.patch("tgfs.app.manager.app.gfc")
+        mock_channel_cache = mock_gfc["Test-Channel"]
         mock_ops_class = mocker.patch("tgfs.app.manager.app.Ops")
         mock_message = mocker.Mock()
         mock_message.message_id = 456
@@ -193,11 +206,11 @@ class TestManagerApp:
         mock_ops.import_from_existing_file_message = mocker.AsyncMock()
         mock_ops_class.return_value = mock_ops
 
-        app = create_manager_app(mock_client, mock_config)
+        app = create_manager_app(mock_clients, mock_config)
         client = TestClient(app)
 
         payload = {
-            "directory": "/uploads",
+            "directory": "/Test-Channel/uploads",
             "name": "test.txt",
             "channel_id": 123456,
             "message_id": 456,
@@ -207,14 +220,14 @@ class TestManagerApp:
 
         assert response.status_code == 200
         assert response.json() == {"message": "Document imported successfully"}
-        mock_fs_cache.reset_parent.assert_called_once_with("/uploads/test.txt")
+        mock_channel_cache.reset.assert_called_once_with("/uploads/")
         mock_ops.import_from_existing_file_message.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_import_telegram_message_wrong_channel(
-        self, mock_client, mock_config
+        self, mock_clients, mock_config
     ):
-        app = create_manager_app(mock_client, mock_config)
+        app = create_manager_app(mock_clients, mock_config)
         client = TestClient(app)
 
         payload = {
@@ -227,4 +240,4 @@ class TestManagerApp:
         response = client.post("/import", json=payload)
 
         assert response.status_code == 400
-        assert "not in the configured file channel" in response.json()["detail"]
+        assert "not in one of the configured file channels" in response.json()["detail"]

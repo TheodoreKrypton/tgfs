@@ -99,9 +99,14 @@ class MetadataConfig:
 
     @classmethod
     def from_dict(cls, data: MetadataConfigDict) -> Self:
-        if data is None or data["type"] == MetadataType.PINNED_MESSAGE.value:
+        if (
+            data.get("type", MetadataType.PINNED_MESSAGE.value)
+            == MetadataType.PINNED_MESSAGE.value
+        ):
             return cls(
-                name=data["name"], type=MetadataType.PINNED_MESSAGE, github_repo=None
+                name=data.get("name", "default"),
+                type=MetadataType.PINNED_MESSAGE,
+                github_repo=None,
             )
         if data["type"] == MetadataType.GITHUB_REPO.value:
             if not (gh_repo_config := data.get("github_repo")):
@@ -109,7 +114,7 @@ class MetadataConfig:
                     "GitHub repo configuration is required for GITHUB_REPO type"
                 )
             return cls(
-                name=data["name"],
+                name=data.get("name", "default"),
                 type=MetadataType.GITHUB_REPO,
                 github_repo=GithubRepoConfig.from_dict(gh_repo_config),
             )
