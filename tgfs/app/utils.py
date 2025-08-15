@@ -1,5 +1,7 @@
 from typing import Tuple
 
+from tgfs.errors import TechnicalError
+
 
 def split_global_path(path: str) -> Tuple[str, str]:
     """
@@ -12,5 +14,7 @@ def split_global_path(path: str) -> Tuple[str, str]:
         path = f"/{path}"
     parts = path.split("/", 2)
     if len(parts) < 3:
-        raise ValueError("Path must contain at least a client name and a sub path.")
+        raise TechnicalError(
+            f"Path must contain a client name and may contain a sub path. Got: {path}"
+        )
     return parts[1], parts[2]

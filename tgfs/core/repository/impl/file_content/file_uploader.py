@@ -340,7 +340,7 @@ def create_uploader(
             task_tracker=file_msg.task_tracker,
         )
 
-    raise ValueError(
+    raise TechnicalError(
         f"Unsupported file message type: {type(file_msg)}. "
         "Expected FileMessageFromPath, FileMessageFromBuffer, or FileMessageFromStream."
     )

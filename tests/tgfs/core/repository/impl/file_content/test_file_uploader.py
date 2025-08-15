@@ -13,7 +13,7 @@ from tgfs.core.repository.impl.file_content.file_uploader import (
     WorkersConfig,
     create_uploader,
 )
-from tgfs.errors import TaskCancelled
+from tgfs.errors import TaskCancelled, TechnicalError
 from tgfs.reqres import (
     FileMessageFromBuffer,
     FileMessageFromPath,
@@ -432,7 +432,7 @@ class TestCreateUploaderFactory:
     def test_create_uploader_invalid_type(self, mock_tdlib, mocker):
         invalid_msg = mocker.Mock()  # Not one of the expected types
 
-        with pytest.raises(ValueError, match="Unsupported file message type"):
+        with pytest.raises(TechnicalError, match="Unsupported file message type"):
             create_uploader(mock_tdlib, invalid_msg)
 
 
