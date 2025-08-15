@@ -20,7 +20,7 @@ class TestUser:
     def test_user_inheritance(self):
         readonly_user = ReadonlyUser("test")
         admin_user = AdminUser("test")
-        
+
         assert isinstance(readonly_user, User)
         assert isinstance(admin_user, ReadonlyUser)
         assert isinstance(admin_user, User)

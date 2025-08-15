@@ -29,7 +29,8 @@ class MockResource(_MockResource):
             if e == -1:
                 e = len(content)
             for i in range(b, min(e + 1, len(content)), 8):
-                yield content[i:i + 8]
+                yield content[i : i + 8]
+
         return chunks(begin, end)
 
 
@@ -38,7 +39,7 @@ class TestResource:
     async def test_get_properties(self):
         resource = MockResource("/test.txt", content_length=150)
         properties = await resource.get_properties()
-        
+
         assert properties["getcontentlength"] == "150"
         assert properties["displayname"] == "test.txt"
         assert properties["getcontenttype"] == "text/plain"
@@ -47,7 +48,7 @@ class TestResource:
     async def test_get_properties_zero_length(self):
         resource = MockResource("/empty.txt", content_length=0)
         properties = await resource.get_properties()
-        
+
         assert properties["getcontentlength"] == "0"
 
     @pytest.mark.asyncio
@@ -55,7 +56,7 @@ class TestResource:
         resource = MockResource("/test.txt")
         resource._content_length = -5
         properties = await resource.get_properties()
-        
+
         # Should be max(0, -5) = 0
         assert properties["getcontentlength"] == "0"
 
@@ -65,7 +66,7 @@ class TestResource:
         content_chunks = []
         async for chunk in await resource.get_content():
             content_chunks.append(chunk)
-        
+
         assert len(content_chunks) > 0
         assert all(isinstance(chunk, bytes) for chunk in content_chunks)
 
@@ -75,18 +76,18 @@ class TestResource:
         content_chunks = []
         async for chunk in await resource.get_content(begin=5, end=15):
             content_chunks.append(chunk)
-        
+
         assert len(content_chunks) > 0
         assert all(isinstance(chunk, bytes) for chunk in content_chunks)
 
     @pytest.mark.asyncio
     async def test_abstract_methods(self):
         resource = MockResource("/test.txt")
-        
+
         assert await resource.content_length() == 100
         assert await resource.display_name() == "test.txt"
         assert await resource.content_type() == "text/plain"
-        
+
         # These should not raise NotImplementedError
 
         async def dummy_content():

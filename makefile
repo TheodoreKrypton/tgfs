@@ -6,6 +6,10 @@ ruff:
 	@echo "Running code style checks..."
 	@python -m ruff check . --exclude tests --fix
 
+test:
+	@echo "Running tests..."
+	@TGFS_DATA_DIR=. TGFS_CONFIG_FILE=config-test.yaml pytest
+
 cov:
 	@echo "Running tests with coverage..."
 	@TGFS_DATA_DIR=. TGFS_CONFIG_FILE=config-test.yaml pytest --cov --cov-report=term-missing

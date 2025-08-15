@@ -2,8 +2,8 @@ import asyncio
 import os.path
 from typing import Optional
 
-from asgidav.cache import fs_cache
 from asgidav.resource import Resource as _Resource
+from tgfs.app.fs_cache import gfc
 from tgfs.core import Client, Ops
 from tgfs.core.model import TGFSFileDesc, TGFSFileRef
 from tgfs.errors import TechnicalError
@@ -12,17 +12,15 @@ from tgfs.reqres import FileContent
 
 class Resource(_Resource):
     def __init__(self, path: str, client: Client):
-        super().__init__(path)
+        super().__init__(f"/{client.name}{path}")
+
+        self.__relative_path = path
         self.__client = client
+        self.__fs_cache = gfc[client.name]
         self.__ops = Ops(client)
 
-        if not (fr := self.__ops.ls(path)):
+        if not (fr := self.__ops.stat_file(path)):
             raise TechnicalError(f"Resource {path} does not exist")
-
-        if not isinstance(fr, TGFSFileRef):
-            raise TechnicalError(
-                "Resource must be a file_content, not a directory or other type"
-            )
 
         self.__fr: TGFSFileRef = fr
         self.__fd_value: Optional[TGFSFileDesc] = None
@@ -31,7 +29,7 @@ class Resource(_Resource):
     async def __fd(self) -> TGFSFileDesc:
         async with self.__lock:
             if self.__fd_value is None:
-                self.__fd_value = await self.__ops.desc(self.path)
+                self.__fd_value = await self.__ops.desc(self.__relative_path)
         return self.__fd_value
 
     async def creation_date(self) -> int:
@@ -51,25 +49,25 @@ class Resource(_Resource):
 
     async def get_content(self, begin: int = 0, end: int = -1) -> FileContent:
         return await self.__ops.download(
-            self.path,
+            self.__relative_path,
             begin,
             end,
-            os.path.basename(self.path),
+            os.path.basename(self.__relative_path),
         )
 
     async def overwrite(self, content: FileContent, size: int) -> None:
-        fs_cache.reset(self.path)
-        await self.__ops.upload_from_stream(content, size, self.path)
+        self.__fs_cache.reset(self.__relative_path)
+        await self.__ops.upload_from_stream(content, size, self.__relative_path)
 
     async def remove(self) -> None:
-        fs_cache.reset_parent(self.path)
-        await self.__ops.rm_file(self.path)
+        self.__fs_cache.reset_parent(self.__relative_path)
+        await self.__ops.rm_file(self.__relative_path)
 
     async def copy_to(self, destination: str) -> None:
-        fs_cache.reset_parent(destination)
-        await self.__ops.cp_file(self.path, destination)
+        self.__fs_cache.reset_parent(destination)
+        await self.__ops.cp_file(self.__relative_path, destination)
 
     async def move_to(self, destination: str) -> None:
-        fs_cache.reset_parent(self.path)
-        fs_cache.reset_parent(destination)
-        await self.__ops.mv_file(self.path, destination)
+        self.__fs_cache.reset_parent(self.__relative_path)
+        self.__fs_cache.reset_parent(destination)
+        await self.__ops.mv_file(self.__relative_path, destination)

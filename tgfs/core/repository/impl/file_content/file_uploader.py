@@ -199,7 +199,7 @@ class IFileUploader(Generic[T], metaclass=ABCMeta):
             except Exception as e:
                 logger.error(
                     f"Worker {worker_id} failed while uploading file '{self.__file_name}' (file_id={self._file_id}, uploaded_size={self.__uploaded_size}/{self._file_size}): {e}",
-                    exc_info=True
+                    exc_info=True,
                 )
                 return False
 
@@ -340,7 +340,7 @@ def create_uploader(
             task_tracker=file_msg.task_tracker,
         )
 
-    raise ValueError(
+    raise TechnicalError(
         f"Unsupported file message type: {type(file_msg)}. "
         "Expected FileMessageFromPath, FileMessageFromBuffer, or FileMessageFromStream."
     )

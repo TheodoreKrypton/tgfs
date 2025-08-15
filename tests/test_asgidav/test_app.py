@@ -41,4 +41,3 @@ class TestAppHelpers:
         path = "/webdav/path%20with%20spaces/file.txt"
         result = extract_path_from_destination(path)
         assert result == "/webdav/path with spaces/file.txt"
-

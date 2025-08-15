@@ -1,4 +1,5 @@
-from asgidav.cache import FSCache
+from tgfs.core.cache import FSCache
+from tgfs.core.model import TGFSDirectory
 
 
 class TestFSCache:
@@ -9,16 +10,19 @@ class TestFSCache:
     def test_get_set(self, mocker):
         cache = FSCache()
 
-        cache.set("/", mocker.Mock(path="/"))
+        item = mocker.Mock(spec=TGFSDirectory)
+        item.name = "test"
+
+        cache.set("/", item)
         value = cache.get("/")
-        assert value and value.path == "/"
+        assert value and value.name == "test"
 
         value = cache.get("/test")
         assert value is None
 
-        cache.set("/test", mocker.Mock(path="/test"))
+        cache.set("/test", item)
         value = cache.get("/test")
-        assert value and value.path == "/test"
+        assert value and value.name == "test"
 
     def test_reset(self, mocker):
         cache = FSCache()

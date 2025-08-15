@@ -2,7 +2,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional, Self
+from typing import Dict, List, Optional, Self, TypedDict
 
 import yaml
 
@@ -85,19 +85,38 @@ class MetadataType(Enum):
     GITHUB_REPO = "github_repo"
 
 
+class MetadataConfigDict(TypedDict):
+    name: str
+    type: str
+    github_repo: Optional[Dict]
+
+
 @dataclass
 class MetadataConfig:
+    name: str
     type: MetadataType
     github_repo: Optional[GithubRepoConfig]
 
     @classmethod
-    def from_dict(cls, data: dict | None) -> Self:
-        if data is None or data["type"] == MetadataType.PINNED_MESSAGE.value:
-            return cls(type=MetadataType.PINNED_MESSAGE, github_repo=None)
-        if data["type"] == MetadataType.GITHUB_REPO.value:
+    def from_dict(cls, data: MetadataConfigDict) -> Self:
+        if (
+            data.get("type", MetadataType.PINNED_MESSAGE.value)
+            == MetadataType.PINNED_MESSAGE.value
+        ):
             return cls(
+                name=data.get("name", "default"),
+                type=MetadataType.PINNED_MESSAGE,
+                github_repo=None,
+            )
+        if data["type"] == MetadataType.GITHUB_REPO.value:
+            if not (gh_repo_config := data.get("github_repo")):
+                raise ValueError(
+                    "GitHub repo configuration is required for GITHUB_REPO type"
+                )
+            return cls(
+                name=data.get("name", "default"),
                 type=MetadataType.GITHUB_REPO,
-                github_repo=GithubRepoConfig.from_dict(data["github_repo"]),
+                github_repo=GithubRepoConfig.from_dict(gh_repo_config),
             )
         raise ValueError(
             f"Unknown metadata type: {data['type']}, available options: {', '.join(e.value for e in MetadataType)}"
@@ -110,7 +129,7 @@ class ServerConfig:
     port: int
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ServerConfig":
+    def from_dict(cls, data: Dict) -> "ServerConfig":
         return cls(host=data["host"], port=data["port"])
 
 
@@ -119,11 +138,13 @@ class TGFSConfig:
     users: dict[str, UserConfig]
     download: DownloadConfig
     jwt: JWTConfig
-    metadata: MetadataConfig
+    metadata: Dict[str, MetadataConfig]
     server: ServerConfig
 
     @classmethod
-    def from_dict(cls, data: dict) -> Self:
+    def from_dict(cls, data: Dict) -> Self:
+        metadata_config: Dict[str, MetadataConfigDict] = data.get("metadata", {})
+
         return cls(
             users=(
                 {
@@ -135,7 +156,9 @@ class TGFSConfig:
             ),
             download=DownloadConfig.from_dict(data["download"]),
             jwt=JWTConfig.from_dict(data["jwt"]),
-            metadata=MetadataConfig.from_dict(data.get("metadata")),
+            metadata={
+                k: MetadataConfig.from_dict(v) for k, v in metadata_config.items()
+            },
             server=ServerConfig.from_dict(data["server"]),
         )
 
@@ -176,10 +199,16 @@ class TelegramConfig:
     api_hash: str
     account: Optional[AccountConfig]
     bot: BotConfig
-    private_file_channel: str
+    private_file_channel: List[str]
 
     @classmethod
     def from_dict(cls, data: dict) -> "TelegramConfig":
+        c = data["private_file_channel"]
+        if not isinstance(c, List):
+            private_file_channel = [c]
+        else:
+            private_file_channel = c
+
         return cls(
             api_id=data["api_id"],
             api_hash=data["api_hash"],
@@ -187,7 +216,7 @@ class TelegramConfig:
                 AccountConfig.from_dict(data["account"]) if "account" in data else None
             ),
             bot=BotConfig.from_dict(data["bot"]),
-            private_file_channel=data["private_file_channel"],
+            private_file_channel=private_file_channel,
         )
 
 
@@ -208,15 +237,15 @@ __config_file_path = expand_path(os.path.join(DATA_DIR, CONFIG_FILE))
 __config: Config | None = None
 
 
-def __load_config(file_path: str) -> "Config":
+def _load_config(file_path: str) -> Config:
     with open(file_path, "r") as file:
         data = yaml.safe_load(file)
         return Config.from_dict(data)
 
 
-def get_config() -> "Config":
+def get_config() -> Config:
     global __config
     if __config is None:
         logger.info(f"Using configuration file: {__config_file_path}")
-        __config = __load_config(__config_file_path)
+        __config = _load_config(__config_file_path)
     return __config

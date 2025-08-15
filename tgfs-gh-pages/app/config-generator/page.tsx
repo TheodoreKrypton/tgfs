@@ -10,12 +10,8 @@ import {
   CardContent,
   Checkbox,
   Container,
-  FormControl,
   FormControlLabel,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
   Typography,
 } from "@mui/material";
 import yaml from "js-yaml";
@@ -23,10 +19,22 @@ import { useCallback, useEffect, useState } from "react";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { BotTokenField } from "./components/BotTokenField";
+import { ChannelField } from "./components/ChannelField";
 import { ConfigTextField } from "./components/ConfigTextField";
 import { FieldRow } from "./components/FieldRow";
 import { FormSection } from "./components/FormSection";
 import { UserField } from "./components/UserField";
+
+interface ChannelConfig {
+  id: string;
+  name: string;
+  type: "pinned_message" | "github_repo";
+  github_repo?: {
+    repo: string;
+    commit: string;
+    access_token: string;
+  };
+}
 
 interface ConfigData {
   telegram: {
@@ -39,8 +47,7 @@ interface ConfigData {
       session_file: string;
       tokens: string[];
     };
-    private_file_channel: string;
-    public_file_channel: number;
+    channels: ChannelConfig[];
   };
   tgfs: {
     users: {
@@ -55,14 +62,6 @@ interface ConfigData {
       algorithm: string;
       life: number;
     };
-    metadata: {
-      type: "pinned_message" | "github_repo";
-      github_repo?: {
-        repo: string;
-        commit: string;
-        access_token: string;
-      };
-    };
     server: {
       host: string;
       port: number;
@@ -74,17 +73,13 @@ interface ConfigData {
 type ConfigUpdatePaths = {
   "telegram.api_id": string;
   "telegram.api_hash": string;
-  "telegram.private_file_channel": string;
+  "telegram.channels": ChannelConfig[];
   "telegram.bot.tokens": string[];
   "tgfs.users": { username: string; password: string }[];
   "tgfs.download.chunk_size_kb": number;
   "tgfs.jwt.secret": string;
   "tgfs.jwt.algorithm": string;
   "tgfs.jwt.life": number;
-  "tgfs.metadata.type": "pinned_message" | "github_repo";
-  "tgfs.metadata.github_repo.repo": string;
-  "tgfs.metadata.github_repo.commit": string;
-  "tgfs.metadata.github_repo.access_token": string;
   "tgfs.server.host": string;
   "tgfs.server.port": number;
 };
@@ -113,8 +108,18 @@ export default function ConfigGenerator() {
         session_file: "bot.session",
         tokens: [""],
       },
-      private_file_channel: "",
-      public_file_channel: 0,
+      channels: [
+        {
+          id: "",
+          name: "default",
+          type: "pinned_message",
+          github_repo: {
+            repo: "",
+            commit: "master",
+            access_token: "",
+          },
+        },
+      ],
     },
     tgfs: {
       users: [
@@ -130,14 +135,6 @@ export default function ConfigGenerator() {
         secret: "",
         algorithm: "HS256",
         life: 604800,
-      },
-      metadata: {
-        type: "pinned_message",
-        github_repo: {
-          repo: "",
-          commit: "master",
-          access_token: "",
-        },
       },
       server: {
         host: "0.0.0.0",
@@ -157,8 +154,8 @@ export default function ConfigGenerator() {
         newConfig.telegram.api_id = value as string;
       } else if (path === "telegram.api_hash") {
         newConfig.telegram.api_hash = value as string;
-      } else if (path === "telegram.private_file_channel") {
-        newConfig.telegram.private_file_channel = value as string;
+      } else if (path === "telegram.channels") {
+        newConfig.telegram.channels = value as ChannelConfig[];
       } else if (path === "telegram.bot.tokens") {
         newConfig.telegram.bot.tokens = value as string[];
       } else if (path === "tgfs.users") {
@@ -174,46 +171,9 @@ export default function ConfigGenerator() {
         newConfig.tgfs.jwt.algorithm = value as string;
       } else if (path === "tgfs.jwt.life") {
         newConfig.tgfs.jwt.life = value as number;
-      } else if (path === "tgfs.metadata.type") {
-        newConfig.tgfs.metadata.type = value as
-          | "pinned_message"
-          | "github_repo";
-      } else if (path === "tgfs.metadata.github_repo.repo") {
-        if (!newConfig.tgfs.metadata.github_repo) {
-          newConfig.tgfs.metadata.github_repo = {
-            repo: "",
-            commit: "master",
-            access_token: "",
-          };
-        }
-        newConfig.tgfs.metadata.github_repo.repo = value as string;
-      } else if (path === "tgfs.metadata.github_repo.commit") {
-        if (!newConfig.tgfs.metadata.github_repo) {
-          newConfig.tgfs.metadata.github_repo = {
-            repo: "",
-            commit: "master",
-            access_token: "",
-          };
-        }
-        newConfig.tgfs.metadata.github_repo.commit = value as string;
-      } else if (path === "tgfs.metadata.github_repo.access_token") {
-        if (!newConfig.tgfs.metadata.github_repo) {
-          newConfig.tgfs.metadata.github_repo = {
-            repo: "",
-            commit: "master",
-            access_token: "",
-          };
-        }
-        newConfig.tgfs.metadata.github_repo.access_token = value as string;
       } else if (path === "tgfs.server.host") {
-        if (!newConfig.tgfs.server) {
-          newConfig.tgfs.server = { host: "0.0.0.0", port: 1900 };
-        }
         newConfig.tgfs.server.host = value as string;
       } else if (path === "tgfs.server.port") {
-        if (!newConfig.tgfs.server) {
-          newConfig.tgfs.server = { host: "0.0.0.0", port: 1900 };
-        }
         newConfig.tgfs.server.port = value as number;
       }
 
@@ -246,30 +206,58 @@ export default function ConfigGenerator() {
   };
 
   const generateYaml = () => {
-    // Convert users array to object format for YAML output
-    const metadata =
-      config.tgfs.metadata.type === "github_repo"
-        ? {
-            type: config.tgfs.metadata.type,
-            github_repo: config.tgfs.metadata.github_repo,
-          }
-        : { type: config.tgfs.metadata.type };
+    // Build metadata object from channels
+    const metadata: {
+      [channelId: string]: {
+        name: string;
+        type: "pinned_message" | "github_repo";
+        github_repo?: {
+          repo: string;
+          commit: string;
+          access_token: string;
+        };
+      };
+    } = {};
+    config.telegram.channels
+      .filter((channel) => channel.id.trim() !== "")
+      .forEach((channel) => {
+        metadata[channel.id] = {
+          name: channel.name,
+          type: channel.type,
+          ...(channel.type === "github_repo" && channel.github_repo
+            ? { github_repo: channel.github_repo }
+            : {}),
+        };
+      });
 
     const configForYaml = {
-      ...config,
       telegram: {
-        ...config.telegram,
-        account: withUserAccount
-          ? { session_file: "account.session" }
-          : undefined,
+        api_id: config.telegram.api_id,
+        api_hash: config.telegram.api_hash,
+        ...(withUserAccount
+          ? { account: { session_file: "account.session" } }
+          : {}),
+        bot: {
+          session_file: config.telegram.bot.session_file,
+          tokens: config.telegram.bot.tokens.filter(
+            (token) => token.trim() !== ""
+          ),
+        },
+        private_file_channel: config.telegram.channels
+          .filter((channel) => channel.id.trim() !== "")
+          .map((channel) => channel.id),
       },
       tgfs: {
-        ...config.tgfs,
         users: config.tgfs.users.reduce((acc, user) => {
-          acc[user.username] = { password: user.password };
+          if (user.username.trim() !== "") {
+            acc[user.username] = { password: user.password };
+          }
           return acc;
         }, {} as { [key: string]: { password: string } }),
+        download: config.tgfs.download,
+        jwt: config.tgfs.jwt,
         metadata,
+        server: config.tgfs.server,
       },
     };
 
@@ -316,6 +304,95 @@ export default function ConfigGenerator() {
     const newUsers = [...config.tgfs.users];
     newUsers[index][field] = value;
     updateConfig("tgfs.users", newUsers);
+  };
+
+  const addChannel = () => {
+    const newChannels = [
+      ...config.telegram.channels,
+      {
+        id: "",
+        name: `channel-${config.telegram.channels.length + 1}`,
+        type: "pinned_message" as const,
+        github_repo: {
+          repo: "",
+          commit: "master",
+          access_token: "",
+        },
+      },
+    ];
+    updateConfig("telegram.channels", newChannels);
+  };
+
+  const removeChannel = (index: number) => {
+    const newChannels = config.telegram.channels.filter((_, i) => i !== index);
+    updateConfig("telegram.channels", newChannels);
+  };
+
+  // Validation functions
+  const isValidDirectoryName = (name: string): boolean => {
+    // Valid directory name: no / \ : * ? " < > | and not . or ..
+    const invalidChars = /[\/\\:*?"<>|]/;
+    return (
+      !invalidChars.test(name) &&
+      name !== "." &&
+      name !== ".." &&
+      name.trim().length > 0
+    );
+  };
+
+  const getChannelNameErrors = (index: number, name: string): string[] => {
+    const errors: string[] = [];
+
+    if (!name.trim()) {
+      errors.push("Display name is required");
+    } else {
+      if (!isValidDirectoryName(name)) {
+        errors.push('Invalid characters. Cannot contain: / \\ : * ? " < > |');
+      }
+
+      // Check for duplicates
+      const duplicateIndex = config.telegram.channels.findIndex(
+        (channel, i) =>
+          i !== index &&
+          channel.name.trim().toLowerCase() === name.trim().toLowerCase()
+      );
+      if (duplicateIndex !== -1) {
+        errors.push("Display name must be unique across channels");
+      }
+    }
+
+    return errors;
+  };
+
+  const updateChannel = (
+    index: number,
+    field: "id" | "name" | "type",
+    value: string
+  ) => {
+    const newChannels = [...config.telegram.channels];
+    if (field === "id" || field === "name") {
+      newChannels[index][field] = value;
+    } else if (field === "type") {
+      newChannels[index][field] = value as "pinned_message" | "github_repo";
+    }
+    updateConfig("telegram.channels", newChannels);
+  };
+
+  const updateChannelGitHubRepo = (
+    channelIndex: number,
+    field: keyof NonNullable<ChannelConfig["github_repo"]>,
+    value: string
+  ) => {
+    const newChannels = [...config.telegram.channels];
+    if (!newChannels[channelIndex].github_repo) {
+      newChannels[channelIndex].github_repo = {
+        repo: "",
+        commit: "master",
+        access_token: "",
+      };
+    }
+    newChannels[channelIndex].github_repo![field] = value;
+    updateConfig("telegram.channels", newChannels);
   };
 
   return (
@@ -386,19 +463,52 @@ export default function ConfigGenerator() {
                 />
               </FieldRow>
 
-              <ConfigTextField
-                label="Private File Channel ID"
-                value={config.telegram.private_file_channel}
-                onChange={(e) =>
-                  updateConfig("telegram.private_file_channel", e.target.value)
-                }
-                helperText="Channel ID (numeric, e.g., 1234567). Click the Copy Post Link button of any message in the channel to get the ID."
-                style={{ width: "100%" }}
-                required
-              />
+              <Box>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  Private File Channels & Metadata
+                </Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 2 }}
+                >
+                  Configure one or more private channels to store files. Each
+                  channel needs both a channel ID and metadata configuration to
+                  maintain the directory structure.
+                </Typography>
+                {config.telegram.channels.map((channel, index) => (
+                  <ChannelField
+                    key={index}
+                    index={index}
+                    channel={channel}
+                    onUpdate={(field, value) =>
+                      updateChannel(index, field, value)
+                    }
+                    onUpdateGitHubRepo={(field, value) =>
+                      updateChannelGitHubRepo(index, field, value)
+                    }
+                    onDelete={
+                      config.telegram.channels.length > 1
+                        ? () => removeChannel(index)
+                        : undefined
+                    }
+                    canDelete={config.telegram.channels.length > 1}
+                    nameErrors={getChannelNameErrors(index, channel.name)}
+                  />
+                ))}
+                <Button
+                  startIcon={<Add />}
+                  onClick={addChannel}
+                  variant="outlined"
+                  size="small"
+                  sx={{ mt: 1 }}
+                >
+                  Add Another Channel
+                </Button>
+              </Box>
 
               <FormControlLabel
-                label="Use User Account to Upload Files"
+                label="Use user account to upload files (No benefit unless you are a premium user)"
                 control={
                   <Checkbox
                     checked={withUserAccount}
@@ -505,151 +615,6 @@ export default function ConfigGenerator() {
                   Regenerate
                 </Button>
               </Box>
-              <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                Metadata
-              </Typography>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ mb: 2, pl: 2 }}
-              >
-                Metadata maintains the directory structure of the files.
-              </Typography>
-
-              <FormControl size="small" sx={{ mb: 2 }}>
-                <InputLabel>Metadata Type</InputLabel>
-                <Select
-                  value={config.tgfs.metadata.type}
-                  label="Metadata Type"
-                  onChange={(e) =>
-                    updateConfig(
-                      "tgfs.metadata.type",
-                      e.target.value as "pinned_message" | "github_repo"
-                    )
-                  }
-                >
-                  <MenuItem value="pinned_message">Pinned Message</MenuItem>
-                  <MenuItem value="github_repo">GitHub Repository</MenuItem>
-                </Select>
-              </FormControl>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ mb: 2, pl: 2 }}
-              >
-                {config.tgfs.metadata.type === "pinned_message"
-                  ? "The metadata will be maintained in a json file pinned in the file channel. Every directory operation reuploads and updates the pinned file."
-                  : "The metadata will be maintained by a GitHub repository configured in the following github_repo section. Every directory operation is mapped to the github repository."}
-              </Typography>
-              {config.tgfs.metadata.type === "pinned_message" && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2, pl: 2 }}
-                >
-                  ⚠️ NEVER delete the pinned file AND NEVER manually pin any
-                  message.
-                </Typography>
-              )}
-              {config.tgfs.metadata.type === "github_repo" && (
-                <Typography
-                  variant="body2"
-                  color="text.secondary"
-                  sx={{ mb: 2, pl: 2 }}
-                >
-                  Merits:
-                  <ul
-                    className="list-disc list-inside"
-                    style={{ marginBottom: 0 }}
-                  >
-                    <li>
-                      Directory operations are faster (possibly?) because the
-                      metadata is not re-uploaded every time.
-                    </li>
-                    <li>
-                      The metadata is versioned naturally, so rollback is
-                      possible.
-                    </li>
-                    <li>
-                      Multiple clients can access / mutate the same metadata
-                      without conflict.
-                    </li>
-                  </ul>
-                </Typography>
-              )}
-              {config.tgfs.metadata.type === "github_repo" && (
-                <Box sx={{ pl: 2, borderLeft: "3px solid #e0e0e0", ml: 1 }}>
-                  <Typography
-                    variant="subtitle1"
-                    sx={{ mb: 2, fontWeight: 500 }}
-                  >
-                    GitHub Repository Settings
-                  </Typography>
-
-                  <ConfigTextField
-                    label="Repository"
-                    value={config.tgfs.metadata.github_repo?.repo || ""}
-                    onChange={(e) =>
-                      updateConfig(
-                        "tgfs.metadata.github_repo.repo",
-                        e.target.value
-                      )
-                    }
-                    helperText="Format: username/repository-name"
-                    required
-                    sx={{ mb: 2 }}
-                  />
-
-                  <FieldRow>
-                    <ConfigTextField
-                      label="Commit/Branch"
-                      value={
-                        config.tgfs.metadata.github_repo?.commit || "master"
-                      }
-                      onChange={(e) =>
-                        updateConfig(
-                          "tgfs.metadata.github_repo.commit",
-                          e.target.value
-                        )
-                      }
-                      width={200}
-                    />
-                    <ConfigTextField
-                      label="Access Token"
-                      value={
-                        config.tgfs.metadata.github_repo?.access_token || ""
-                      }
-                      onChange={(e) =>
-                        updateConfig(
-                          "tgfs.metadata.github_repo.access_token",
-                          e.target.value
-                        )
-                      }
-                      required
-                      sx={{ flex: 1 }}
-                    />
-                    <Box
-                      sx={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 2,
-                        mb: 2,
-                      }}
-                    >
-                      <Button
-                        variant="outlined"
-                        component="a"
-                        href="https://github.com/settings/personal-access-tokens/new"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        sx={{ textTransform: "none" }}
-                      >
-                        Get Access Token
-                      </Button>
-                    </Box>
-                  </FieldRow>
-                </Box>
-              )}
               <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
                 Server
               </Typography>

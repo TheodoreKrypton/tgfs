@@ -23,7 +23,7 @@ class TestFolder:
     async def test_get_properties_empty_folder(self):
         folder = MockFolder("/empty")
         properties = await folder.get_properties()
-        
+
         assert properties["childcount"] == 0
         assert properties["displayname"] == "empty"
         assert properties["getcontenttype"] == "httpd/unix-directory"
@@ -38,7 +38,7 @@ class TestFolder:
         }
         folder = MockFolder("/test", members)
         properties = await folder.get_properties()
-        
+
         assert properties["childcount"] == 3
 
     @pytest.mark.asyncio
@@ -48,7 +48,7 @@ class TestFolder:
             "subfolder": MockFolder("/test/subfolder"),
         }
         folder = MockFolder("/test", members)
-        
+
         names = await folder.member_names()
         assert set(names) == {"file1.txt", "subfolder"}
 
@@ -57,10 +57,10 @@ class TestFolder:
         resource = MockResource("/test/file.txt")
         members = {"file.txt": resource}
         folder = MockFolder("/test", members)
-        
+
         found_member = await folder.member("file.txt")
         assert found_member is resource
-        
+
         not_found = await folder.member("nonexistent.txt")
         assert not_found is None
 
@@ -68,7 +68,7 @@ class TestFolder:
     async def test_create_empty_resource(self):
         folder = MockFolder("/test")
         resource = await folder.create_empty_resource("new_file.txt")
-        
+
         assert resource is not None
         assert resource.path == "new_file.txt"
         assert "new_file.txt" in folder._members
@@ -77,7 +77,7 @@ class TestFolder:
     async def test_create_folder(self):
         folder = MockFolder("/test")
         subfolder = await folder.create_folder("subfolder")
-        
+
         assert isinstance(subfolder, Folder)
         assert subfolder.path == "/test/subfolder"
         assert "subfolder" in folder._members

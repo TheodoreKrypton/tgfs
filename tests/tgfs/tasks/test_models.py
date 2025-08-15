@@ -5,7 +5,7 @@ class TestTaskType:
     def test_task_type_values(self):
         assert TaskType.UPLOAD == "upload"
         assert TaskType.DOWNLOAD == "download"
-    
+
     def test_task_type_is_string_enum(self):
         assert isinstance(TaskType.UPLOAD, str)
         assert isinstance(TaskType.DOWNLOAD, str)
@@ -17,7 +17,7 @@ class TestTaskStatus:
         assert TaskStatus.IN_PROGRESS == "in_progress"
         assert TaskStatus.COMPLETED == "completed"
         assert TaskStatus.FAILED == "failed"
-    
+
     def test_task_status_is_string_enum(self):
         assert isinstance(TaskStatus.PENDING, str)
         assert isinstance(TaskStatus.IN_PROGRESS, str)
@@ -33,9 +33,9 @@ class TestTask:
             path="/uploads/test.txt",
             filename="test.txt",
             status=TaskStatus.PENDING,
-            progress=0.0
+            progress=0.0,
         )
-        
+
         assert task.id == "task-123"
         assert task.type == TaskType.UPLOAD
         assert task.path == "/uploads/test.txt"
@@ -62,9 +62,9 @@ class TestTask:
             error_message=None,
             created_at="2023-01-01T12:00:00Z",
             updated_at="2023-01-01T12:05:00Z",
-            speed_bytes_per_sec=153.6
+            speed_bytes_per_sec=153.6,
         )
-        
+
         assert task.id == "task-456"
         assert task.type == TaskType.DOWNLOAD
         assert task.path == "/downloads/file.bin"
@@ -85,9 +85,9 @@ class TestTask:
             path="/test/file.txt",
             filename="file.txt",
             status=TaskStatus.PENDING,
-            progress=0.0
+            progress=0.0,
         )
-        
+
         expected_dict = {
             "id": "task-789",
             "type": "upload",
@@ -102,7 +102,7 @@ class TestTask:
             "updated_at": None,
             "speed_bytes_per_sec": None,
         }
-        
+
         assert task.to_dict() == expected_dict
 
     def test_task_to_dict_full(self):
@@ -118,9 +118,9 @@ class TestTask:
             error_message=None,
             created_at="2023-01-01T10:00:00Z",
             updated_at="2023-01-01T10:30:00Z",
-            speed_bytes_per_sec=1138.133
+            speed_bytes_per_sec=1138.133,
         )
-        
+
         expected_dict = {
             "id": "task-full",
             "type": "download",
@@ -135,7 +135,7 @@ class TestTask:
             "updated_at": "2023-01-01T10:30:00Z",
             "speed_bytes_per_sec": 1138.133,
         }
-        
+
         assert task.to_dict() == expected_dict
 
     def test_task_to_dict_with_error(self):
@@ -151,9 +151,9 @@ class TestTask:
             error_message="Network timeout",
             created_at="2023-01-01T14:00:00Z",
             updated_at="2023-01-01T14:02:30Z",
-            speed_bytes_per_sec=166.67
+            speed_bytes_per_sec=166.67,
         )
-        
+
         task_dict = task.to_dict()
         assert task_dict["error_message"] == "Network timeout"
         assert task_dict["status"] == "failed"
@@ -167,11 +167,11 @@ class TestTask:
             path="/test.txt",
             filename="test.txt",
             status=TaskStatus.IN_PROGRESS,
-            progress=0.25
+            progress=0.25,
         )
-        
+
         task_dict = task.to_dict()
-        
+
         # Ensure enum values are serialized as strings
         assert isinstance(task_dict["type"], str)
         assert isinstance(task_dict["status"], str)
