@@ -12,7 +12,7 @@ class TestMain:
         mock_config = mocker.Mock()
         mock_config.telegram.account = mocker.Mock()  # Account is configured
         mock_config.telegram.private_file_channel = [12345]
-        
+
         # Mock metadata config
         mock_metadata_cfg = mocker.Mock()
         mock_metadata_cfg.name = "test_client"
@@ -33,10 +33,7 @@ class TestMain:
         mock_login_account.assert_called_once_with(mock_config)
         mock_login_bots.assert_called_once_with(mock_config)
         mock_client_create.assert_called_once_with(
-            12345,
-            mock_metadata_cfg,
-            mock_bots,
-            mock_account
+            12345, mock_metadata_cfg, mock_bots, mock_account
         )
         assert result == {"test_client": mock_client}
 
@@ -49,7 +46,7 @@ class TestMain:
         mock_config = mocker.Mock()
         mock_config.telegram.account = None  # No account configured
         mock_config.telegram.private_file_channel = [67890]
-        
+
         # Mock metadata config
         mock_metadata_cfg = mocker.Mock()
         mock_metadata_cfg.name = "test_client"
@@ -68,10 +65,7 @@ class TestMain:
         mock_login_account.assert_not_called()
         mock_login_bots.assert_called_once_with(mock_config)
         mock_client_create.assert_called_once_with(
-            67890,
-            mock_metadata_cfg,
-            mock_bots,
-            None
+            67890, mock_metadata_cfg, mock_bots, None
         )
         assert result == {"test_client": mock_client}
 

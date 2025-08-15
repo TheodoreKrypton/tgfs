@@ -278,7 +278,7 @@ class TestTelethonAPI:
         mock_search_cache.__setitem__ = mocker.Mock()
         expected_result = (mocker.Mock(),)  # Tuple of transformed messages
         mock_search_cache.__getitem__ = mocker.Mock(return_value=expected_result)
-        
+
         mock_cache_instance = mocker.Mock()
         mock_cache_instance.search = mock_search_cache
         mock_channel_cache.return_value = mock_cache_instance
@@ -299,7 +299,7 @@ class TestTelethonAPI:
         mock_search_cache = mocker.Mock()
         mock_search_cache.__contains__ = mocker.Mock(return_value=True)
         mock_search_cache.__getitem__ = mocker.Mock(return_value=cached_result)
-        
+
         mock_cache_instance = mocker.Mock()
         mock_cache_instance.search = mock_search_cache
         mock_channel_cache.return_value = mock_cache_instance

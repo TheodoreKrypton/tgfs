@@ -25,5 +25,3 @@ class TestValidateName:
             validate_name("invalid/name")
         with pytest.raises(InvalidName):
             validate_name("path/to/file")
-
-

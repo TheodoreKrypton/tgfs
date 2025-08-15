@@ -153,7 +153,6 @@ class TestManagerApp:
         response = client.get("/message/999999/456")
 
         assert response.status_code == 400
-        print(response.json())
         assert "not in one of the configured file channels" in response.json()["detail"]
 
     @pytest.mark.asyncio

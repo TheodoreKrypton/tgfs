@@ -107,10 +107,9 @@ class TestOps:
         mock_root_directory.find_dir.assert_called_once_with("subdir")
         assert result == mock_subdir
 
-
     def test_stat_file(self, ops, mock_root_directory, mocker):
         mock_file_ref = mocker.Mock(spec=TGFSFileRef)
-        
+
         ops._client.dir_api.get_fr.return_value = mock_file_ref
 
         result = ops.stat_file("/file.txt")
@@ -119,7 +118,6 @@ class TestOps:
             mock_root_directory, "file.txt"
         )
         assert result == mock_file_ref
-
 
     @pytest.mark.asyncio
     async def test_desc_success(self, ops, mock_root_directory, mocker):
@@ -141,7 +139,9 @@ class TestOps:
     @pytest.mark.asyncio
     async def test_desc_directory_raises_error(self, ops, mock_root_directory, mocker):
         # Mock get_fr to raise exception when trying to get file reference for directory
-        ops._client.dir_api.get_fr.side_effect = FileOrDirectoryDoesNotExist("not a file")
+        ops._client.dir_api.get_fr.side_effect = FileOrDirectoryDoesNotExist(
+            "not a file"
+        )
 
         with pytest.raises(FileOrDirectoryDoesNotExist):
             await ops.desc("/directory")
