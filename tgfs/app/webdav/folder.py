@@ -135,10 +135,10 @@ class RootFolder(_Folder):
         return ts(FIRST_DAY_OF_EPOCH)
 
     async def remove(self) -> None:
-        raise NotImplementedError("ReadonlyFolder does not support removal")
+        raise NotImplementedError("RootFolder does not support removal")
 
     async def copy_to(self, destination: str) -> None:
-        raise NotImplementedError("ReadonlyFolder does not support copying")
+        raise NotImplementedError("RootFolder does not support copying")
 
     async def move_to(self, destination: str) -> None:
-        raise NotImplementedError("ReadonlyFolder does not support moving")
+        raise NotImplementedError("RootFolder does not support moving")
