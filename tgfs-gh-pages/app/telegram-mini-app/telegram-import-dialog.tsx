@@ -13,6 +13,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import mime from "mime-types";
 import { useCallback, useEffect, useState } from "react";
 import ManagerClient, { ChannelMessage } from "./manager-client";
 
@@ -149,7 +150,7 @@ export default function TelegramImportDialog({
 
   useEffect(() => {
     if (messagePreview) {
-      const fileType = messagePreview.mime_type?.split("/")[1] || "unknown";
+      const fileType = mime.extension(messagePreview.mime_type) || "bin";
       setAsName(
         (sanitizeFileName(messagePreview.caption) || "unnamed") + `.${fileType}`
       );
