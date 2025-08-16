@@ -58,7 +58,6 @@ export default function FileExplorer({
   const [createDirDialog, setCreateDirDialog] = useState(false);
   const [newDirName, setNewDirName] = useState("");
   const [uploadDialog, setUploadDialog] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [telegramLinkDialog, setTelegramLinkDialog] = useState(false);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -122,14 +121,12 @@ export default function FileExplorer({
 
   // Set up polling for task updates every 1 second
   useEffect(() => {
-    if (!managerClient) return;
-
     const interval = setInterval(() => {
       loadTasks();
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [managerClient, loadTasks]);
+  }, [loadTasks]);
 
   const handleItemClick = useCallback(
     (item: WebDAVItem) => {
@@ -231,31 +228,6 @@ export default function FileExplorer({
     setNewDirName("");
   }, [currentPath, webdavClient, loadDirectory, newDirName]);
 
-  const handleFileUpload = useCallback(async () => {
-    if (!selectedFile) return;
-
-    try {
-      const filePath = `${currentPath}${currentPath.endsWith("/") ? "" : "/"}${
-        selectedFile.name
-      }`;
-      await webdavClient.uploadFile(filePath, selectedFile);
-      await loadDirectory(currentPath);
-      setSnackbar({
-        open: true,
-        message: `Uploaded ${selectedFile.name}`,
-        severity: "success",
-      });
-    } catch (err) {
-      setSnackbar({
-        open: true,
-        message: err instanceof Error ? err.message : "Upload failed",
-        severity: "error",
-      });
-    }
-    setUploadDialog(false);
-    setSelectedFile(null);
-  }, [currentPath, webdavClient, loadDirectory, selectedFile]);
-
   const handleTelegramImport = useCallback(
     async (channelId: number, messageId: number, asName: string) => {
       if (!messageId || !currentPath) return;
@@ -287,8 +259,6 @@ export default function FileExplorer({
 
   const handleDeleteTask = useCallback(
     async (taskId: string, filename: string) => {
-      if (!managerClient) return;
-
       try {
         await managerClient.deleteTask(taskId);
         await loadTasks(); // Refresh tasks after deletion
@@ -591,12 +561,29 @@ export default function FileExplorer({
                 // Open file picker dialog
                 const input = document.createElement("input");
                 input.type = "file";
-                input.onchange = (e) => {
+                input.onchange = async (e) => {
                   const file = (e.target as HTMLInputElement).files?.[0];
                   if (file) {
-                    setSelectedFile(file);
-                    // Immediately upload the file
-                    handleFileUpload();
+                    // Directly upload the file without setting state
+                    try {
+                      const filePath = `${currentPath}${
+                        currentPath.endsWith("/") ? "" : "/"
+                      }${file.name}`;
+                      await webdavClient.uploadFile(filePath, file);
+                      await loadDirectory(currentPath);
+                      setSnackbar({
+                        open: true,
+                        message: `Uploaded ${file.name}`,
+                        severity: "success",
+                      });
+                    } catch (err) {
+                      setSnackbar({
+                        open: true,
+                        message:
+                          err instanceof Error ? err.message : "Upload failed",
+                        severity: "error",
+                      });
+                    }
                   }
                 };
                 input.click();
