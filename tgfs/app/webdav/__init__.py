@@ -6,12 +6,16 @@ from tgfs.app.fs_cache import FSCache, gfc
 from tgfs.app.utils import split_global_path
 from tgfs.core import Clients
 
-from .folder import Folder, ReadonlyFolder
+from .folder import Folder, RootFolder
 
 
 async def _get_member(path: str, clients: Clients) -> Optional[Member]:
-    if path == "":
-        return ReadonlyFolder("/", list(clients.keys()))
+    if path == "" or path == "/":
+        folders = {
+            client_name: Folder("/", clients[client_name])
+            for client_name in clients.keys()
+        }
+        return RootFolder(folders)
 
     client_name, sub_path = split_global_path(path)
 

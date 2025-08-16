@@ -81,17 +81,14 @@ class FileApi:
                 return await self._create_new_file(under, file_msg)
 
         if isinstance(file_msg, UploadableFileMessage):
-            task_tracker = await create_upload_task(
-                os.path.join(under.absolute_path, file_msg.name),
-                file_msg.get_size(),
-            )
-            file_msg.task_tracker = task_tracker
             try:
                 res = await update_or_create()
-                await task_tracker.mark_completed()
+                if file_msg.task_tracker:
+                    await file_msg.task_tracker.mark_completed()
                 return res
             except Exception as ex:
-                await task_tracker.mark_failed(str(ex))
+                if file_msg.task_tracker:
+                    await file_msg.task_tracker.mark_failed(str(ex))
                 raise ex
         else:
             return await update_or_create()

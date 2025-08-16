@@ -24,7 +24,7 @@ interface TelegramImportDialogProps {
     messageId: number,
     asName: string
   ) => Promise<void>;
-  managerClient?: ManagerClient;
+  managerClient: ManagerClient;
 }
 
 export default function TelegramImportDialog({
@@ -80,7 +80,7 @@ export default function TelegramImportDialog({
     setMessagePreview(null);
 
     const debounceTimer = setTimeout(async () => {
-      if (!telegramLink.trim() || !managerClient) {
+      if (!telegramLink.trim()) {
         setMessagePreview(null);
         setPreviewLoading(false);
         return;
