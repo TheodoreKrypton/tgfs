@@ -1,4 +1,3 @@
-import os
 import pytest
 import datetime
 
@@ -270,12 +269,6 @@ class TestFileApi:
         sample_file_message,
         mocker,
     ):
-        # Mock the task tracker
-        mock_task_tracker = mocker.AsyncMock()
-        mock_task_tracker.mark_completed = mocker.AsyncMock()
-        mock_create_task = mocker.patch("tgfs.core.api.file.create_upload_task")
-        mock_create_task.return_value = mock_task_tracker
-
         # Mock directory behavior for new file creation
         sample_directory.find_file = mocker.Mock(
             side_effect=FileOrDirectoryDoesNotExist("Not found")
@@ -296,16 +289,6 @@ class TestFileApi:
         )
         result = await file_api.upload(sample_directory, sample_file_message)
 
-        # Verify task creation
-        mock_create_task.assert_called_once_with(
-            os.path.join("/test/path", sample_file_message.name),
-            sample_file_message.get_size(),
-        )
-
-        # Verify task tracker was assigned and marked completed
-        assert sample_file_message.task_tracker == mock_task_tracker
-        mock_task_tracker.mark_completed.assert_called_once()
-
         # Verify file creation
         sample_directory.find_file.assert_called_once_with(sample_file_message.name)
         mock_file_desc_api.create_file_desc.assert_called_once_with(sample_file_message)
@@ -320,12 +303,6 @@ class TestFileApi:
         sample_file_message,
         mocker,
     ):
-        # Mock the task tracker
-        mock_task_tracker = mocker.AsyncMock()
-        mock_task_tracker.mark_failed = mocker.AsyncMock()
-        mock_create_task = mocker.patch("tgfs.core.api.file.create_upload_task")
-        mock_create_task.return_value = mock_task_tracker
-
         # Mock directory behavior for new file creation
         sample_directory.find_file = mocker.Mock(
             side_effect=FileOrDirectoryDoesNotExist("Not found")
@@ -345,10 +322,6 @@ class TestFileApi:
 
         with pytest.raises(Exception, match="Upload failed"):
             await file_api.upload(sample_directory, sample_file_message)
-
-        # Verify task tracker was assigned and marked as failed
-        assert sample_file_message.task_tracker == mock_task_tracker
-        mock_task_tracker.mark_failed.assert_called_once_with("Upload failed")
 
     @pytest.mark.asyncio
     async def test_desc(

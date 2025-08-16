@@ -7,7 +7,6 @@ from tgfs.core import Client, Ops
 from tgfs.utils.time import FIRST_DAY_OF_EPOCH, ts
 
 from .resource import Resource
-from ..utils import split_global_path
 
 
 class Folder(_Folder):

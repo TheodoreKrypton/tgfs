@@ -12,6 +12,7 @@ class TestOps:
     @pytest.fixture
     def mock_client(self, mocker):
         client = mocker.Mock(spec=Client)
+        client.name = "test_client"
         client.dir_api = mocker.Mock()
         client.file_api = mocker.Mock()
         client.message_api = mocker.Mock()
@@ -27,6 +28,14 @@ class TestOps:
     def ops(self, mock_client, mock_root_directory) -> Ops:
         mock_client.dir_api.root = mock_root_directory
         return Ops(mock_client)
+
+    @pytest.fixture
+    def mock_create_task(self, mocker):
+        mock_task_tracker = mocker.AsyncMock()
+        mock_task_tracker.mark_failed = mocker.AsyncMock()
+        create_task = mocker.patch("tgfs.core.ops.create_upload_task")
+        create_task.return_value = mock_task_tracker
+        return create_task
 
     def test_init(self, mock_client):
         ops = Ops(mock_client)
@@ -359,29 +368,88 @@ class TestOps:
         assert result == mock_file_to_remove
 
     @pytest.mark.asyncio
-    async def test_upload_from_local_success(self, ops, mocker):
+    async def test_upload_success(self, mock_create_task, ops, mocker):
         mock_parent_dir = mocker.Mock(spec=TGFSDirectory)
         mock_file_desc = mocker.Mock(spec=TGFSFileDesc)
         mock_file_message = mocker.Mock()
+        mock_file_message.name = "test.txt"
+        mock_file_message.get_size.return_value = 512
+
+        # Mock task tracker
+        task_tracker = mock_create_task.return_value
+        task_tracker.mark_completed = mocker.AsyncMock()
 
         ops._client.file_api.upload = mocker.AsyncMock(return_value=mock_file_desc)
-
-        mock_file_message_class = mocker.Mock()
-        mock_file_message_class.new.return_value = mock_file_message
-
-        mocker.patch.object(os.path, "exists", return_value=True)
-        mocker.patch.object(os.path, "isfile", return_value=True)
         mocker.patch.object(ops, "cd", return_value=mock_parent_dir)
-        mocker.patch("tgfs.core.ops.FileMessageFromPath", mock_file_message_class)
 
-        result = await ops.upload_from_local("/local/file.txt", "/remote/file.txt")
+        result = await ops._upload("/remote", mock_file_message)
 
-        mock_file_message_class.new.assert_called_once_with(
-            path="/local/file.txt", name="file.txt"
-        )
+        # Assert task was created with correct path and size
+        mock_create_task.assert_called_once_with("/test_client/remote/test.txt", 512)
+
+        # Assert task tracker was set on file message
+        assert mock_file_message.task_tracker == task_tracker
+
+        # Assert upload was called
         ops._client.file_api.upload.assert_called_once_with(
             mock_parent_dir, mock_file_message
         )
+
+        # Assert task was marked as completed
+        task_tracker.mark_completed.assert_called_once()
+
+        assert result == mock_file_desc
+
+    @pytest.mark.asyncio
+    async def test_upload_failure(self, mock_create_task, ops, mocker):
+        mock_parent_dir = mocker.Mock(spec=TGFSDirectory)
+        mock_file_message = mocker.Mock()
+        mock_file_message.name = "test.txt"
+        mock_file_message.get_size.return_value = 512
+        upload_error = Exception("Upload failed")
+
+        # Mock task tracker
+        task_tracker = mock_create_task.return_value
+        task_tracker.mark_failed = mocker.AsyncMock()
+
+        ops._client.file_api.upload = mocker.AsyncMock(side_effect=upload_error)
+        mocker.patch.object(ops, "cd", return_value=mock_parent_dir)
+
+        with pytest.raises(Exception, match="Upload failed"):
+            await ops._upload("/remote", mock_file_message)
+
+        # Assert task was created
+        mock_create_task.assert_called_once_with("/test_client/remote/test.txt", 512)
+
+        # Assert task tracker was set on file message
+        assert mock_file_message.task_tracker == task_tracker
+
+        # Assert upload was attempted
+        ops._client.file_api.upload.assert_called_once_with(
+            mock_parent_dir, mock_file_message
+        )
+
+        # Assert task was marked as failed with error message
+        task_tracker.mark_failed.assert_called_once_with(str(upload_error))
+
+    @pytest.mark.asyncio
+    async def test_upload_from_local_success(self, ops, mocker):
+        mock_file_desc = mocker.Mock(spec=TGFSFileDesc)
+
+        mocker.patch.object(os.path, "exists", return_value=True)
+        mocker.patch.object(os.path, "isfile", return_value=True)
+        mocker.patch.object(os.path, "getsize", return_value=1024)  # Mock file size
+
+        # Mock the _upload method
+        mock_upload = mocker.patch.object(ops, "_upload", return_value=mock_file_desc)
+
+        result = await ops.upload_from_local("/local/file.txt", "/remote/file.txt")
+
+        # Should call _upload with correct dirname and FileMessageFromPath
+        mock_upload.assert_called_once()
+        dirname, file_msg = mock_upload.call_args[0]
+        assert dirname == "/remote"
+        assert file_msg.name == "file.txt"
         assert result == mock_file_desc
 
     @pytest.mark.asyncio
@@ -399,37 +467,42 @@ class TestOps:
 
     @pytest.mark.asyncio
     async def test_upload_from_bytes(self, ops, mocker):
-        mock_parent_dir = mocker.Mock(spec=TGFSDirectory)
-        mock_file_desc = mocker.Mock(spec=TGFSFileDesc)
         test_data = b"test file content"
+        mock_file_desc = mocker.Mock(spec=TGFSFileDesc)
 
-        ops._client.file_api.upload = mocker.AsyncMock(return_value=mock_file_desc)
+        # Mock the _upload method
+        mock_upload = mocker.patch.object(ops, "_upload", return_value=mock_file_desc)
 
-        mocker.patch.object(ops, "cd", return_value=mock_parent_dir)
         result = await ops.upload_from_bytes(test_data, "/remote/file.txt")
 
-        ops._client.file_api.upload.assert_called_once()
-        call_args = ops._client.file_api.upload.call_args
-        assert call_args[0][0] == mock_parent_dir
+        # Should call _upload with correct dirname and FileMessageFromBuffer
+        mock_upload.assert_called_once()
+        dirname, file_msg = mock_upload.call_args[0]
+        assert dirname == "/remote"
+        assert file_msg.name == "file.txt"
         assert result == mock_file_desc
 
     @pytest.mark.asyncio
     async def test_upload_from_stream(self, ops, mocker):
-        mock_parent_dir = mocker.Mock(spec=TGFSDirectory)
+        test_size = 1024
         mock_file_desc = mocker.Mock(spec=TGFSFileDesc)
 
         async def mock_stream():
             yield b"chunk1"
             yield b"chunk2"
 
-        ops._client.file_api.upload = mocker.AsyncMock(return_value=mock_file_desc)
+        # Mock the _upload method
+        mock_upload = mocker.patch.object(ops, "_upload", return_value=mock_file_desc)
 
-        mocker.patch.object(ops, "cd", return_value=mock_parent_dir)
-        result = await ops.upload_from_stream(mock_stream(), 1024, "/remote/file.txt")
+        result = await ops.upload_from_stream(
+            mock_stream(), test_size, "/remote/file.txt"
+        )
 
-        ops._client.file_api.upload.assert_called_once()
-        call_args = ops._client.file_api.upload.call_args
-        assert call_args[0][0] == mock_parent_dir
+        # Should call _upload with correct dirname and FileMessageFromStream
+        mock_upload.assert_called_once()
+        dirname, file_msg = mock_upload.call_args[0]
+        assert dirname == "/remote"
+        assert file_msg.name == "file.txt"
         assert result == mock_file_desc
 
     @pytest.mark.asyncio

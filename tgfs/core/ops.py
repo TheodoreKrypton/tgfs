@@ -11,7 +11,7 @@ from tgfs.reqres import (
     MessageRespWithDocument,
     UploadableFileMessage,
 )
-from tgfs.tasks import create_upload_task, TaskTracker
+from tgfs.tasks import create_upload_task
 
 from .client import Client
 from .model import TGFSDirectory, TGFSFileDesc, TGFSFileRef
@@ -156,13 +156,22 @@ class Ops:
 
         return file_to_remove
 
-    async def _create_task_tracker(
-        self, remote: str, file_msg: UploadableFileMessage
-    ) -> TaskTracker:
-        return await create_upload_task(
-            f"/{self._client.name}{remote}",
+    async def _upload(
+        self, dirname: str, file_msg: UploadableFileMessage
+    ) -> TGFSFileDesc:
+        task_tracker = await create_upload_task(
+            f"/{self._client.name}{dirname}/{file_msg.name}",
             file_msg.get_size(),
         )
+
+        file_msg.task_tracker = task_tracker
+        try:
+            res = await self._client.file_api.upload(self.cd(dirname), file_msg)
+            await task_tracker.mark_completed()
+            return res
+        except Exception as ex:
+            await task_tracker.mark_failed(str(ex))
+            raise ex
 
     async def upload_from_local(self, local: str, remote: str) -> TGFSFileDesc:
         if not os.path.exists(local) or not os.path.isfile(local):
@@ -171,32 +180,20 @@ class Ops:
         self._validate_path(remote)
         dirname, basename = os.path.dirname(remote), os.path.basename(remote)
 
-        d = self.cd(dirname)
-
-        file_msg = FileMessageFromPath.new(
-            path=local,
-            name=basename,
+        return await self._upload(
+            dirname,
+            FileMessageFromPath.new(
+                path=local,
+                name=basename,
+            ),
         )
-
-        file_msg.task_tracker = await self._create_task_tracker(remote, file_msg)
-
-        return await self._client.file_api.upload(d, file_msg)
 
     async def upload_from_bytes(self, data: bytes, remote: str) -> TGFSFileDesc:
         self._validate_path(remote)
         dirname, basename = os.path.dirname(remote), os.path.basename(remote)
 
-        d = self.cd(dirname)
-
-        file_msg = FileMessageFromBuffer.new(
-            buffer=data,
-            name=basename,
-        )
-
-        file_msg.task_tracker = await self._create_task_tracker(remote, file_msg)
-
-        return await self._client.file_api.upload(
-            d,
+        return await self._upload(
+            dirname,
             FileMessageFromBuffer.new(
                 buffer=data,
                 name=basename,
@@ -209,16 +206,14 @@ class Ops:
         self._validate_path(remote)
         dirname, basename = os.path.dirname(remote), os.path.basename(remote)
 
-        d = self.cd(dirname)
-
-        file_msg = FileMessageFromStream.new(
-            name=basename,
-            stream=stream,
-            size=size,
+        return await self._upload(
+            dirname,
+            FileMessageFromStream.new(
+                name=basename,
+                stream=stream,
+                size=size,
+            ),
         )
-        file_msg.task_tracker = await self._create_task_tracker(remote, file_msg)
-
-        return await self._client.file_api.upload(d, file_msg)
 
     async def import_from_existing_file_message(
         self, message: MessageRespWithDocument, remote: str

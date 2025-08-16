@@ -1,4 +1,3 @@
-import os
 from typing import Optional
 
 from tgfs.core.model import TGFSDirectory, TGFSFileDesc, TGFSFileRef, TGFSFileVersion
@@ -7,9 +6,7 @@ from tgfs.reqres import (
     FileContent,
     FileMessage,
     FileMessageEmpty,
-    UploadableFileMessage,
 )
-from tgfs.tasks import create_upload_task
 
 from .file_desc import FileDescApi
 from .metadata import MetaDataApi
@@ -72,26 +69,11 @@ class FileApi:
         file_msg: FileMessage,
         version_id: Optional[str] = None,
     ) -> TGFSFileDesc:
-
-        async def update_or_create() -> TGFSFileDesc:
-            try:
-                fr = under.find_file(file_msg.name)
-                return await self._update_existing_file(fr, file_msg, version_id)
-            except FileOrDirectoryDoesNotExist:
-                return await self._create_new_file(under, file_msg)
-
-        if isinstance(file_msg, UploadableFileMessage):
-            try:
-                res = await update_or_create()
-                if file_msg.task_tracker:
-                    await file_msg.task_tracker.mark_completed()
-                return res
-            except Exception as ex:
-                if file_msg.task_tracker:
-                    await file_msg.task_tracker.mark_failed(str(ex))
-                raise ex
-        else:
-            return await update_or_create()
+        try:
+            fr = under.find_file(file_msg.name)
+            return await self._update_existing_file(fr, file_msg, version_id)
+        except FileOrDirectoryDoesNotExist:
+            return await self._create_new_file(under, file_msg)
 
     async def desc(self, fr: TGFSFileRef) -> TGFSFileDesc:
         return await self._file_desc_api.get_file_desc(fr)
