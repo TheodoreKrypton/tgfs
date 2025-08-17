@@ -9,18 +9,38 @@ import {
   StepLabel,
   Stepper,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@mui/material";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export default function GettingStarted() {
   const [activeStep, setActiveStep] = useState(0);
+  const [pathStyle, setPathStyle] = useState<"unix" | "windows">("unix");
 
   const [dockerConfig, setDockerConfig] = useState({
     tgfsPort: 1900,
-    mountedVolume: "/home/username/.tgfs",
+    mountedVolume: "/home/user/.tgfs",
   });
+
+  // Auto-detect OS and set default path style
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const userAgent = window.navigator.userAgent;
+      const isWindows = userAgent.includes("Windows");
+      setPathStyle(isWindows ? "windows" : "unix");
+
+      // Set default path based on OS
+      setDockerConfig((prev) => ({
+        ...prev,
+        mountedVolume: isWindows
+          ? "C:\\Users\\user\\.tgfs"
+          : "/home/user/.tgfs",
+      }));
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
@@ -251,44 +271,83 @@ export default function GettingStarted() {
                   Configure the Docker settings for running TGFS:
                 </Typography>
 
-                <Box sx={{ marginBottom: 3, display: "flex", gap: 4 }}>
-                  <TextField
-                    label="TGFS Port"
-                    type="number"
-                    value={dockerConfig.tgfsPort}
-                    onChange={(e) =>
-                      setDockerConfig((prev) => ({
-                        ...prev,
-                        tgfsPort: parseInt(e.target.value) || 1900,
-                      }))
-                    }
-                  />
-                  <TextField
-                    label="Path of config.yaml"
-                    value={dockerConfig.mountedVolume}
-                    onChange={(e) =>
-                      setDockerConfig((prev) => ({
-                        ...prev,
-                        mountedVolume: e.target.value,
-                      }))
-                    }
-                    slotProps={{
-                      input: {
-                        endAdornment: (
-                          <span className="text-slate-500 dark:text-slate-400">
-                            /config.yaml
-                          </span>
-                        ),
-                      },
-                    }}
-                  />
+                <Box
+                  sx={{
+                    marginBottom: 3,
+                    display: "flex",
+                    gap: 2,
+                    flexDirection: "column",
+                  }}
+                >
+                  <Box sx={{ display: "flex", gap: 4 }}>
+                    <TextField
+                      label="TGFS Port"
+                      type="number"
+                      value={dockerConfig.tgfsPort}
+                      onChange={(e) =>
+                        setDockerConfig((prev) => ({
+                          ...prev,
+                          tgfsPort: parseInt(e.target.value) || 1900,
+                        }))
+                      }
+                    />
+                    <TextField
+                      label="Path of config.yaml"
+                      value={dockerConfig.mountedVolume}
+                      onChange={(e) =>
+                        setDockerConfig((prev) => ({
+                          ...prev,
+                          mountedVolume: e.target.value,
+                        }))
+                      }
+                      slotProps={{
+                        input: {
+                          endAdornment: (
+                            <span className="text-slate-500 dark:text-slate-400">
+                              {pathStyle === "windows"
+                                ? "\\config.yaml"
+                                : "/config.yaml"}
+                            </span>
+                          ),
+                        },
+                      }}
+                      sx={{ flex: 1 }}
+                    />
+                  </Box>
+
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Path Style:
+                    </Typography>
+                    <ToggleButtonGroup
+                      value={pathStyle}
+                      exclusive
+                      onChange={(_, newStyle) => {
+                        if (newStyle) {
+                          setPathStyle(newStyle);
+                          // Update the path format when style changes
+                          setDockerConfig((prev) => ({
+                            ...prev,
+                            mountedVolume:
+                              newStyle === "windows"
+                                ? "C:\\Users\\user\\.tgfs"
+                                : "/home/user/.tgfs",
+                          }));
+                        }
+                      }}
+                      size="small"
+                    >
+                      <ToggleButton value="unix">Unix/Mac</ToggleButton>
+                      <ToggleButton value="windows">Windows</ToggleButton>
+                    </ToggleButtonGroup>
+                  </Box>
                 </Box>
                 <div
                   className="bg-slate-100 dark:bg-slate-700 rounded-lg p-4"
                   style={{ marginBottom: "24px" }}
                 >
                   <code className="text-sm text-slate-700 dark:text-slate-300 block break-all">
-                    docker run -it -v {dockerConfig.mountedVolume}
+                    docker run -v {dockerConfig.mountedVolume}
                     :/home/tgfs/.tgfs -p {dockerConfig.tgfsPort}:
                     {dockerConfig.tgfsPort} wheatcarrier/tgfs
                   </code>
