@@ -52,6 +52,9 @@ type SavedInfo = {
   username: string;
 };
 
+const SAVED_INFO_KEY = "saved_info";
+const JWT_TOKEN_KEY = "jwt_token";
+
 export default function TelegramMiniApp() {
   // State management
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -75,54 +78,56 @@ export default function TelegramMiniApp() {
     setError(message);
   };
 
-  // Helper functions for token storage
-  const storeToken = async (token: string) => {
-    if (isInTelegram) {
-      try {
-        await cloudStorage.setItem("jwt_token", token);
-      } catch (error) {
-        console.warn("Failed to store token in cloud storage, falling back to cookies:", error);
-        Cookies.set("jwt_token", token, { 
-          expires: 7,
-          sameSite: 'lax',
-          secure: window.location.protocol === 'https:',
-          path: '/'
-        });
-      }
-    } else {
-      Cookies.set("jwt_token", token, { 
-        expires: 7,
-        sameSite: 'lax',
-        secure: window.location.protocol === 'https:',
-        path: '/'
-      });
-    }
-  };
+  const retrieveToken = React.useCallback(async (): Promise<string> => {
+    const retrievedString = isInTelegram
+      ? await cloudStorage.getItem(JWT_TOKEN_KEY)
+      : Cookies.get("jwt_token");
+    return retrievedString ?? "";
+  }, [isInTelegram]);
 
-  const retrieveToken = async (): Promise<string | null> => {
-    if (isInTelegram) {
-      try {
-        return await cloudStorage.getItem("jwt_token");
-      } catch (error) {
-        console.warn("Failed to retrieve token from cloud storage, falling back to cookies:", error);
-        return Cookies.get("jwt_token") || null;
-      }
-    } else {
-      return Cookies.get("jwt_token") || null;
-    }
-  };
+  const retrieveSavedInfo = React.useCallback(async (): Promise<SavedInfo> => {
+    const retrievedString = isInTelegram
+      ? await cloudStorage.getItem(SAVED_INFO_KEY)
+      : localStorage.getItem(SAVED_INFO_KEY);
+    return retrievedString
+      ? (JSON.parse(retrievedString) as SavedInfo)
+      : {
+          tgfsUrl: "",
+          username: "",
+        };
+  }, [isInTelegram]);
 
-  const clearToken = async () => {
+  const clearToken = React.useCallback(async () => {
     if (isInTelegram) {
       try {
-        await cloudStorage.removeItem("jwt_token");
-      } catch (error) {
-        console.warn("Failed to clear token from cloud storage:", error);
-      }
+        await cloudStorage.deleteItem(JWT_TOKEN_KEY);
+      } catch {}
     }
     // Always clear cookies as fallback
     Cookies.remove("jwt_token");
-  };
+  }, [isInTelegram]);
+
+  const saveToken = React.useCallback(
+    async (token: string) => {
+      if (isInTelegram) {
+        await cloudStorage.setItem(JWT_TOKEN_KEY, token);
+      } else {
+        Cookies.set("jwt_token", token);
+      }
+    },
+    [isInTelegram]
+  );
+
+  const saveSavedInfo = React.useCallback(
+    async (savedInfo: SavedInfo) => {
+      if (isInTelegram) {
+        await cloudStorage.setItem(SAVED_INFO_KEY, JSON.stringify(savedInfo));
+      } else {
+        localStorage.setItem(SAVED_INFO_KEY, JSON.stringify(savedInfo));
+      }
+    },
+    [isInTelegram]
+  );
 
   // Initialize app on mount
   useEffect(() => {
@@ -148,17 +153,21 @@ export default function TelegramMiniApp() {
       } catch {
         setIsInTelegram(false);
       }
+    };
 
+    initializeApp();
+  }, [retrieveToken]);
+
+  useEffect(() => {
+    const restoreSession = async () => {
       // Restore session from storage (cloud storage for Telegram, cookies for browser)
       const token = await retrieveToken();
-      const savedInfo: SavedInfo = JSON.parse(
-        localStorage.getItem("saved_info") ?? "{}"
-      );
+      const savedInfo = await retrieveSavedInfo();
 
       setFormData((prev) => ({
         ...prev,
-        tgfsUrl: savedInfo.tgfsUrl || "",
-        username: savedInfo.username || "",
+        tgfsUrl: savedInfo.tgfsUrl ?? "",
+        username: savedInfo.username ?? "",
       }));
 
       if (token && savedInfo.tgfsUrl) {
@@ -169,15 +178,18 @@ export default function TelegramMiniApp() {
         );
         setWebdavClient(client);
 
-        const managerClient = new ManagerClient(`${savedInfo.tgfsUrl}/api`, token);
+        const managerClient = new ManagerClient(
+          `${savedInfo.tgfsUrl}/api`,
+          token
+        );
         setManagerClient(managerClient);
 
         setIsLoggedIn(true);
       }
     };
 
-    initializeApp();
-  }, []);
+    restoreSession();
+  }, [retrieveToken, retrieveSavedInfo]);
 
   const handleInputChange =
     (field: keyof LoginFormData) =>
@@ -214,15 +226,12 @@ export default function TelegramMiniApp() {
       const token = data.token;
 
       // Store JWT token in cloud storage (Telegram) or cookies (browser)
-      await storeToken(token);
+      await saveToken(token);
 
-      localStorage.setItem(
-        "saved_info",
-        JSON.stringify({
-          tgfsUrl: formData.tgfsUrl,
-          username: formData.username,
-        })
-      );
+      await saveSavedInfo({
+        tgfsUrl: formData.tgfsUrl,
+        username: formData.username,
+      });
 
       // Create WebDAV client with JWT token
       const client = new WebDAVClient(
