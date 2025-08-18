@@ -275,7 +275,7 @@ export default function TelegramMiniApp() {
     setWebdavClient(null);
     setManagerClient(null);
     setError(null);
-  }, []);
+  }, [clearToken]);
 
   // Create dynamic theme based on Telegram theme parameters
   const currentTheme = React.useMemo(() => {
