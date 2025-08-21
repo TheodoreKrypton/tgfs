@@ -79,8 +79,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
             file_msg.name = f"[part{i+1}]{file_name}"
             file_msg.size = part_size
             res.append(await self.__send_file(file_msg))
-            file_msg.offset += size
-            file_msg.read_size = 0
+            file_msg.next_part(part_size)
 
         return res
 

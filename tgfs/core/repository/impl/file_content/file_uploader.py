@@ -129,6 +129,8 @@ class FileUploader:
         return False
 
     async def upload(self) -> int:
+        await self._file_msg.open()
+        
         for i in range(self._total_parts):
             await self._part_indexes.put(i)
 

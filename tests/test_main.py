@@ -9,6 +9,8 @@ class TestMain:
         mock_login_account = mocker.patch("main.login_as_account")
         mock_login_bots = mocker.patch("main.login_as_bots")
         mock_client_create = mocker.patch("main.Client.create")
+        mock_tdlib_api = mocker.patch("main.TDLibApi")
+        mock_pyrogram_api = mocker.patch("main.PyrogramAPI")
         mock_config = mocker.Mock()
         mock_config.telegram.account = mocker.Mock()  # Account is configured
         mock_config.telegram.private_file_channel = [12345]
@@ -21,10 +23,12 @@ class TestMain:
         mock_account = mocker.Mock()
         mock_bots = [mocker.Mock()]
         mock_client = mocker.Mock()
+        mock_tdlib_instance = mocker.Mock()
 
         mock_login_account.return_value = mock_account
         mock_login_bots.return_value = mock_bots
         mock_client_create.return_value = mock_client
+        mock_tdlib_api.return_value = mock_tdlib_instance
 
         # Call function
         result = await create_clients(mock_config)
@@ -33,7 +37,7 @@ class TestMain:
         mock_login_account.assert_called_once_with(mock_config)
         mock_login_bots.assert_called_once_with(mock_config)
         mock_client_create.assert_called_once_with(
-            12345, mock_metadata_cfg, mock_bots, mock_account
+            12345, mock_metadata_cfg, mock_tdlib_instance
         )
         assert result == {"test_client": mock_client}
 
@@ -43,6 +47,8 @@ class TestMain:
         mock_login_account = mocker.patch("main.login_as_account")
         mock_login_bots = mocker.patch("main.login_as_bots")
         mock_client_create = mocker.patch("main.Client.create")
+        mock_tdlib_api = mocker.patch("main.TDLibApi")
+        mock_pyrogram_api = mocker.patch("main.PyrogramAPI")
         mock_config = mocker.Mock()
         mock_config.telegram.account = None  # No account configured
         mock_config.telegram.private_file_channel = [67890]
@@ -54,9 +60,11 @@ class TestMain:
 
         mock_bots = [mocker.Mock()]
         mock_client = mocker.Mock()
+        mock_tdlib_instance = mocker.Mock()
 
         mock_login_bots.return_value = mock_bots
         mock_client_create.return_value = mock_client
+        mock_tdlib_api.return_value = mock_tdlib_instance
 
         # Call function
         result = await create_clients(mock_config)
@@ -65,7 +73,7 @@ class TestMain:
         mock_login_account.assert_not_called()
         mock_login_bots.assert_called_once_with(mock_config)
         mock_client_create.assert_called_once_with(
-            67890, mock_metadata_cfg, mock_bots, None
+            67890, mock_metadata_cfg, mock_tdlib_instance
         )
         assert result == {"test_client": mock_client}
 

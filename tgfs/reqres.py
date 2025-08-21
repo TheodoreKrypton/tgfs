@@ -145,8 +145,8 @@ class FileMessage:
 class UploadableFileMessage(FileMessage):
     caption: str
     tags: FileTags
-    offset: int
-    read_size: int
+    _offset: int
+    _read_size: int
 
     task_tracker: Optional[TaskTracker]
 
@@ -167,6 +167,10 @@ class UploadableFileMessage(FileMessage):
 
     def file_name(self) -> str:
         return self.name or "unnamed"
+
+    def next_part(self, part_size: int) -> None:
+        self._offset += part_size
+        self._read_size = 0
 
 
 @dataclass
@@ -191,15 +195,12 @@ class FileMessageFromPath(UploadableFileMessage):
             caption="",
             tags=FileTags(),
             path=path,
-            offset=0,
+            _offset=0,
             size=os.path.getsize(path),
             task_tracker=None,
-            read_size=0,
+            _read_size=0,
             _fd=open(path, "rb"),
         )
-
-    async def open(self) -> None:
-        self._fd = open(self.path, "rb")
 
     async def read(self, length: int) -> bytes:
         return self._fd.read(length)
@@ -227,14 +228,14 @@ class FileMessageFromBuffer(UploadableFileMessage):
             caption="",
             tags=FileTags(),
             buffer=buffer,
-            offset=0,
+            _offset=0,
             size=len(buffer),
             task_tracker=None,
-            read_size=0,
+            _read_size=0,
         )
 
     async def open(self) -> None:
-        self.__buffer = self.buffer[self.offset :]
+        self.__buffer = self.buffer[self._offset :]
 
     async def read(self, length: int) -> bytes:
         chunk = self.__buffer[:length]
@@ -260,14 +261,14 @@ class FileMessageFromStream(UploadableFileMessage):
             caption="",
             tags=FileTags(),
             stream=stream,
-            offset=0,
+            _offset=0,
             size=size,
             task_tracker=None,
-            read_size=0,
+            _read_size=0,
         )
 
     async def read(self, length: int) -> bytes:
-        size_to_return = min(length, self.get_size() - self.read_size)
+        size_to_return = min(length, self.get_size() - self._read_size)
         while self.cached_size < size_to_return:
             chunk = await anext(self.stream)
             self.cached_chunks.append(chunk)
@@ -277,7 +278,7 @@ class FileMessageFromStream(UploadableFileMessage):
         res = joined[:size_to_return]
         self.cached_chunks = [joined[size_to_return:]]
         self.cached_size -= size_to_return
-        self.read_size += size_to_return
+        self._read_size += size_to_return
         return res
 
 
