@@ -1,10 +1,14 @@
-from .impl.pyrogram import login_as_account, login_as_bots, PyrogramAPI
+from .impl import pyrogram, telethon
 from .interface import TDLibApi, ITDLibClient
 
+PyrogramAPI = pyrogram.PyrogramAPI
+TelethonAPI = telethon.TelethonAPI
+
 __all__ = [
-    "login_as_bots",
-    "login_as_account",
     "TDLibApi",
     "ITDLibClient",
     "PyrogramAPI",
+    "TelethonAPI",
+    "pyrogram",
+    "telethon",
 ]

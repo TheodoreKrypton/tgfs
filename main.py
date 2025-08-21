@@ -15,10 +15,23 @@ from uvicorn.server import Server
 from tgfs.app import create_app
 from tgfs.config import Config, get_config
 from tgfs.core import Client, Clients
-from tgfs.telegram import login_as_account, login_as_bots, TDLibApi, PyrogramAPI
+from tgfs.telegram import pyrogram, telethon, TDLibApi, PyrogramAPI, TelethonAPI
 
 
 async def create_clients(config: Config) -> Clients:
+    login_as_account = (
+        pyrogram.login_as_account
+        if config.telegram.lib == "pyrogram"
+        else telethon.login_as_account
+    )
+    login_as_bots = (
+        pyrogram.login_as_bots
+        if config.telegram.lib == "pyrogram"
+        else telethon.login_as_bots
+    )
+
+    API = PyrogramAPI if config.telegram.lib == "pyrogram" else TelethonAPI
+
     account = await login_as_account(config) if config.telegram.account else None
     bots = await login_as_bots(config)
 
@@ -30,8 +43,8 @@ async def create_clients(config: Config) -> Clients:
             channel_id,
             metadata_cfg,
             TDLibApi(
-                bots=[PyrogramAPI(bot) for bot in bots],
-                account=PyrogramAPI(account) if account else None,
+                bots=[API(bot) for bot in bots],
+                account=API(account) if account else None,
             ),
         )
     return clients

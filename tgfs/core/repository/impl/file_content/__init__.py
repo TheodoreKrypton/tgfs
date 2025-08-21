@@ -27,14 +27,14 @@ class TGMsgFileContentRepository(IFileContentRepository):
         self.__message_api = message_api
 
     @staticmethod
-    def __get_file_caption(
+    def _get_file_caption(
         file_msg: FileMessage,
     ) -> str:
         if not isinstance(file_msg, UploadableFileMessage):
             return ""
         return file_msg.caption
 
-    async def __send_file(self, file_msg: UploadableFileMessage) -> SentFileMessage:
+    async def _send_file(self, file_msg: UploadableFileMessage) -> SentFileMessage:
         message_id: int = EMPTY_FILE_MESSAGE
 
         async def on_complete():
@@ -44,7 +44,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
                     message_id = (
                         await uploader.send(
                             self.__message_api.private_file_channel,
-                            self.__get_file_caption(file_msg),
+                            self._get_file_caption(file_msg),
                         )
                     ).message_id
                     return
@@ -78,7 +78,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
         for i, part_size in enumerate(self._size_for_parts(size)):
             file_msg.name = f"[part{i+1}]{file_name}"
             file_msg.size = part_size
-            res.append(await self.__send_file(file_msg))
+            res.append(await self._send_file(file_msg))
             file_msg.next_part(part_size)
 
         return res
@@ -103,7 +103,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
         return message_id
 
     @staticmethod
-    def __get_file_part_to_download(
+    def _get_file_part_to_download(
         fv: TGFSFileVersion, begin: int, end: int
     ) -> Generator[tuple[int, int, int]]:
         if fv.size <= 0:
@@ -150,7 +150,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
         logger.info(f"Retrieving file content for {name}@{fv.id} from {begin} to {end}")
 
         tasks = []
-        for message_id, begin, end in self.__get_file_part_to_download(fv, begin, end):
+        for message_id, begin, end in self._get_file_part_to_download(fv, begin, end):
             tasks.append(self.__message_api.download_file(message_id, begin, end))
 
         return ChainedAsyncIterator((x.chunks for x in await asyncio.gather(*tasks)))

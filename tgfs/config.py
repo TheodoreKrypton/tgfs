@@ -2,7 +2,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Self, TypedDict
+from typing import Dict, List, Optional, Self, TypedDict, Literal
 
 import yaml
 
@@ -200,6 +200,7 @@ class TelegramConfig:
     account: Optional[AccountConfig]
     bot: BotConfig
     private_file_channel: List[str]
+    lib: Literal["pyrogram", "telethon"]
 
     @classmethod
     def from_dict(cls, data: dict) -> "TelegramConfig":
@@ -211,6 +212,7 @@ class TelegramConfig:
             ),
             bot=BotConfig.from_dict(data["bot"]),
             private_file_channel=data["private_file_channel"],
+            lib=data.get("lib") or "telethon",
         )
 
 
