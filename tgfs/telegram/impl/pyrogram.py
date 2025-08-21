@@ -329,7 +329,9 @@ async def login_as_account(config: Config) -> Client:
         )
         await client.start()
     else:
-        client = Client(name="account", api_id=api_id, api_hash=api_hash)
+        client = Client(
+            name="account", api_id=api_id, api_hash=api_hash, in_memory=True
+        )
         await client.start()
         session.save(await client.export_session_string())
 
@@ -361,7 +363,11 @@ async def login_as_bots(config: Config) -> List[Client]:
             await client.start()
         else:
             client = Client(
-                name="tgfs", bot_token=token, api_id=api_id, api_hash=api_hash
+                name="tgfs",
+                bot_token=token,
+                api_id=api_id,
+                api_hash=api_hash,
+                in_memory=True,
             )
             await client.start()
             session.save_multibot(await client.export_session_string())
