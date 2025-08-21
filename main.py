@@ -5,9 +5,12 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-import uvloop
+try:
+    import uvloop  # type: ignore[import]
 
-uvloop.install()
+    uvloop.install()
+except ImportError:
+    logging.warning("uvloop is not installed, using default event loop")
 
 from uvicorn.config import Config as UvicornConfig
 from uvicorn.server import Server
