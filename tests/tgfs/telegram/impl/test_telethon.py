@@ -50,7 +50,7 @@ class TestTelethonAPI:
 
     @pytest.fixture
     def mock_chat(self, mocker):
-        return mocker.Mock()
+        return 123456789  # Use integer as chat ID instead of Mock
 
     @pytest.fixture
     def mock_message(self, mocker):
@@ -120,7 +120,7 @@ class TestTelethonAPI:
         result = await telethon_api.get_messages(req)
 
         telethon_api._client.get_messages.assert_called_once_with(
-            entity=mock_chat, ids=[12345]
+            entity=tlt.PeerChannel(mock_chat), ids=[12345]
         )
         assert isinstance(result, list)
 
@@ -212,7 +212,7 @@ class TestTelethonAPI:
         result = await telethon_api.send_text(req)
 
         telethon_api._client.send_message.assert_called_once_with(
-            entity=mock_chat, message="Hello World"
+            entity=tlt.PeerChannel(mock_chat), message="Hello World"
         )
         assert result.message_id == 99999
 
@@ -234,7 +234,7 @@ class TestTelethonAPI:
         result = await telethon_api.edit_message_text(req)
 
         telethon_api._client.edit_message.assert_called_once_with(
-            entity=mock_chat, message=12345, text="Updated text"
+            entity=tlt.PeerChannel(mock_chat), message=12345, text="Updated text"
         )
         mock_cache.__setitem__.assert_called_once_with(12345, None)
         assert result.message_id == 88888
@@ -259,7 +259,7 @@ class TestTelethonAPI:
 
         telethon_api._client.edit_message.assert_called_once()
         call_args = telethon_api._client.edit_message.call_args
-        assert call_args[1]["entity"] == mock_chat
+        assert call_args[1]["entity"] == tlt.PeerChannel(mock_chat)
         assert call_args[1]["message"] == 12345
         assert isinstance(call_args[1]["file"], tlt.InputFile)
         mock_cache.__setitem__.assert_called_once_with(12345, None)
@@ -286,7 +286,7 @@ class TestTelethonAPI:
         result = await telethon_api.search_messages(req)
 
         telethon_api._client.get_messages.assert_called_once_with(
-            entity=mock_chat, search="test query"
+            entity=tlt.PeerChannel(mock_chat), search="test query"
         )
         assert len(result) >= 0
 
@@ -320,7 +320,7 @@ class TestTelethonAPI:
 
         telethon_api._client.get_messages.assert_called_once()
         call_args = telethon_api._client.get_messages.call_args
-        assert call_args[1]["entity"] == mock_chat
+        assert call_args[1]["entity"] == tlt.PeerChannel(mock_chat)
         assert isinstance(call_args[1]["filter"], tlt.InputMessagesFilterPinned)
         assert len(result) >= 0
 
@@ -331,7 +331,7 @@ class TestTelethonAPI:
         await telethon_api.pin_message(req)
 
         telethon_api._client.pin_message.assert_called_once_with(
-            entity=mock_chat, message=12345, notify=False
+            entity=tlt.PeerChannel(mock_chat), message=12345, notify=False
         )
 
     @pytest.mark.asyncio
@@ -373,7 +373,7 @@ class TestTelethonAPI:
 
         telethon_api._client.send_file.assert_called_once()
         call_args = telethon_api._client.send_file.call_args
-        assert call_args[1]["entity"] == mock_chat
+        assert call_args[1]["entity"] == tlt.PeerChannel(mock_chat)
         assert isinstance(call_args[1]["file"], tlt.InputFileBig)
         assert call_args[1]["caption"] == "Big file"
         assert call_args[1]["force_document"] is True
@@ -411,7 +411,7 @@ class TestTelethonAPI:
 
         telethon_api._client.send_file.assert_called_once()
         call_args = telethon_api._client.send_file.call_args
-        assert call_args[1]["entity"] == mock_chat
+        assert call_args[1]["entity"] == tlt.PeerChannel(mock_chat)
         assert isinstance(call_args[1]["file"], tlt.InputFile)
         assert call_args[1]["caption"] == "Small file"
         assert call_args[1]["force_document"] is True
@@ -452,7 +452,7 @@ class TestTelethonAPI:
         result = await telethon_api.download_file(req)
 
         telethon_api._client.get_messages.assert_called_once_with(
-            entity=mock_chat, ids=[54321]
+            entity=tlt.PeerChannel(mock_chat), ids=[54321]
         )
         assert result.size == 100  # end - begin + 1
 

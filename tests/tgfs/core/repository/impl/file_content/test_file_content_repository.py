@@ -294,7 +294,7 @@ class TestGetMethod:
 
             return MockFileContent()
 
-        mock_message_api.download_file.return_value = mock_download()
+        mock_message_api.download_file.return_value = await mock_download()
 
         # Mock ChainedAsyncIterator
         mock_chained = mocker.patch(
@@ -321,7 +321,7 @@ class TestGetMethod:
 
             return MockFileContent()
 
-        mock_message_api.download_file.return_value = mock_download()
+        mock_message_api.download_file.return_value = await mock_download()
         mock_chained = mocker.patch(
             "tgfs.core.repository.impl.file_content.ChainedAsyncIterator"
         )
@@ -433,7 +433,7 @@ class TestIntegration:
 
             return MockFileContent()
 
-        mock_message_api.download_file.return_value = mock_download()
+        mock_message_api.download_file.return_value = await mock_download()
 
         await repository.get(file_version, 0, -1, "workflow_test.txt")
 
