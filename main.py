@@ -5,28 +5,48 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+try:
+    import uvloop  # type: ignore[import]
+
+    uvloop.install()
+except ImportError:
+    logging.warning("uvloop is not installed, using default event loop")
+
 from uvicorn.config import Config as UvicornConfig
 from uvicorn.server import Server
 
 from tgfs.app import create_app
 from tgfs.config import Config, get_config
 from tgfs.core import Client, Clients
-from tgfs.telegram import login_as_account, login_as_bots
+from tgfs.telegram import PyrogramAPI, TDLibApi, TelethonAPI, pyrogram, telethon
 
 
 async def create_clients(config: Config) -> Clients:
-    account = await login_as_account(config) if config.telegram.account else None
-    bots = await login_as_bots(config)
+    if config.telegram.lib == "pyrogram":
+        tdlib_api = TDLibApi(
+            account=(
+                PyrogramAPI(await pyrogram.login_as_account(config))
+                if config.telegram.account
+                else None
+            ),
+            bots=[PyrogramAPI(bot) for bot in await pyrogram.login_as_bots(config)],
+        )
+    else:
+        tdlib_api = TDLibApi(
+            account=(
+                TelethonAPI(await telethon.login_as_account(config))
+                if config.telegram.account
+                else None
+            ),
+            bots=[TelethonAPI(bot) for bot in await telethon.login_as_bots(config)],
+        )
 
     clients: Clients = {}
 
     for channel_id in config.telegram.private_file_channel:
         metadata_cfg = config.tgfs.metadata[channel_id]
         clients[metadata_cfg.name] = await Client.create(
-            channel_id,
-            metadata_cfg,
-            bots,
-            account,
+            channel_id, metadata_cfg, tdlib_api
         )
     return clients
 

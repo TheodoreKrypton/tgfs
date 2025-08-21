@@ -63,11 +63,19 @@ class Resource(_Resource):
         self.__fs_cache.reset_parent(self.__relative_path)
         await self.__ops.rm_file(self.__relative_path)
 
+    def _remove_prefix(self, destination: str) -> str:
+        prefix = f"/webdav/{self.__client.name}"
+        if destination.startswith(prefix):
+            return destination[len(prefix) :]
+        return destination
+
     async def copy_to(self, destination: str) -> None:
+        destination = self._remove_prefix(destination)
         self.__fs_cache.reset_parent(destination)
         await self.__ops.cp_file(self.__relative_path, destination)
 
     async def move_to(self, destination: str) -> None:
+        destination = self._remove_prefix(destination)
         self.__fs_cache.reset_parent(self.__relative_path)
         self.__fs_cache.reset_parent(destination)
         await self.__ops.mv_file(self.__relative_path, destination)

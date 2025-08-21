@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import DefaultDict, Generic, Iterable, List, Optional, Tuple, TypeVar
 
 from lru import LRU  # type: ignore
-from telethon.tl.types import PeerChannel
 
 from tgfs.reqres import MessageResp
 
@@ -48,5 +47,5 @@ global_message_cache: DefaultDict[int, ChannelMessageCache] = defaultdict(
 )
 
 
-def channel_cache(channel: PeerChannel) -> ChannelMessageCache:
-    return global_message_cache[channel.channel_id]
+def channel_cache(channel_id: int) -> ChannelMessageCache:
+    return global_message_cache[channel_id]

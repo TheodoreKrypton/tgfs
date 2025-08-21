@@ -106,6 +106,12 @@ def create_manager_app(clients: Clients, config: Config) -> FastAPI:
             directory = body.directory
         client_name, sub_path = split_global_path(directory)
 
+        if client_name != get_name_by_channel_id(body.channel_id):
+            raise HTTPException(
+                status_code=400,
+                detail=f"The file is not in the channel managing the current folder {client_name}",
+            )
+
         gfc[client_name].reset(f"/{sub_path}")
 
         await ops[client_name].import_from_existing_file_message(

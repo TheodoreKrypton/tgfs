@@ -2,7 +2,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Self, TypedDict
+from typing import Dict, List, Literal, Optional, Self, TypedDict
 
 import yaml
 
@@ -200,15 +200,10 @@ class TelegramConfig:
     account: Optional[AccountConfig]
     bot: BotConfig
     private_file_channel: List[str]
+    lib: Literal["pyrogram", "telethon"]
 
     @classmethod
     def from_dict(cls, data: dict) -> "TelegramConfig":
-        c = data["private_file_channel"]
-        if not isinstance(c, List):
-            private_file_channel = [c]
-        else:
-            private_file_channel = c
-
         return cls(
             api_id=data["api_id"],
             api_hash=data["api_hash"],
@@ -216,7 +211,8 @@ class TelegramConfig:
                 AccountConfig.from_dict(data["account"]) if "account" in data else None
             ),
             bot=BotConfig.from_dict(data["bot"]),
-            private_file_channel=private_file_channel,
+            private_file_channel=data["private_file_channel"],
+            lib=data.get("lib") or "telethon",
         )
 
 

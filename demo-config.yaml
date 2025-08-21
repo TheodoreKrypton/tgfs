@@ -6,6 +6,7 @@ telegram:
     tokens:
       - hidden
   private_file_channel: 'tgfsdemo'
+  lib: pyrogram
 tgfs:
   users:
   download:

@@ -10,8 +10,12 @@ import {
   CardContent,
   Checkbox,
   Container,
+  FormControl,
   FormControlLabel,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Typography,
 } from "@mui/material";
 import yaml from "js-yaml";
@@ -40,6 +44,7 @@ interface ConfigData {
   telegram: {
     api_id: string;
     api_hash: string;
+    lib: "pyrogram" | "telethon";
     account: {
       session_file: string;
     };
@@ -73,6 +78,7 @@ interface ConfigData {
 type ConfigUpdatePaths = {
   "telegram.api_id": string;
   "telegram.api_hash": string;
+  "telegram.lib": "pyrogram" | "telethon";
   "telegram.channels": ChannelConfig[];
   "telegram.bot.tokens": string[];
   "tgfs.users": { username: string; password: string }[];
@@ -101,6 +107,7 @@ export default function ConfigGenerator() {
     telegram: {
       api_id: "",
       api_hash: "",
+      lib: "pyrogram",
       account: {
         session_file: "account.session",
       },
@@ -154,6 +161,8 @@ export default function ConfigGenerator() {
         newConfig.telegram.api_id = value as string;
       } else if (path === "telegram.api_hash") {
         newConfig.telegram.api_hash = value as string;
+      } else if (path === "telegram.lib") {
+        newConfig.telegram.lib = value as "pyrogram" | "telethon";
       } else if (path === "telegram.channels") {
         newConfig.telegram.channels = value as ChannelConfig[];
       } else if (path === "telegram.bot.tokens") {
@@ -234,6 +243,7 @@ export default function ConfigGenerator() {
       telegram: {
         api_id: config.telegram.api_id,
         api_hash: config.telegram.api_hash,
+        lib: config.telegram.lib,
         ...(withUserAccount
           ? { account: { session_file: "account.session" } }
           : {}),
@@ -461,6 +471,22 @@ export default function ConfigGenerator() {
                   style={{ flex: 1 }}
                   required
                 />
+                <FormControl size="small" sx={{ minWidth: 200 }}>
+                  <InputLabel>Telegram Library</InputLabel>
+                  <Select
+                    value={config.telegram.lib}
+                    label="Telegram Library"
+                    onChange={(e) =>
+                      updateConfig(
+                        "telegram.lib",
+                        e.target.value as "pyrogram" | "telethon"
+                      )
+                    }
+                  >
+                    <MenuItem value="pyrogram">Pyrogram</MenuItem>
+                    <MenuItem value="telethon">Telethon</MenuItem>
+                  </Select>
+                </FormControl>
               </FieldRow>
 
               <Box>

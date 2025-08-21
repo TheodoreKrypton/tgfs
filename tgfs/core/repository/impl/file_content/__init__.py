@@ -11,7 +11,6 @@ from tgfs.reqres import (
     FileContent,
     FileMessage,
     FileMessageFromBuffer,
-    FileMessageFromPath,
     SentFileMessage,
     UploadableFileMessage,
 )
@@ -27,27 +26,36 @@ class TGMsgFileContentRepository(IFileContentRepository):
         self.__message_api = message_api
 
     @staticmethod
-    def __get_file_caption(
+    def _get_file_caption(
         file_msg: FileMessage,
     ) -> str:
         if not isinstance(file_msg, UploadableFileMessage):
             return ""
         return file_msg.caption
 
-    async def __send_file(self, file_msg: UploadableFileMessage) -> SentFileMessage:
+    async def _send_file(self, file_msg: UploadableFileMessage) -> SentFileMessage:
         message_id: int = EMPTY_FILE_MESSAGE
 
         async def on_complete():
-            nonlocal message_id
-            message_id = (
-                await uploader.send(
-                    self.__message_api.private_file_channel,
-                    self.__get_file_caption(file_msg),
-                )
-            ).message_id
+            while True:
+                try:
+                    nonlocal message_id
+                    message_id = (
+                        await uploader.send(
+                            self.__message_api.private_file_channel,
+                            self._get_file_caption(file_msg),
+                        )
+                    ).message_id
+                    return
+                except Exception as ex:
+                    seconds = 5
+                    logger.error(
+                        f"Exception occurred when sending file {file_msg.name}: {ex}. Waiting {seconds} seconds before retrying."
+                    )
+                    await asyncio.sleep(seconds)
 
         uploader = create_uploader(self.__message_api.tdlib, file_msg, on_complete)
-        size = await uploader.upload(file_msg, file_msg.name)
+        size = await uploader.upload()
 
         return SentFileMessage(message_id=message_id, size=size)
 
@@ -67,13 +75,10 @@ class TGMsgFileContentRepository(IFileContentRepository):
         file_name = file_msg.name or "unnamed"
 
         for i, part_size in enumerate(self._size_for_parts(size)):
-            file_msg.name = f"{file_name}.part{i + 1}"
+            file_msg.name = f"[part{i+1}]{file_name}"
             file_msg.size = part_size
-            res.append(await self.__send_file(file_msg))
-
-            logger.info(f"Saving {file_msg.name}")
-            if isinstance(file_msg, FileMessageFromBuffer | FileMessageFromPath):
-                file_msg.offset += part_size
+            res.append(await self._send_file(file_msg))
+            file_msg.next_part(part_size)
 
         return res
 
@@ -97,7 +102,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
         return message_id
 
     @staticmethod
-    def __get_file_part_to_download(
+    def _get_file_part_to_download(
         fv: TGFSFileVersion, begin: int, end: int
     ) -> Generator[tuple[int, int, int]]:
         if fv.size <= 0:
@@ -144,7 +149,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
         logger.info(f"Retrieving file content for {name}@{fv.id} from {begin} to {end}")
 
         tasks = []
-        for message_id, begin, end in self.__get_file_part_to_download(fv, begin, end):
+        for message_id, begin, end in self._get_file_part_to_download(fv, begin, end):
             tasks.append(self.__message_api.download_file(message_id, begin, end))
 
         return ChainedAsyncIterator((x.chunks for x in await asyncio.gather(*tasks)))

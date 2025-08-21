@@ -1,8 +1,7 @@
 import os
-from dataclasses import dataclass
-from typing import AsyncIterator, Optional, Tuple
-
-from telethon.tl.types import PeerChannel
+from dataclasses import dataclass, field
+from io import IOBase
+from typing import AsyncIterator, List, Optional, Tuple
 
 from tgfs.tasks.integrations import TaskTracker
 
@@ -19,7 +18,7 @@ class SentFileMessage(Message):
 
 @dataclass
 class Chat:
-    chat: PeerChannel
+    chat: int
 
 
 @dataclass
@@ -146,7 +145,8 @@ class FileMessage:
 class UploadableFileMessage(FileMessage):
     caption: str
     tags: FileTags
-    offset: int
+    _offset: int
+    _read_size: int
 
     task_tracker: Optional[TaskTracker]
 
@@ -155,6 +155,22 @@ class UploadableFileMessage(FileMessage):
 
     def get_size(self) -> int:
         return self.size or self._get_size()
+
+    async def open(self) -> None:
+        pass
+
+    async def read(self, length: int) -> bytes:
+        raise NotImplementedError("Subclasses must implement the read method")
+
+    async def close(self) -> None:
+        pass
+
+    def file_name(self) -> str:
+        return self.name or "unnamed"
+
+    def next_part(self, part_size: int) -> None:
+        self._offset += part_size
+        self._read_size = 0
 
 
 @dataclass
@@ -167,6 +183,7 @@ class FileMessageEmpty(FileMessage):
 @dataclass
 class FileMessageFromPath(UploadableFileMessage):
     path: str
+    _fd: IOBase
 
     def _get_size(self) -> int:
         return os.path.getsize(self.path)
@@ -178,15 +195,28 @@ class FileMessageFromPath(UploadableFileMessage):
             caption="",
             tags=FileTags(),
             path=path,
-            offset=0,
+            _offset=0,
             size=os.path.getsize(path),
             task_tracker=None,
+            _read_size=0,
+            _fd=open(path, "rb"),
         )
+
+    async def read(self, length: int) -> bytes:
+        return self._fd.read(length)
+
+    async def close(self) -> None:
+        if self._fd:
+            self._fd.close()
+
+    def file_name(self) -> str:
+        return self.name or os.path.basename(self.path)
 
 
 @dataclass
 class FileMessageFromBuffer(UploadableFileMessage):
     buffer: bytes
+    __buffer: bytes = b""
 
     def _get_size(self) -> int:
         return len(self.buffer)
@@ -198,15 +228,26 @@ class FileMessageFromBuffer(UploadableFileMessage):
             caption="",
             tags=FileTags(),
             buffer=buffer,
-            offset=0,
+            _offset=0,
             size=len(buffer),
             task_tracker=None,
+            _read_size=0,
         )
+
+    async def open(self) -> None:
+        self.__buffer = self.buffer[self._offset :]
+
+    async def read(self, length: int) -> bytes:
+        chunk = self.__buffer[:length]
+        self.__buffer = self.__buffer[length:]
+        return chunk
 
 
 @dataclass
 class FileMessageFromStream(UploadableFileMessage):
     stream: FileContent
+    cached_chunks: List[bytes] = field(default_factory=list)
+    cached_size = 0
 
     @classmethod
     def new(
@@ -220,10 +261,25 @@ class FileMessageFromStream(UploadableFileMessage):
             caption="",
             tags=FileTags(),
             stream=stream,
-            offset=0,
+            _offset=0,
             size=size,
             task_tracker=None,
+            _read_size=0,
         )
+
+    async def read(self, length: int) -> bytes:
+        size_to_return = min(length, self.get_size() - self._read_size)
+        while self.cached_size < size_to_return:
+            chunk = await anext(self.stream)
+            self.cached_chunks.append(chunk)
+            self.cached_size += len(chunk)
+
+        joined = b"".join(self.cached_chunks)
+        res = joined[:size_to_return]
+        self.cached_chunks = [joined[size_to_return:]]
+        self.cached_size -= size_to_return
+        self._read_size += size_to_return
+        return res
 
 
 @dataclass

@@ -10,7 +10,7 @@ from telethon import types as tlt
 from telethon.errors import SessionPasswordNeededError
 from telethon.helpers import TotalList
 from telethon.sessions import StringSession
-from telethon.tl.types import InputDocumentFileLocation
+from telethon.tl.types import InputDocumentFileLocation, PeerChannel
 
 from tgfs.config import Config
 from tgfs.errors import TechnicalError, UnDownloadableMessage
@@ -92,7 +92,7 @@ class TelethonAPI(ITDLibClient):
         cache = channel_cache(req.chat).id
         if message_id_to_fetch := cache.find_nonexistent(req.message_ids):
             fetched_messages = await self.__get_messages(
-                entity=req.chat, ids=message_id_to_fetch
+                entity=PeerChannel(channel_id=req.chat), ids=message_id_to_fetch
             )
 
             for message in exclude_none(self._transform_messages(fetched_messages)):
@@ -101,20 +101,24 @@ class TelethonAPI(ITDLibClient):
         return GetMessagesResp(cache.gets(req.message_ids))
 
     async def send_text(self, req: SendTextReq) -> SendMessageResp:
-        message = await self._client.send_message(entity=req.chat, message=req.text)
+        message = await self._client.send_message(
+            entity=PeerChannel(channel_id=req.chat), message=req.text
+        )
         return SendMessageResp(message_id=message.id)
 
     async def edit_message_text(self, req: EditMessageTextReq) -> SendMessageResp:
         channel_cache(req.chat).id[req.message_id] = None
         message = await self._client.edit_message(
-            entity=req.chat, message=req.message_id, text=req.text
+            entity=PeerChannel(channel_id=req.chat),
+            message=req.message_id,
+            text=req.text,
         )
         return SendMessageResp(message_id=message.id)
 
     async def edit_message_media(self, req: EditMessageMediaReq) -> Message:
         channel_cache(req.chat).id[req.message_id] = None
         message = await self._client.edit_message(
-            entity=req.chat,
+            entity=PeerChannel(channel_id=req.chat),
             message=req.message_id,
             file=tlt.InputFile(
                 id=req.file.id,
@@ -128,7 +132,9 @@ class TelethonAPI(ITDLibClient):
     async def search_messages(self, req: SearchMessageReq) -> GetMessagesRespNoNone:
         cache = channel_cache(req.chat).search
         if req.search not in cache:
-            messages = await self.__get_messages(entity=req.chat, search=req.search)
+            messages = await self.__get_messages(
+                entity=PeerChannel(channel_id=req.chat), search=req.search
+            )
             cache[req.search] = tuple(exclude_none(self._transform_messages(messages)))
         return GetMessagesRespNoNone(cache[req.search])
 
@@ -140,7 +146,8 @@ class TelethonAPI(ITDLibClient):
                 exclude_none(
                     self._transform_messages(
                         await self.__get_messages(
-                            entity=req.chat, filter=tlt.InputMessagesFilterPinned()
+                            entity=PeerChannel(channel_id=req.chat),
+                            filter=tlt.InputMessagesFilterPinned(),
                         )
                     )
                 )
@@ -149,7 +156,9 @@ class TelethonAPI(ITDLibClient):
 
     async def pin_message(self, req: PinMessageReq) -> None:
         await self._client.pin_message(
-            entity=req.chat, message=req.message_id, notify=False
+            entity=PeerChannel(channel_id=req.chat),
+            message=req.message_id,
+            notify=False,
         )
 
     async def save_big_file_part(self, req: SaveBigFilePartReq) -> SaveFilePartResp:
@@ -180,7 +189,10 @@ class TelethonAPI(ITDLibClient):
             name=req.file.name,
         )
         message = await self._client.send_file(
-            entity=req.chat, file=file, caption=req.caption, force_document=True
+            entity=PeerChannel(channel_id=req.chat),
+            file=file,
+            caption=req.caption,
+            force_document=True,
         )
         if not isinstance(message, tlt.Message):
             raise TechnicalError("Unexpected response type from send_file")
@@ -194,14 +206,19 @@ class TelethonAPI(ITDLibClient):
             md5_checksum="",
         )
         message = await self._client.send_file(
-            entity=req.chat, file=file, caption=req.caption, force_document=True
+            entity=PeerChannel(channel_id=req.chat),
+            file=file,
+            caption=req.caption,
+            force_document=True,
         )
         if not isinstance(message, tlt.Message):
             raise TechnicalError("Unexpected response type from send_file")
         return SendMessageResp(message_id=message.id)
 
     async def download_file(self, req: DownloadFileReq) -> DownloadFileResp:
-        messages = await self.__get_messages(entity=req.chat, ids=[req.message_id])
+        messages = await self.__get_messages(
+            entity=PeerChannel(channel_id=req.chat), ids=[req.message_id]
+        )
         message = messages[0]
 
         document = getattr(message, "document", None)
@@ -242,6 +259,15 @@ class TelethonAPI(ITDLibClient):
                     break
 
         return DownloadFileResp(chunks=chunks(), size=bytes_to_read)
+
+    async def resolve_channel_id(self, channel_id: str) -> int:
+        try:
+            return int(channel_id)
+        except ValueError:
+            entity = await self._client.get_entity(f"@{channel_id}")
+            if not isinstance(entity, tlt.Channel):
+                raise TechnicalError("Expected a Telegram channel")
+            return entity.id
 
 
 class Session:

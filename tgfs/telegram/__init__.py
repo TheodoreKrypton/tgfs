@@ -1,6 +1,14 @@
-from .impl.telethon import login_as_account, login_as_bots
+from .impl import pyrogram, telethon
+from .interface import ITDLibClient, TDLibApi
+
+PyrogramAPI = pyrogram.PyrogramAPI
+TelethonAPI = telethon.TelethonAPI
 
 __all__ = [
-    "login_as_bots",
-    "login_as_account",
+    "TDLibApi",
+    "ITDLibClient",
+    "PyrogramAPI",
+    "TelethonAPI",
+    "pyrogram",
+    "telethon",
 ]
