@@ -203,12 +203,6 @@ class TelegramConfig:
 
     @classmethod
     def from_dict(cls, data: dict) -> "TelegramConfig":
-        c = data["private_file_channel"]
-        if not isinstance(c, List):
-            private_file_channel = [c]
-        else:
-            private_file_channel = c
-
         return cls(
             api_id=data["api_id"],
             api_hash=data["api_hash"],
@@ -216,7 +210,7 @@ class TelegramConfig:
                 AccountConfig.from_dict(data["account"]) if "account" in data else None
             ),
             bot=BotConfig.from_dict(data["bot"]),
-            private_file_channel=private_file_channel,
+            private_file_channel=data["private_file_channel"],
         )
 
 

@@ -1,7 +1,6 @@
 import asyncio
 from typing import Iterator
 
-import telethon.types as tlt
 from pyrate_limiter import Duration, InMemoryBucket, Limiter, Rate
 from telethon.errors import MessageNotModifiedError, RPCError
 
@@ -35,7 +34,7 @@ limiter = Limiter(bucket, max_delay=60 * 1000)  # 60 seconds max delay
 
 
 class MessageApi(MessageBroker):
-    def __init__(self, tdlib: TDLibApi, private_file_channel: tlt.PeerChannel):
+    def __init__(self, tdlib: TDLibApi, private_file_channel: int):
         super().__init__(tdlib, private_file_channel)
 
     @staticmethod

@@ -3,15 +3,12 @@ import tempfile
 from typing import AsyncIterator
 
 import pytest
-from telethon.tl.types import PeerChannel
 
 from tgfs.core.repository.impl.file_content.file_uploader import (
     FileChunk,
-    UploaderFromBuffer,
-    UploaderFromPath,
-    UploaderFromStream,
     WorkersConfig,
     create_uploader,
+    FileUploader,
 )
 from tgfs.errors import TaskCancelled, TechnicalError
 from tgfs.reqres import (
@@ -90,14 +87,13 @@ class TestUploaderFromPath:
         file_msg = FileMessageFromPath.new(path=file_path, name="test.txt")
         file_msg.task_tracker = mock_task_tracker
 
-        uploader = UploaderFromPath(
+        uploader = FileUploader(
             client=mock_client,
-            file_size=file_size,
+            file_msg=file_msg,
             on_complete=None,
-            task_tracker=mock_task_tracker,
         )
 
-        uploaded_size = await uploader.upload(file_msg)
+        uploaded_size = await uploader.upload()
 
         assert uploaded_size == file_size
         assert uploader.get_uploaded_file().name == "test.txt"
@@ -117,7 +113,7 @@ class TestUploaderFromPath:
                 file_msg = FileMessageFromPath.new(path=f.name, name="big_file.bin")
                 file_msg.task_tracker = mock_task_tracker
 
-                uploader = UploaderFromPath(
+                uploader = FileUploader(
                     client=mock_client,
                     file_size=len(big_content),
                     on_complete=None,
@@ -140,7 +136,7 @@ class TestUploaderFromPath:
         file_msg = FileMessageFromPath.new(path=file_path, name="test_offset.txt")
         file_msg.offset = offset
 
-        uploader = UploaderFromPath(
+        uploader = FileUploader(
             client=mock_client, file_size=len(expected_content), on_complete=None
         )
 
@@ -155,7 +151,7 @@ class TestUploaderFromPath:
         file_msg = FileMessageFromPath.new(path=file_path)
         file_msg.name = ""  # Clear the name to test default
 
-        uploader = UploaderFromPath(client=mock_client, file_size=100, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_size=100, on_complete=None)
 
         await uploader.upload(file_msg)
 
@@ -174,7 +170,7 @@ class TestUploaderFromPath:
 
         file_msg = FileMessageFromPath.new(path=file_path, name="retry_test.txt")
 
-        uploader = UploaderFromPath(
+        uploader = FileUploader(
             client=mock_client, file_size=len(expected_content), on_complete=None
         )
 
@@ -195,7 +191,7 @@ class TestUploaderFromPath:
         file_msg = FileMessageFromPath.new(path=file_path, name="cancelled.txt")
         file_msg.task_tracker = mock_task_tracker
 
-        uploader = UploaderFromPath(
+        uploader = FileUploader(
             client=mock_client,
             file_size=len(expected_content),
             on_complete=None,
@@ -217,7 +213,7 @@ class TestUploaderFromPath:
 
         file_msg = FileMessageFromPath.new(path=file_path, name="callback_test.txt")
 
-        uploader = UploaderFromPath(
+        uploader = FileUploader(
             client=mock_client, file_size=len(expected_content), on_complete=on_complete
         )
 
@@ -228,12 +224,12 @@ class TestUploaderFromPath:
     @pytest.mark.asyncio
     async def test_send_file(self, mock_client, test_file):
         file_path, expected_content = test_file
-        chat_id = PeerChannel(channel_id=123)
+        chat_id = 123
         caption = "Test caption"
 
         file_msg = FileMessageFromPath.new(path=file_path, name="send_test.txt")
 
-        uploader = UploaderFromPath(
+        uploader = FileUploader(
             client=mock_client, file_size=len(expected_content), on_complete=None
         )
 
@@ -262,7 +258,7 @@ class TestUploaderFromBuffer:
 
         file_msg = FileMessageFromBuffer.new(buffer=test_data, name="buffer_test.txt")
 
-        uploader = UploaderFromBuffer(
+        uploader = FileUploader(
             client=mock_client, file_size=len(test_data), on_complete=None
         )
 
@@ -281,7 +277,7 @@ class TestUploaderFromBuffer:
         file_msg = FileMessageFromBuffer.new(buffer=test_data, name="offset_buffer.txt")
         file_msg.offset = offset
 
-        uploader = UploaderFromBuffer(
+        uploader = FileUploader(
             client=mock_client, file_size=len(expected_data), on_complete=None
         )
 
@@ -295,7 +291,7 @@ class TestUploaderFromBuffer:
 
         file_msg = FileMessageFromBuffer.new(buffer=test_data)
 
-        uploader = UploaderFromBuffer(
+        uploader = FileUploader(
             client=mock_client, file_size=len(test_data), on_complete=None
         )
 
@@ -329,7 +325,7 @@ class TestUploaderFromStream:
             stream=stream, size=total_size, name="stream_test.txt"
         )
 
-        uploader = UploaderFromStream(
+        uploader = FileUploader(
             client=mock_client, file_size=total_size, on_complete=None
         )
 
@@ -347,7 +343,7 @@ class TestUploaderFromStream:
         stream = self.create_test_stream(chunks)
         file_msg = FileMessageFromStream.new(stream=stream, size=total_size)
 
-        uploader = UploaderFromStream(
+        uploader = FileUploader(
             client=mock_client, file_size=total_size, on_complete=None
         )
 
@@ -367,7 +363,7 @@ class TestUploaderFromStream:
             stream=stream, size=total_size, name="chunked.txt"
         )
 
-        uploader = UploaderFromStream(
+        uploader = FileUploader(
             client=mock_client, file_size=total_size, on_complete=None
         )
 

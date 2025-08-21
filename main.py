@@ -5,13 +5,17 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+import uvloop
+
+uvloop.install()
+
 from uvicorn.config import Config as UvicornConfig
 from uvicorn.server import Server
 
 from tgfs.app import create_app
 from tgfs.config import Config, get_config
 from tgfs.core import Client, Clients
-from tgfs.telegram import login_as_account, login_as_bots
+from tgfs.telegram import login_as_account, login_as_bots, TDLibApi, PyrogramAPI
 
 
 async def create_clients(config: Config) -> Clients:
@@ -25,8 +29,10 @@ async def create_clients(config: Config) -> Clients:
         clients[metadata_cfg.name] = await Client.create(
             channel_id,
             metadata_cfg,
-            bots,
-            account,
+            TDLibApi(
+                bots=[PyrogramAPI(bot) for bot in bots],
+                account=PyrogramAPI(account) if account else None,
+            ),
         )
     return clients
 

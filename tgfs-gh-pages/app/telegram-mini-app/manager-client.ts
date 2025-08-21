@@ -20,10 +20,6 @@ export interface ChannelMessage {
   mime_type: string;
 }
 
-export interface ManagerError {
-  detail: string;
-}
-
 export default class ManagerClient {
   private baseUrl: string;
   private jwtToken: string;
@@ -46,8 +42,7 @@ export default class ManagerClient {
     });
 
     if (!response.ok) {
-      const errorData = (await response.json()) as ManagerError;
-      throw new Error(errorData.detail);
+      throw new Error(await response.text());
     }
 
     return response.json();
@@ -86,8 +81,8 @@ export default class ManagerClient {
     messageId: number,
     directory: string,
     asName: string
-  ): Promise<void> {
-    await this.makeRequest<void>(`/import`, {
+  ) {
+    return await this.makeRequest<void>(`/import`, {
       headers: {
         "Content-Type": "application/json",
       },

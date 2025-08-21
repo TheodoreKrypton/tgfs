@@ -243,6 +243,15 @@ class TelethonAPI(ITDLibClient):
 
         return DownloadFileResp(chunks=chunks(), size=bytes_to_read)
 
+    async def resolve_channel_id(self, channel_id: str) -> int:
+        try:
+            return int(channel_id)
+        except ValueError:
+            entity = await self._client.get_entity(f"@{channel_id}")
+            if not isinstance(entity, tlt.Channel):
+                raise TechnicalError("Expected a Telegram channel")
+            return entity.id
+
 
 class Session:
     def __init__(self, session_file: str):

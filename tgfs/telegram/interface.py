@@ -75,6 +75,10 @@ class ITDLibClient(metaclass=ABCMeta):
     async def download_file(self, req: DownloadFileReq) -> DownloadFileResp:
         pass
 
+    @abstractmethod
+    async def resolve_channel_id(self, channel_id: str) -> int:
+        pass
+
 
 @dataclass
 class TDLibApi:

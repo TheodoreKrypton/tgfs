@@ -232,27 +232,19 @@ export default function FileExplorer({
     async (channelId: number, messageId: number, asName: string) => {
       if (!messageId || !currentPath) return;
 
-      try {
-        await managerClient.importTelegramMessage(
-          channelId,
-          messageId,
-          currentPath,
-          asName
-        );
-        setTelegramLinkDialog(false);
-        await loadDirectory(currentPath);
-        setSnackbar({
-          open: true,
-          message: `Imported message as ${asName}`,
-          severity: "success",
-        });
-      } catch (err) {
-        setSnackbar({
-          open: true,
-          message: err instanceof Error ? err.message : "Import failed",
-          severity: "error",
-        });
-      }
+      await managerClient.importTelegramMessage(
+        channelId,
+        messageId,
+        currentPath,
+        asName
+      );
+      setTelegramLinkDialog(false);
+      await loadDirectory(currentPath);
+      setSnackbar({
+        open: true,
+        message: `Imported message as ${asName}`,
+        severity: "success",
+      });
     },
     [managerClient, currentPath, loadDirectory]
   );

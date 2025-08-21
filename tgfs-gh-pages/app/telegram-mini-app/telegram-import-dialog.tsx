@@ -14,7 +14,7 @@ import {
   Typography,
 } from "@mui/material";
 import mime from "mime-types";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import ManagerClient, { ChannelMessage } from "./manager-client";
 
 interface TelegramImportDialogProps {
@@ -68,11 +68,20 @@ export default function TelegramImportDialog({
     []
   );
 
+  useEffect(() => {
+    if (!open) {
+      setMessagePreview(null);
+      setPreviewLoading(false);
+      setErrorMessage(null);
+    }
+  }, [open]);
+
   // Debounced preview function
   useEffect(() => {
     if (!telegramLink.trim()) {
       setMessagePreview(null);
       setPreviewLoading(false);
+      setErrorMessage(null);
       return;
     }
 
@@ -82,8 +91,6 @@ export default function TelegramImportDialog({
 
     const debounceTimer = setTimeout(async () => {
       if (!telegramLink.trim()) {
-        setMessagePreview(null);
-        setPreviewLoading(false);
         return;
       }
 
@@ -130,8 +137,14 @@ export default function TelegramImportDialog({
 
   const handleImport = useCallback(async () => {
     if (channelId && messageId && asName.trim().length > 0) {
-      await onImport(channelId, messageId, asName);
-      resetDialog();
+      try {
+        await onImport(channelId, messageId, asName);
+        resetDialog();
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error ? error.message : "Unknown error"
+        );
+      }
     }
   }, [channelId, messageId, asName, onImport, resetDialog]);
 
@@ -156,6 +169,116 @@ export default function TelegramImportDialog({
       );
     }
   }, [messagePreview, sanitizeFileName]);
+
+  const errorBlock = useMemo(
+    () =>
+      errorMessage && (
+        <Paper
+          elevation={2}
+          sx={{
+            mt: 3,
+            p: 3,
+            borderRadius: 2,
+            border: 1,
+            borderColor: "error.main",
+            bgcolor: "error.50",
+          }}
+        >
+          <Typography
+            variant="h6"
+            sx={{ color: "error.main", fontWeight: 600 }}
+          >
+            {errorMessage}
+          </Typography>
+        </Paper>
+      ),
+    [errorMessage]
+  );
+
+  const previewBlock = useMemo(() => {
+    // Only show preview if we have a message preview AND no error message
+    if (!messagePreview || errorMessage) {
+      return null;
+    }
+
+    return (
+      <Paper
+        elevation={2}
+        sx={{
+          mt: 3,
+          p: 3,
+          borderRadius: 2,
+          border: 1,
+          borderColor: "success.main",
+          bgcolor: "success.50",
+          position: "relative",
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+          <>
+            <CheckCircle sx={{ color: "success.main", mr: 1 }} />
+            <Typography
+              variant="h6"
+              sx={{ color: "success.main", fontWeight: 600 }}
+            >
+              File Ready for Import
+            </Typography>
+          </>
+        </Box>
+
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+          <>
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <Storage sx={{ color: "text.secondary", mr: 1, fontSize: 18 }} />
+              <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                Size:
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {managerClient?.formatFileSize(messagePreview.file_size)}
+              </Typography>
+            </Box>
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <Attachment
+                sx={{ color: "text.secondary", mr: 1, fontSize: 18 }}
+              />
+              <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                Type:
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                {messagePreview.mime_type}
+              </Typography>
+            </Box>
+          </>
+
+          {messagePreview.caption && (
+            <Box sx={{ mt: 1 }}>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mb: 0.5, fontWeight: 500 }}
+              >
+                Caption:
+              </Typography>
+              <Typography
+                variant="body2"
+                sx={{
+                  bgcolor: "background.paper",
+                  p: 1.5,
+                  borderRadius: 1,
+                  border: 1,
+                  borderColor: "divider",
+                  fontStyle: "italic",
+                  wordBreak: "break-word",
+                }}
+              >
+                {messagePreview.caption}
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      </Paper>
+    );
+  }, [messagePreview, managerClient, errorMessage]);
 
   return (
     <Dialog open={open} onClose={resetDialog}>
@@ -185,120 +308,14 @@ export default function TelegramImportDialog({
           placeholder="unnamed"
         />
 
-        {errorMessage && (
-          <Paper
-            elevation={2}
-            sx={{
-              mt: 3,
-              p: 3,
-              borderRadius: 2,
-              border: 1,
-              borderColor: "error.main",
-              bgcolor: "error.50",
-            }}
-          >
-            <Typography
-              variant="h6"
-              sx={{ color: "error.main", fontWeight: 600 }}
-            >
-              {errorMessage}
-            </Typography>
-          </Paper>
-        )}
-
-        {messagePreview && (
-          <Paper
-            elevation={2}
-            sx={{
-              mt: 3,
-              p: 3,
-              borderRadius: 2,
-              border: 1,
-              borderColor: "success.main",
-              bgcolor: "success.50",
-              position: "relative",
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
-              <>
-                <CheckCircle sx={{ color: "success.main", mr: 1 }} />
-                <Typography
-                  variant="h6"
-                  sx={{ color: "success.main", fontWeight: 600 }}
-                >
-                  File Ready for Import
-                </Typography>
-              </>
-            </Box>
-
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-              <>
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <Storage
-                    sx={{ color: "text.secondary", mr: 1, fontSize: 18 }}
-                  />
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mr: 1 }}
-                  >
-                    Size:
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {managerClient?.formatFileSize(messagePreview.file_size)}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center" }}>
-                  <Attachment
-                    sx={{ color: "text.secondary", mr: 1, fontSize: 18 }}
-                  />
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mr: 1 }}
-                  >
-                    Type:
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    {messagePreview.mime_type}
-                  </Typography>
-                </Box>
-              </>
-
-              {messagePreview.caption && (
-                <Box sx={{ mt: 1 }}>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mb: 0.5, fontWeight: 500 }}
-                  >
-                    Caption:
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      bgcolor: "background.paper",
-                      p: 1.5,
-                      borderRadius: 1,
-                      border: 1,
-                      borderColor: "divider",
-                      fontStyle: "italic",
-                      wordBreak: "break-word",
-                    }}
-                  >
-                    {messagePreview.caption}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
-          </Paper>
-        )}
+        {errorBlock}
+        {previewBlock}
       </DialogContent>
       <DialogActions>
         <Button onClick={resetDialog}>Cancel</Button>
         <Button
           onClick={handleImport}
-          disabled={!messagePreview}
+          disabled={!messagePreview || !!errorMessage}
           variant="contained"
         >
           Import File

@@ -1,9 +1,5 @@
 from typing import Dict, List, Optional
 
-import telethon.tl.types as tlt
-from telethon import TelegramClient
-from telethon.tl.types import PeerChannel
-
 from tgfs.config import MetadataConfig, MetadataType, get_config
 from tgfs.core.api import DirectoryApi, FileApi, FileDescApi, MessageApi, MetaDataApi
 from tgfs.core.repository.impl import (
@@ -14,9 +10,7 @@ from tgfs.core.repository.impl import (
 from tgfs.core.repository.interface import (
     IMetaDataRepository,
 )
-from tgfs.errors import TechnicalError
-from tgfs.telegram.impl.telethon import TelethonAPI
-from tgfs.telegram.interface import TDLibApi
+from tgfs.telegram import TDLibApi
 
 config = get_config()
 
@@ -35,31 +29,11 @@ class Client:
         self.dir_api = dir_api
 
     @classmethod
-    async def get_peer_channel(cls, channel_id: str, bot: TelegramClient):
-        try:
-            return PeerChannel(int(channel_id))
-        except ValueError:
-            entity = await bot.get_entity(f"@{channel_id}")
-            if not isinstance(entity, tlt.Channel):
-                raise TechnicalError("Expected a Telegram channel")
-            return PeerChannel(entity.id)
-
-    @classmethod
     async def create(
-        cls,
-        channel_id: str,
-        metadata_cfg: MetadataConfig,
-        bots: List[TelegramClient],
-        account: Optional[TelegramClient] = None,
+        cls, channel_id: str, metadata_cfg: MetadataConfig, tdlib_api: TDLibApi
     ) -> "Client":
-        channel = await cls.get_peer_channel(channel_id, bots[0])
-        message_api = MessageApi(
-            TDLibApi(
-                account=TelethonAPI(account) if account else None,
-                bots=[TelethonAPI(bot) for bot in bots],
-            ),
-            channel,
-        )
+        channel = await tdlib_api.next_bot.resolve_channel_id(channel_id)
+        message_api = MessageApi(tdlib_api, channel)
 
         fc_repo = TGMsgFileContentRepository(message_api)
         fd_repo = TGMsgFDRepository(message_api)

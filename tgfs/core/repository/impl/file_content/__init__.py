@@ -38,16 +38,25 @@ class TGMsgFileContentRepository(IFileContentRepository):
         message_id: int = EMPTY_FILE_MESSAGE
 
         async def on_complete():
-            nonlocal message_id
-            message_id = (
-                await uploader.send(
-                    self.__message_api.private_file_channel,
-                    self.__get_file_caption(file_msg),
-                )
-            ).message_id
+            while True:
+                try:
+                    nonlocal message_id
+                    message_id = (
+                        await uploader.send(
+                            self.__message_api.private_file_channel,
+                            self.__get_file_caption(file_msg),
+                        )
+                    ).message_id
+                    return
+                except Exception as ex:
+                    seconds = 5
+                    logger.error(
+                        f"Exception occurred when sending file {file_msg.name}: {ex}. Waiting {seconds} seconds before retrying."
+                    )
+                    await asyncio.sleep(seconds)
 
         uploader = create_uploader(self.__message_api.tdlib, file_msg, on_complete)
-        size = await uploader.upload(file_msg, file_msg.name)
+        size = await uploader.upload()
 
         return SentFileMessage(message_id=message_id, size=size)
 
@@ -67,13 +76,11 @@ class TGMsgFileContentRepository(IFileContentRepository):
         file_name = file_msg.name or "unnamed"
 
         for i, part_size in enumerate(self._size_for_parts(size)):
-            file_msg.name = f"{file_name}.part{i + 1}"
+            file_msg.name = f"[part{i+1}]{file_name}"
             file_msg.size = part_size
             res.append(await self.__send_file(file_msg))
-
-            logger.info(f"Saving {file_msg.name}")
-            if isinstance(file_msg, FileMessageFromBuffer | FileMessageFromPath):
-                file_msg.offset += part_size
+            file_msg.offset += size
+            file_msg.read_size = 0
 
         return res
 

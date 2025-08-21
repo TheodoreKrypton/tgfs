@@ -3,8 +3,6 @@ from dataclasses import dataclass
 from functools import reduce
 from typing import List, Optional, Set
 
-import telethon.types as tlt
-
 from tgfs.reqres import GetMessagesReq, GetMessagesResp, MessageResp
 from tgfs.telegram.interface import TDLibApi
 from tgfs.utils.message_cache import channel_cache
@@ -19,7 +17,7 @@ class Request:
 
 
 class MessageBroker:
-    def __init__(self, tdlib: TDLibApi, private_file_channel: tlt.PeerChannel):
+    def __init__(self, tdlib: TDLibApi, private_file_channel: int):
         self.tdlib = tdlib
         self.__requests: List[Request] = []
         self.__lock = asyncio.Lock()
