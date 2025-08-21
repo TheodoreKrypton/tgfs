@@ -4,8 +4,10 @@ import os
 from typing import List, Optional, Sequence, TypeVar
 
 from pyrogram import Client, file_id
-from pyrogram import types as t, enums as e
-from pyrogram.raw import functions as rf, types as rt
+from pyrogram import enums as e
+from pyrogram import types as t
+from pyrogram.raw import functions as rf
+from pyrogram.raw import types as rt
 
 from tgfs.config import Config
 from tgfs.errors import TechnicalError, UnDownloadableMessage
@@ -33,7 +35,6 @@ from tgfs.reqres import (
 from tgfs.telegram.interface import ITDLibClient
 from tgfs.utils.message_cache import channel_cache
 from tgfs.utils.others import exclude_none
-
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +124,7 @@ class PyrogramAPI(ITDLibClient):
 
         updates: rt.Updates = await self._client.invoke(
             rf.messages.EditMessage(
-                peer=await self._client.resolve_peer(req.chat),
+                peer=await self._client.resolve_peer(req.chat),  # type: ignore
                 id=req.message_id,
                 media=rt.InputMediaUploadedDocument(  # type: ignore
                     file=rt.InputFile(  # type: ignore
@@ -139,7 +140,7 @@ class PyrogramAPI(ITDLibClient):
         )
 
         update = assert_update(updates, rt.UpdateEditChannelMessage)
-        message: t.Message = update.message
+        message: t.Message = update.message  # type: ignore
         return Message(message_id=message.id)
 
     async def search_messages(self, req: SearchMessageReq) -> GetMessagesRespNoNone:
@@ -199,7 +200,7 @@ class PyrogramAPI(ITDLibClient):
     async def send_big_file(self, req: SendFileReq) -> SendMessageResp:
         updates: rt.Updates = await self._client.invoke(
             rf.messages.SendMedia(
-                peer=await self._client.resolve_peer(req.chat),
+                peer=await self._client.resolve_peer(req.chat),  # type: ignore
                 media=rt.InputMediaUploadedDocument(  # type: ignore
                     file=rt.InputFileBig(  # type: ignore
                         id=req.file.id,
@@ -219,7 +220,7 @@ class PyrogramAPI(ITDLibClient):
     async def send_small_file(self, req: SendFileReq) -> SendMessageResp:
         updates: rt.Updates = await self._client.invoke(
             rf.messages.SendMedia(
-                peer=await self._client.resolve_peer(req.chat),
+                peer=await self._client.resolve_peer(req.chat),  # type: ignore
                 media=rt.InputMediaUploadedDocument(  # type: ignore
                     file=rt.InputFile(  # type: ignore
                         id=req.file.id,

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class TGMsgFDRepository(IFDRepository):
     def __init__(self, message_api: MessageApi):
-        self.__message_api = message_api
+        self._message_api = message_api
 
     async def save(
         self, fd: TGFSFileDesc, fr: Optional[TGFSFileRef] = None
@@ -24,7 +24,7 @@ class TGMsgFDRepository(IFDRepository):
         # If file_content referer is None, create a new file_content descriptor message.
         if fr is None:
             return FDRepositoryResp(
-                message_id=await self.__message_api.send_text(fd.to_json()),
+                message_id=await self._message_api.send_text(fd.to_json()),
                 fd=fd,
             )
 
@@ -32,7 +32,7 @@ class TGMsgFDRepository(IFDRepository):
         # But if the message is not found (probably got deleted manually), a new file_content descriptor will be created.
         try:
             return FDRepositoryResp(
-                message_id=await self.__message_api.edit_message_text(
+                message_id=await self._message_api.edit_message_text(
                     message_id=fr.message_id, message=fd.to_json()
                 ),
                 fd=fd,
@@ -47,7 +47,7 @@ class TGMsgFDRepository(IFDRepository):
 
         # Files in the channel may be deleted manually, so we need to check if the messages for the versions exist.
 
-        file_messages = await self.__message_api.get_messages(
+        file_messages = await self._message_api.get_messages(
             list(chain(*(version.message_ids for version in versions)))
         )
 
@@ -78,7 +78,7 @@ class TGMsgFDRepository(IFDRepository):
     async def get(
         self, fr: TGFSFileRef, include_all_versions: bool = False
     ) -> TGFSFileDesc:
-        message = (await self.__message_api.get_messages([fr.message_id]))[0]
+        message = (await self._message_api.get_messages([fr.message_id]))[0]
 
         if not message:
             logging.error(

@@ -2,7 +2,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Self, TypedDict, Literal
+from typing import Dict, List, Literal, Optional, Self, TypedDict
 
 import yaml
 

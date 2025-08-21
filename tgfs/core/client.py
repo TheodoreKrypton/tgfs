@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Dict
 
 from tgfs.config import MetadataConfig, MetadataType, get_config
 from tgfs.core.api import DirectoryApi, FileApi, FileDescApi, MessageApi, MetaDataApi

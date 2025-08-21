@@ -11,7 +11,6 @@ from tgfs.reqres import (
     FileContent,
     FileMessage,
     FileMessageFromBuffer,
-    FileMessageFromPath,
     SentFileMessage,
     UploadableFileMessage,
 )

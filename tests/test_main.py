@@ -10,18 +10,18 @@ class TestMain:
         mock_pyrogram_login_bots = mocker.AsyncMock()
         mock_telethon_login_account = mocker.AsyncMock()
         mock_telethon_login_bots = mocker.AsyncMock()
-        
+
         # Mock the imported modules
         mocker.patch("main.pyrogram.login_as_account", mock_pyrogram_login_account)
         mocker.patch("main.pyrogram.login_as_bots", mock_pyrogram_login_bots)
         mocker.patch("main.telethon.login_as_account", mock_telethon_login_account)
         mocker.patch("main.telethon.login_as_bots", mock_telethon_login_bots)
-        
+
         mock_client_create = mocker.patch("main.Client.create")
         mock_tdlib_api = mocker.patch("main.TDLibApi")
         mock_pyrogram_api = mocker.patch("main.PyrogramAPI")
         mock_telethon_api = mocker.patch("main.TelethonAPI")
-        
+
         mock_config = mocker.Mock()
         mock_config.telegram.account = mocker.Mock()  # Account is configured
         mock_config.telegram.lib = "pyrogram"  # Using pyrogram
@@ -62,18 +62,18 @@ class TestMain:
         mock_telethon_login_bots = mocker.AsyncMock()
         mock_pyrogram_login_account = mocker.AsyncMock()
         mock_pyrogram_login_bots = mocker.AsyncMock()
-        
+
         # Mock the imported modules
         mocker.patch("main.pyrogram.login_as_account", mock_pyrogram_login_account)
         mocker.patch("main.pyrogram.login_as_bots", mock_pyrogram_login_bots)
         mocker.patch("main.telethon.login_as_account", mock_telethon_login_account)
         mocker.patch("main.telethon.login_as_bots", mock_telethon_login_bots)
-        
+
         mock_client_create = mocker.patch("main.Client.create")
         mock_tdlib_api = mocker.patch("main.TDLibApi")
         mock_pyrogram_api = mocker.patch("main.PyrogramAPI")
         mock_telethon_api = mocker.patch("main.TelethonAPI")
-        
+
         mock_config = mocker.Mock()
         mock_config.telegram.account = None  # No account configured
         mock_config.telegram.lib = "telethon"  # Using telethon

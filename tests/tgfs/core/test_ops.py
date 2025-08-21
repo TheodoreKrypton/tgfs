@@ -439,7 +439,7 @@ class TestOps:
         mocker.patch.object(os.path, "exists", return_value=True)
         mocker.patch.object(os.path, "isfile", return_value=True)
         mocker.patch.object(os.path, "getsize", return_value=1024)  # Mock file size
-        
+
         # Mock the file opening
         mock_file = mocker.mock_open()
         mocker.patch("builtins.open", mock_file)

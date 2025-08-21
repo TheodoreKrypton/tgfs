@@ -1,5 +1,5 @@
 from .impl import pyrogram, telethon
-from .interface import TDLibApi, ITDLibClient
+from .interface import ITDLibClient, TDLibApi
 
 PyrogramAPI = pyrogram.PyrogramAPI
 TelethonAPI = telethon.TelethonAPI

@@ -117,7 +117,6 @@ class FileUploader:
                 return 0
             size_to_read = min(self._file_size - self._read_size, self._chunk_size)
             content = await self._read(size_to_read)
-            assert len(content) == size_to_read
             self._read_size += size_to_read
 
         await self._upload_chunk(FileChunk(content=content, file_part=part))
@@ -130,7 +129,7 @@ class FileUploader:
 
     async def upload(self) -> int:
         await self._file_msg.open()
-        
+
         for i in range(self._total_parts):
             await self._part_indexes.put(i)
 
