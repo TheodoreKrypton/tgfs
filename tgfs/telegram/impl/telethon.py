@@ -20,6 +20,7 @@ from tgfs.reqres import (
     DownloadFileResp,
     EditMessageMediaReq,
     EditMessageTextReq,
+    GetMeResp,
     GetMessagesReq,
     GetMessagesResp,
     GetMessagesRespNoNone,
@@ -34,7 +35,6 @@ from tgfs.reqres import (
     SendFileReq,
     SendMessageResp,
     SendTextReq,
-    GetMeResp,
 )
 from tgfs.telegram.interface import ITDLibClient
 from tgfs.utils.message_cache import channel_cache

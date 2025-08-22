@@ -8,6 +8,7 @@ from tgfs.reqres import (
     DownloadFileResp,
     EditMessageMediaReq,
     EditMessageTextReq,
+    GetMeResp,
     GetMessagesReq,
     GetMessagesResp,
     GetMessagesRespNoNone,
@@ -21,7 +22,6 @@ from tgfs.reqres import (
     SendFileReq,
     SendMessageResp,
     SendTextReq,
-    GetMeResp,
 )
 
 
