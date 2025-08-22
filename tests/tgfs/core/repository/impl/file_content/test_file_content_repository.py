@@ -7,11 +7,7 @@ from tgfs.core.api import MessageApi
 from tgfs.core.model import TGFSFileVersion
 from tgfs.core.repository.impl.file_content import TGMsgFileContentRepository
 from tgfs.errors import TechnicalError
-from tgfs.reqres import (
-    FileMessageEmpty,
-    SentFileMessage,
-    UploadableFileMessage,
-)
+from tgfs.reqres import SentFileMessage, UploadableFileMessage
 
 
 class MockFileMessage(UploadableFileMessage):
@@ -58,8 +54,13 @@ def mock_uploader(mocker):
     uploader.get_uploaded_file = mocker.Mock(return_value=Mock(name="test.txt"))
     uploader.client = mocker.AsyncMock()
 
+    # Mock the edit_message_media method to return proper response
+    mock_response = mocker.Mock()
+    mock_response.message_id = 54321
+    uploader.client.edit_message_media = mocker.AsyncMock(return_value=mock_response)
+
     mocker.patch(
-        "tgfs.core.repository.impl.file_content.create_uploader", return_value=uploader
+        "tgfs.core.repository.impl.file_content.FileUploader", return_value=uploader
     )
     return uploader
 
@@ -78,18 +79,6 @@ def sample_file_version():
 
 class TestStaticMethods:
     """Test static/private methods of TGMsgFileContentRepository"""
-
-    def test_get_file_caption_with_uploadable_message(self):
-        """Test caption extraction from uploadable message"""
-        file_msg = MockFileMessage("test.txt", 100, "Test caption")
-        caption = TGMsgFileContentRepository._get_file_caption(file_msg)
-        assert caption == "Test caption"
-
-    def test_get_file_caption_with_non_uploadable_message(self):
-        """Test caption extraction from non-uploadable message"""
-        file_msg = FileMessageEmpty.new("test")
-        caption = TGMsgFileContentRepository._get_file_caption(file_msg)
-        assert caption == ""
 
     def test_size_for_parts_single_part(self):
         """Test size calculation for file that fits in single part"""
@@ -437,8 +426,11 @@ class TestIntegration:
 
         await repository.get(file_version, 0, -1, "workflow_test.txt")
 
-        # Update the file
+        # Update the file - modify the mock to return the original message_id
         updated_content = b"updated file content"
+        mock_response = mock_uploader.client.edit_message_media.return_value
+        mock_response.message_id = save_result[0].message_id
+
         update_result = await repository.update(
             save_result[0].message_id, updated_content, "workflow_test_updated.txt"
         )

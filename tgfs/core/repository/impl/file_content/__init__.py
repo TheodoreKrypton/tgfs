@@ -3,66 +3,47 @@ import logging
 from typing import Generator, List
 
 from tgfs.core.api import MessageApi
-from tgfs.core.model import EMPTY_FILE_MESSAGE, TGFSFileVersion
+from tgfs.core.model import TGFSFileVersion
 from tgfs.core.repository.interface import IFileContentRepository
 from tgfs.errors import TechnicalError
 from tgfs.reqres import (
     EditMessageMediaReq,
     FileContent,
-    FileMessage,
     FileMessageFromBuffer,
     SentFileMessage,
     UploadableFileMessage,
 )
 from tgfs.utils.chained_async_iterator import ChainedAsyncIterator
 
-from .file_uploader import create_uploader
+from .file_uploader import FileUploader
 
 logger = logging.getLogger(__name__)
+RETRY_INTERVAL = 5  # seconds
 
 
 class TGMsgFileContentRepository(IFileContentRepository):
     def __init__(self, message_api: MessageApi):
         self.__message_api = message_api
 
-    @staticmethod
-    def _get_file_caption(
-        file_msg: FileMessage,
-    ) -> str:
-        if not isinstance(file_msg, UploadableFileMessage):
-            return ""
-        return file_msg.caption
-
     async def _send_file(self, file_msg: UploadableFileMessage) -> SentFileMessage:
-        message_id: int = EMPTY_FILE_MESSAGE
-
-        async def on_complete():
-            while True:
-                try:
-                    nonlocal message_id
-                    message_id = (
-                        await uploader.send(
-                            self.__message_api.private_file_channel,
-                            self._get_file_caption(file_msg),
-                        )
-                    ).message_id
-                    return
-                except Exception as ex:
-                    seconds = 5
-                    logger.error(
-                        f"Exception occurred when sending file {file_msg.name}: {ex}. Waiting {seconds} seconds before retrying."
-                    )
-                    await asyncio.sleep(seconds)
-
-        uploader = create_uploader(self.__message_api.tdlib, file_msg, on_complete)
+        uploader = FileUploader(self.__message_api.tdlib.next_bot, file_msg)
         size = await uploader.upload()
 
-        return SentFileMessage(message_id=message_id, size=size)
+        while True:
+            try:
+                message = await uploader.send(
+                    self.__message_api.private_file_channel,
+                )
+                return SentFileMessage(message_id=message.message_id, size=size)
+            except Exception as ex:
+                logger.error(
+                    f"Exception occurred when sending file {file_msg.name}: {ex}. "
+                    f"Waiting {RETRY_INTERVAL} seconds before retrying."
+                )
+                await asyncio.sleep(RETRY_INTERVAL)
 
     @staticmethod
-    def _size_for_parts(size: int) -> Generator[int]:
-        part_size = 1024 * 1024 * 1024  # 1 GB
-
+    def _partition(size: int, part_size=1024 * 1024 * 1024) -> Generator[int]:
         parts = (size + part_size - 1) // part_size
         for i in range(parts - 1):
             yield part_size
@@ -74,7 +55,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
         res: List[SentFileMessage] = []
         file_name = file_msg.name or "unnamed"
 
-        for i, part_size in enumerate(self._size_for_parts(size)):
+        for i, part_size in enumerate(self._partition(size)):
             file_msg.name = f"[part{i+1}]{file_name}"
             file_msg.size = part_size
             res.append(await self._send_file(file_msg))
@@ -88,18 +69,25 @@ class TGMsgFileContentRepository(IFileContentRepository):
             name=name,
         )
 
-        async def on_complete():
-            await uploader.client.edit_message_media(
-                EditMessageMediaReq(
-                    chat=self.__message_api.private_file_channel,
-                    message_id=message_id,
-                    file=uploader.get_uploaded_file(),
-                )
-            )
+        uploader = FileUploader(self.__message_api.tdlib.next_bot, file_msg)
+        await uploader.upload()
 
-        uploader = create_uploader(self.__message_api.tdlib, file_msg, on_complete)
-        await uploader.upload(file_msg, file_msg.name)
-        return message_id
+        while True:
+            try:
+                message = await uploader.client.edit_message_media(
+                    EditMessageMediaReq(
+                        chat=self.__message_api.private_file_channel,
+                        message_id=message_id,
+                        file=uploader.get_uploaded_file(),
+                    )
+                )
+                return message.message_id
+            except Exception as ex:
+                logger.error(
+                    f"Exception occurred when editing document of message {message_id}: {ex}. "
+                    f"Waiting {RETRY_INTERVAL} seconds before retrying."
+                )
+                await asyncio.sleep(RETRY_INTERVAL)
 
     @staticmethod
     def _get_file_part_to_download(
