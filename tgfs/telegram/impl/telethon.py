@@ -34,6 +34,7 @@ from tgfs.reqres import (
     SendFileReq,
     SendMessageResp,
     SendTextReq,
+    GetMeResp,
 )
 from tgfs.telegram.interface import ITDLibClient
 from tgfs.utils.message_cache import channel_cache
@@ -44,6 +45,7 @@ logger = logging.getLogger(__name__)
 
 class TelethonAPI(ITDLibClient):
     def __init__(self, client: TelegramClient):
+        super().__init__()
         self._client = client
 
     async def __get_messages(self, *args, **kwargs) -> Sequence[tlt.Message]:
@@ -268,6 +270,19 @@ class TelethonAPI(ITDLibClient):
             if not isinstance(entity, tlt.Channel):
                 raise TechnicalError("Expected a Telegram channel")
             return entity.id
+
+    async def _get_me(self) -> GetMeResp:
+        me = await self._client.get_me()
+        if not isinstance(me, tlt.User):
+            raise TechnicalError("Expected a Telegram user")
+        return GetMeResp(
+            name=(
+                f"@{me.username}"
+                if me.username
+                else f"{me.first_name} {me.last_name or ''}".strip()
+            ),
+            is_premium=bool(me.premium),
+        )
 
 
 class Session:

@@ -185,11 +185,13 @@ class BotConfig:
 @dataclass
 class AccountConfig:
     session_file: str
+    used_to_upload: bool
 
     @classmethod
     def from_dict(cls, data: dict) -> "AccountConfig":
         return cls(
             session_file=expand_path(data["session_file"]),
+            used_to_upload=data.get("used_to_upload", False),
         )
 
 

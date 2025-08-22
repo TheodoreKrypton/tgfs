@@ -1,6 +1,6 @@
 from typing import Dict
 
-from tgfs.config import MetadataConfig, MetadataType, get_config
+from tgfs.config import MetadataConfig, MetadataType
 from tgfs.core.api import DirectoryApi, FileApi, FileDescApi, MessageApi, MetaDataApi
 from tgfs.core.repository.impl import (
     TGMsgFDRepository,
@@ -11,8 +11,6 @@ from tgfs.core.repository.interface import (
     IMetaDataRepository,
 )
 from tgfs.telegram import TDLibApi
-
-config = get_config()
 
 
 class Client:
@@ -30,12 +28,21 @@ class Client:
 
     @classmethod
     async def create(
-        cls, channel_id: str, metadata_cfg: MetadataConfig, tdlib_api: TDLibApi
+        cls,
+        channel_id: str,
+        metadata_cfg: MetadataConfig,
+        tdlib_api: TDLibApi,
+        use_account_api_to_upload: bool = False,
     ) -> "Client":
         channel = await tdlib_api.next_bot.resolve_channel_id(channel_id)
         message_api = MessageApi(tdlib_api, channel)
 
-        fc_repo = TGMsgFileContentRepository(message_api)
+        fc_repo = TGMsgFileContentRepository(
+            message_api,
+            use_account_api_to_upload
+            and tdlib_api.account is not None
+            and (await tdlib_api.account.get_me()).is_premium,
+        )
         fd_repo = TGMsgFDRepository(message_api)
 
         if metadata_cfg.type == MetadataType.PINNED_MESSAGE:

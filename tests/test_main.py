@@ -24,6 +24,7 @@ class TestMain:
 
         mock_config = mocker.Mock()
         mock_config.telegram.account = mocker.Mock()  # Account is configured
+        mock_config.telegram.account.used_to_upload = True  # Account used for upload
         mock_config.telegram.lib = "pyrogram"  # Using pyrogram
         mock_config.telegram.private_file_channel = [12345]
 
@@ -51,7 +52,7 @@ class TestMain:
         mock_pyrogram_login_account.assert_called_once_with(mock_config)
         mock_pyrogram_login_bots.assert_called_once_with(mock_config)
         mock_client_create.assert_called_once_with(
-            12345, mock_metadata_cfg, mock_tdlib_instance
+            12345, mock_metadata_cfg, mock_tdlib_instance, mock_config.telegram.account.used_to_upload
         )
         assert result == {"test_client": mock_client}
 
@@ -101,7 +102,7 @@ class TestMain:
         mock_telethon_login_account.assert_not_called()
         mock_telethon_login_bots.assert_called_once_with(mock_config)
         mock_client_create.assert_called_once_with(
-            67890, mock_metadata_cfg, mock_tdlib_instance
+            67890, mock_metadata_cfg, mock_tdlib_instance, False
         )
         assert result == {"test_client": mock_client}
 

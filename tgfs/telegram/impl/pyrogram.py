@@ -31,6 +31,7 @@ from tgfs.reqres import (
     SendFileReq,
     SendMessageResp,
     SendTextReq,
+    GetMeResp,
 )
 from tgfs.telegram.interface import ITDLibClient
 from tgfs.utils.message_cache import channel_cache
@@ -52,6 +53,7 @@ def assert_update[T](updates: rt.Updates, type_: type[T]) -> T:
 
 class PyrogramAPI(ITDLibClient):
     def __init__(self, client: Client):
+        super().__init__()
         self._client = client
 
     @staticmethod
@@ -284,6 +286,17 @@ class PyrogramAPI(ITDLibClient):
             ) and isinstance(channel, t.PeerChannel):
                 return channel.channel_id
             raise TechnicalError(f"Invalid channel id {channel_id}")
+
+    async def _get_me(self) -> GetMeResp:
+        me = await self._client.get_me()
+        return GetMeResp(
+            name=(
+                f"@{me.username}"
+                if me.username
+                else f"{me.first_name} {me.last_name or ''}".strip()
+            ),
+            is_premium=bool(me.is_premium),
+        )
 
 
 class Session:

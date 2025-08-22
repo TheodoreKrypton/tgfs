@@ -46,7 +46,14 @@ async def create_clients(config: Config) -> Clients:
     for channel_id in config.telegram.private_file_channel:
         metadata_cfg = config.tgfs.metadata[channel_id]
         clients[metadata_cfg.name] = await Client.create(
-            channel_id, metadata_cfg, tdlib_api
+            channel_id,
+            metadata_cfg,
+            tdlib_api,
+            (
+                config.telegram.account.used_to_upload
+                if config.telegram.account
+                else False
+            ),
         )
     return clients
 

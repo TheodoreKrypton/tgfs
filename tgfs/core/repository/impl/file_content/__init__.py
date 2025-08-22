@@ -20,19 +20,40 @@ from .file_uploader import FileUploader
 logger = logging.getLogger(__name__)
 RETRY_INTERVAL = 5  # seconds
 
+PART_SIZE_DEFAULT = (
+    1024 * 1024 * 1024 * 2
+)  # 2 GB, max size of a single file message in Telegram
+PART_SIZE_PREMIUM = (
+    1024 * 1024 * 1024 * 4
+)  # 4 GB, max size of a single file message in Telegram Premium
+
 
 class TGMsgFileContentRepository(IFileContentRepository):
-    def __init__(self, message_api: MessageApi):
-        self.__message_api = message_api
+    def __init__(self, message_api: MessageApi, use_account_api_to_upload: bool):
+        self._message_api = message_api
+        self._use_account_api_to_upload = (
+            use_account_api_to_upload and self._message_api.tdlib.account
+        )
 
-    async def _send_file(self, file_msg: UploadableFileMessage) -> SentFileMessage:
-        uploader = FileUploader(self.__message_api.tdlib.next_bot, file_msg)
+    async def _send_file(
+        self, file_msg: UploadableFileMessage, use_account_api: bool
+    ) -> SentFileMessage:
+        if use_account_api and (account_api := self._message_api.tdlib.account):
+            api = account_api
+        else:
+            api = self._message_api.tdlib.next_bot
+
+        uploader = FileUploader(api, file_msg)
+        logger.info(
+            f"Uploading file {file_msg.name} of size {file_msg.size} bytes to channel {self._message_api.private_file_channel} "
+            f"using {(await api.get_me()).name}."
+        )
         size = await uploader.upload()
 
         while True:
             try:
                 message = await uploader.send(
-                    self.__message_api.private_file_channel,
+                    self._message_api.private_file_channel,
                 )
                 return SentFileMessage(message_id=message.message_id, size=size)
             except Exception as ex:
@@ -43,7 +64,7 @@ class TGMsgFileContentRepository(IFileContentRepository):
                 await asyncio.sleep(RETRY_INTERVAL)
 
     @staticmethod
-    def _partition(size: int, part_size=1024 * 1024 * 1024) -> Generator[int]:
+    def _partition(size: int, part_size) -> Generator[int]:
         parts = (size + part_size - 1) // part_size
         for i in range(parts - 1):
             yield part_size
@@ -55,12 +76,21 @@ class TGMsgFileContentRepository(IFileContentRepository):
         res: List[SentFileMessage] = []
         file_name = file_msg.name or "unnamed"
 
-        for i, part_size in enumerate(self._partition(size)):
+        premium_upload = size > PART_SIZE_DEFAULT and self._use_account_api_to_upload
+
+        for i, part_size in enumerate(
+            self._partition(size, PART_SIZE_PREMIUM)
+            if premium_upload
+            else self._partition(size, PART_SIZE_DEFAULT)
+        ):
             file_msg.name = f"[part{i+1}]{file_name}"
             file_msg.size = part_size
-            res.append(await self._send_file(file_msg))
+            res.append(
+                await self._send_file(
+                    file_msg, use_account_api=True if premium_upload else False
+                )
+            )
             file_msg.next_part(part_size)
-
         return res
 
     async def update(self, message_id: int, buffer: bytes, name: str) -> int:
@@ -69,14 +99,14 @@ class TGMsgFileContentRepository(IFileContentRepository):
             name=name,
         )
 
-        uploader = FileUploader(self.__message_api.tdlib.next_bot, file_msg)
+        uploader = FileUploader(self._message_api.tdlib.next_bot, file_msg)
         await uploader.upload()
 
         while True:
             try:
                 message = await uploader.client.edit_message_media(
                     EditMessageMediaReq(
-                        chat=self.__message_api.private_file_channel,
+                        chat=self._message_api.private_file_channel,
                         message_id=message_id,
                         file=uploader.get_uploaded_file(),
                     )
@@ -138,6 +168,6 @@ class TGMsgFileContentRepository(IFileContentRepository):
 
         tasks = []
         for message_id, begin, end in self._get_file_part_to_download(fv, begin, end):
-            tasks.append(self.__message_api.download_file(message_id, begin, end))
+            tasks.append(self._message_api.download_file(message_id, begin, end))
 
         return ChainedAsyncIterator((x.chunks for x in await asyncio.gather(*tasks)))
