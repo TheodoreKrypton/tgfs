@@ -244,8 +244,16 @@ export default function ConfigGenerator() {
         api_id: config.telegram.api_id,
         api_hash: config.telegram.api_hash,
         lib: config.telegram.lib,
-        ...(withUserAccount
-          ? { account: { session_file: "account.session" } }
+        ...(withUserAccount ||
+        Object.values(metadata).some(
+          (channel) => channel.type === "pinned_message"
+        )
+          ? {
+              account: {
+                session_file: "account.session",
+                used_to_upload: withUserAccount,
+              },
+            }
           : {}),
         bot: {
           session_file: config.telegram.bot.session_file,
@@ -538,7 +546,9 @@ export default function ConfigGenerator() {
                 control={
                   <Checkbox
                     checked={withUserAccount}
-                    onChange={(e) => setWithUserAccount(e.target.checked)}
+                    onChange={(e) => {
+                      setWithUserAccount(e.target.checked);
+                    }}
                   />
                 }
               />

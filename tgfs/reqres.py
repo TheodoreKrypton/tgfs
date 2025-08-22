@@ -131,6 +131,12 @@ class DownloadFileResp:
 
 
 @dataclass
+class GetMeResp:
+    is_premium: bool
+    name: str
+
+
+@dataclass
 class FileTags:
     pass
 

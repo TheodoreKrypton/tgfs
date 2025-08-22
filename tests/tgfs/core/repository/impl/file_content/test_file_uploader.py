@@ -7,7 +7,6 @@ import pytest
 from tgfs.core.repository.impl.file_content.file_uploader import (
     FileChunk,
     WorkersConfig,
-    create_uploader,
     FileUploader,
 )
 from tgfs.reqres import (
@@ -86,11 +85,7 @@ class TestUploaderFromPath:
         file_msg = FileMessageFromPath.new(path=file_path, name="test.txt")
         file_msg.task_tracker = mock_task_tracker
 
-        uploader = FileUploader(
-            client=mock_client,
-            file_msg=file_msg,
-            on_complete=None,
-        )
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         uploaded_size = await uploader.upload()
 
@@ -112,11 +107,7 @@ class TestUploaderFromPath:
                 file_msg = FileMessageFromPath.new(path=f.name, name="big_file.bin")
                 file_msg.task_tracker = mock_task_tracker
 
-                uploader = FileUploader(
-                    client=mock_client,
-                    file_msg=file_msg,
-                    on_complete=None,
-                )
+                uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
                 uploaded_size = await uploader.upload()
 
@@ -135,7 +126,7 @@ class TestUploaderFromPath:
         file_msg._offset = offset
         file_msg.size = len(expected_content)
 
-        uploader = FileUploader(client=mock_client, file_msg=file_msg, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         uploaded_size = await uploader.upload()
 
@@ -148,7 +139,7 @@ class TestUploaderFromPath:
         file_msg = FileMessageFromPath.new(path=file_path)
         file_msg.name = ""  # Clear the name to test default
 
-        uploader = FileUploader(client=mock_client, file_msg=file_msg, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         await uploader.upload()
 
@@ -167,7 +158,7 @@ class TestUploaderFromPath:
 
         file_msg = FileMessageFromPath.new(path=file_path, name="retry_test.txt")
 
-        uploader = FileUploader(client=mock_client, file_msg=file_msg, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         uploaded_size = await uploader.upload()
 
@@ -186,37 +177,13 @@ class TestUploaderFromPath:
         file_msg = FileMessageFromPath.new(path=file_path, name="cancelled.txt")
         file_msg.task_tracker = mock_task_tracker
 
-        uploader = FileUploader(
-            client=mock_client,
-            file_msg=file_msg,
-            on_complete=None,
-        )
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         # Note: Current implementation doesn't raise TaskCancelled, it just returns early
         uploaded_size = await uploader.upload()
         assert uploaded_size == len(
             expected_content
         )  # Should still complete the file size calculation
-
-    @pytest.mark.asyncio
-    async def test_on_complete_callback(self, mock_client, test_file):
-        file_path, expected_content = test_file
-
-        on_complete_called = False
-
-        async def on_complete():
-            nonlocal on_complete_called
-            on_complete_called = True
-
-        file_msg = FileMessageFromPath.new(path=file_path, name="callback_test.txt")
-
-        uploader = FileUploader(
-            client=mock_client, file_msg=file_msg, on_complete=on_complete
-        )
-
-        await uploader.upload()
-
-        assert on_complete_called
 
     @pytest.mark.asyncio
     async def test_send_file(self, mock_client, test_file):
@@ -226,7 +193,7 @@ class TestUploaderFromPath:
 
         file_msg = FileMessageFromPath.new(path=file_path, name="send_test.txt")
 
-        uploader = FileUploader(client=mock_client, file_msg=file_msg, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         await uploader.upload()
         response = await uploader.send(chat_id, caption)
@@ -253,7 +220,7 @@ class TestUploaderFromBuffer:
 
         file_msg = FileMessageFromBuffer.new(buffer=test_data, name="buffer_test.txt")
 
-        uploader = FileUploader(client=mock_client, file_msg=file_msg, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         uploaded_size = await uploader.upload()
 
@@ -271,7 +238,7 @@ class TestUploaderFromBuffer:
         file_msg._offset = offset
         file_msg.size = len(expected_data)
 
-        uploader = FileUploader(client=mock_client, file_msg=file_msg, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         uploaded_size = await uploader.upload()
 
@@ -283,7 +250,7 @@ class TestUploaderFromBuffer:
 
         file_msg = FileMessageFromBuffer.new(buffer=test_data)
 
-        uploader = FileUploader(client=mock_client, file_msg=file_msg, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         await uploader.upload()
 
@@ -315,7 +282,7 @@ class TestUploaderFromStream:
             stream=stream, size=total_size, name="stream_test.txt"
         )
 
-        uploader = FileUploader(client=mock_client, file_msg=file_msg, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         uploaded_size = await uploader.upload()
 
@@ -331,7 +298,7 @@ class TestUploaderFromStream:
         stream = self.create_test_stream(chunks)
         file_msg = FileMessageFromStream.new(stream=stream, size=total_size)
 
-        uploader = FileUploader(client=mock_client, file_msg=file_msg, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         await uploader.upload()
 
@@ -349,76 +316,11 @@ class TestUploaderFromStream:
             stream=stream, size=total_size, name="chunked.txt"
         )
 
-        uploader = FileUploader(client=mock_client, file_msg=file_msg, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         uploaded_size = await uploader.upload()
 
         assert uploaded_size == total_size
-
-
-class TestCreateUploaderFactory:
-    @pytest.fixture
-    def mock_tdlib(self, mocker):
-        tdlib = mocker.Mock(spec=TDLibApi)
-        mock_client = mocker.AsyncMock(spec=ITDLibClient)
-        tdlib.next_bot = mock_client
-        return tdlib
-
-    def test_create_path_uploader(self, mock_tdlib):
-        with tempfile.NamedTemporaryFile() as temp_file:
-            temp_file.write(b"test content")
-            temp_file.flush()
-
-            file_msg = FileMessageFromPath.new(
-                path=temp_file.name, name="path_test.txt"
-            )
-
-            uploader = create_uploader(mock_tdlib, file_msg)
-
-            assert isinstance(uploader, FileUploader)
-
-    def test_create_buffer_uploader(self, mock_tdlib):
-        file_msg = FileMessageFromBuffer.new(buffer=b"test", name="buffer_test.txt")
-
-        uploader = create_uploader(mock_tdlib, file_msg)
-
-        assert isinstance(uploader, FileUploader)
-
-    def test_create_stream_uploader(self, mock_tdlib):
-        async def dummy_stream():
-            yield b"data"
-
-        file_msg = FileMessageFromStream.new(
-            stream=dummy_stream(), size=4, name="stream_test.txt"
-        )
-
-        uploader = create_uploader(mock_tdlib, file_msg)
-
-        assert isinstance(uploader, FileUploader)
-
-    def test_create_uploader_with_callback(self, mock_tdlib):
-        async def on_complete():
-            pass
-
-        with tempfile.NamedTemporaryFile() as temp_file:
-            temp_file.write(b"test content")
-            temp_file.flush()
-
-            file_msg = FileMessageFromPath.new(path=temp_file.name)
-
-            uploader = create_uploader(mock_tdlib, file_msg, on_complete=on_complete)
-
-            assert isinstance(uploader, FileUploader)
-
-    def test_create_uploader_invalid_type(self, mock_tdlib, mocker):
-        invalid_msg = mocker.Mock()  # Not one of the expected types
-        invalid_msg.get_size = mocker.Mock(return_value=100)
-        invalid_msg.file_name = mocker.Mock(return_value="test.txt")
-
-        # The current create_uploader function doesn't validate types, it just passes through
-        # So this test should succeed and return a FileUploader
-        uploader = create_uploader(mock_tdlib, invalid_msg)
-        assert isinstance(uploader, FileUploader)
 
 
 class TestErrorHandling:
@@ -445,7 +347,7 @@ class TestErrorHandling:
         test_data = b"test data"
         file_msg = FileMessageFromBuffer.new(buffer=test_data, name="fail_test.txt")
 
-        uploader = FileUploader(client=mock_client, file_msg=file_msg, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         # Should eventually succeed after retries
         uploaded_size = await uploader.upload()
@@ -472,7 +374,6 @@ class TestConcurrencyAndWorkers:
         uploader = FileUploader(
             client=mock_client,
             file_msg=file_msg,
-            on_complete=None,
             workers=workers_config,
         )
 
@@ -488,7 +389,7 @@ class TestConcurrencyAndWorkers:
 
         file_msg = FileMessageFromBuffer.new(buffer=test_data, name="large.txt")
 
-        uploader = FileUploader(client=mock_client, file_msg=file_msg, on_complete=None)
+        uploader = FileUploader(client=mock_client, file_msg=file_msg)
 
         uploaded_size = await uploader.upload()
 

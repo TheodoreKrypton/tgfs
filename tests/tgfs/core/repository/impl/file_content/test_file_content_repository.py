@@ -7,11 +7,7 @@ from tgfs.core.api import MessageApi
 from tgfs.core.model import TGFSFileVersion
 from tgfs.core.repository.impl.file_content import TGMsgFileContentRepository
 from tgfs.errors import TechnicalError
-from tgfs.reqres import (
-    FileMessageEmpty,
-    SentFileMessage,
-    UploadableFileMessage,
-)
+from tgfs.reqres import SentFileMessage, UploadableFileMessage
 
 
 class MockFileMessage(UploadableFileMessage):
@@ -22,12 +18,25 @@ class MockFileMessage(UploadableFileMessage):
         self.size = size
         self.caption = caption
         self._offset = 0
+        self._task_tracker = None
 
     def get_size(self) -> int:
         return self.size
 
     def next_part(self, size: int):
         self._offset += size
+
+    def file_name(self) -> str:
+        return self.name
+
+    async def open(self):
+        pass
+
+    async def close(self):
+        pass
+
+    async def read(self, size: int) -> bytes:
+        return b"mock_content"[:size]
 
 
 # Global fixtures for all test classes
@@ -37,6 +46,11 @@ def mock_message_api(mocker):
     api = mocker.Mock(spec=MessageApi)
     api.private_file_channel = 123456789
     api.tdlib = mocker.Mock()
+    api.tdlib.account = None  # No account API by default
+    api.tdlib.next_bot = mocker.AsyncMock()
+    api.tdlib.next_bot.get_me = mocker.AsyncMock(
+        return_value=mocker.Mock(name="test_bot")
+    )
     api.download_file = mocker.AsyncMock()
     return api
 
@@ -44,7 +58,7 @@ def mock_message_api(mocker):
 @pytest.fixture
 def repository(mock_message_api):
     """Create repository instance with mocked API"""
-    return TGMsgFileContentRepository(mock_message_api)
+    return TGMsgFileContentRepository(mock_message_api, use_account_api_to_upload=False)
 
 
 @pytest.fixture
@@ -58,8 +72,13 @@ def mock_uploader(mocker):
     uploader.get_uploaded_file = mocker.Mock(return_value=Mock(name="test.txt"))
     uploader.client = mocker.AsyncMock()
 
+    # Mock the edit_message_media method to return proper response
+    mock_response = mocker.Mock()
+    mock_response.message_id = 54321
+    uploader.client.edit_message_media = mocker.AsyncMock(return_value=mock_response)
+
     mocker.patch(
-        "tgfs.core.repository.impl.file_content.create_uploader", return_value=uploader
+        "tgfs.core.repository.impl.file_content.FileUploader", return_value=uploader
     )
     return uploader
 
@@ -79,44 +98,35 @@ def sample_file_version():
 class TestStaticMethods:
     """Test static/private methods of TGMsgFileContentRepository"""
 
-    def test_get_file_caption_with_uploadable_message(self):
-        """Test caption extraction from uploadable message"""
-        file_msg = MockFileMessage("test.txt", 100, "Test caption")
-        caption = TGMsgFileContentRepository._get_file_caption(file_msg)
-        assert caption == "Test caption"
-
-    def test_get_file_caption_with_non_uploadable_message(self):
-        """Test caption extraction from non-uploadable message"""
-        file_msg = FileMessageEmpty.new("test")
-        caption = TGMsgFileContentRepository._get_file_caption(file_msg)
-        assert caption == ""
-
-    def test_size_for_parts_single_part(self):
+    def test_partition_single_part(self):
         """Test size calculation for file that fits in single part"""
         size = 500 * 1024 * 1024  # 500MB
-        parts = list(TGMsgFileContentRepository._size_for_parts(size))
+        part_size = 2 * 1024 * 1024 * 1024  # 2GB default part size
+        parts = list(TGMsgFileContentRepository._partition(size, part_size))
         assert len(parts) == 1
         assert parts[0] == size
 
-    def test_size_for_parts_multiple_parts(self):
+    def test_partition_multiple_parts(self):
         """Test size calculation for file requiring multiple parts"""
         size = int(2.5 * 1024 * 1024 * 1024)  # 2.5GB
-        parts = list(TGMsgFileContentRepository._size_for_parts(size))
+        part_size = 1 * 1024 * 1024 * 1024  # 1GB part size for this test
+        parts = list(TGMsgFileContentRepository._partition(size, part_size))
 
         expected_last_part = int(0.5 * 1024 * 1024 * 1024)  # 0.5GB remainder
 
         assert len(parts) == 3
-        assert parts[0] == 1024 * 1024 * 1024  # 1GB
-        assert parts[1] == 1024 * 1024 * 1024  # 1GB
+        assert parts[0] == part_size  # 1GB
+        assert parts[1] == part_size  # 1GB
         assert parts[2] == expected_last_part  # 0.5GB
 
-    def test_size_for_parts_exact_multiple(self):
+    def test_partition_exact_multiple(self):
         """Test size calculation for exact multiple of part size"""
         size = 3 * 1024 * 1024 * 1024  # Exactly 3GB
-        parts = list(TGMsgFileContentRepository._size_for_parts(size))
+        part_size = 1 * 1024 * 1024 * 1024  # 1GB part size
+        parts = list(TGMsgFileContentRepository._partition(size, part_size))
 
         assert len(parts) == 3
-        assert all(part == 1024 * 1024 * 1024 for part in parts)
+        assert all(part == part_size for part in parts)
 
     def test_get_file_part_to_download_full_file(self, sample_file_version):
         """Test getting parts for downloading entire file"""
@@ -233,11 +243,13 @@ class TestSaveMethod:
 
         result = await repository.save(file_msg)
 
-        assert len(result) == 3  # 2.5GB should split into 3 parts
+        assert (
+            len(result) == 2
+        )  # 2.5GB should split into 2 parts with 2GB default part size
         # Each part is uploaded separately and might get different message IDs
         assert all(isinstance(r.message_id, int) for r in result)
         assert all(r.size == 1000 for r in result)  # All return mocked size
-        assert mock_uploader.upload.call_count == 3
+        assert mock_uploader.upload.call_count == 2
 
     @pytest.mark.asyncio
     async def test_save_with_upload_failure(self, repository, mock_uploader):
@@ -264,14 +276,14 @@ class TestSaveMethod:
     @pytest.mark.asyncio
     async def test_save_part_naming(self, repository, mock_uploader):
         """Test that file parts are named correctly"""
-        large_size = int(2.1 * 1024 * 1024 * 1024)  # 2.1GB (3 parts)
+        large_size = int(2.1 * 1024 * 1024 * 1024)  # 2.1GB (2 parts with 2GB default)
         file_msg = MockFileMessage("document.pdf", large_size)
 
         await repository.save(file_msg)
 
         # Check that the file was renamed for each part
-        # The last call should have [part3]document.pdf
-        assert mock_uploader.upload.call_count == 3
+        # With 2GB default part size, 2.1GB should be split into 2 parts
+        assert mock_uploader.upload.call_count == 2
 
 
 class TestGetMethod:
@@ -437,8 +449,11 @@ class TestIntegration:
 
         await repository.get(file_version, 0, -1, "workflow_test.txt")
 
-        # Update the file
+        # Update the file - modify the mock to return the original message_id
         updated_content = b"updated file content"
+        mock_response = mock_uploader.client.edit_message_media.return_value
+        mock_response.message_id = save_result[0].message_id
+
         update_result = await repository.update(
             save_result[0].message_id, updated_content, "workflow_test_updated.txt"
         )
@@ -461,21 +476,23 @@ class TestIntegration:
 class TestEdgeCases:
     """Test edge cases and boundary conditions"""
 
-    def test_file_part_calculation_edge_cases(self):
+    def test_partition_edge_cases(self):
         """Test size calculations for edge cases"""
-        # Zero size - the implementation actually returns full part size for 0
-        parts = list(TGMsgFileContentRepository._size_for_parts(0))
+        part_size = 1024 * 1024 * 1024  # 1GB
+
+        # Zero size - the implementation returns the last part size calculation
+        # parts = (0 + 1GB - 1) // 1GB = 0, then yield 0 - (0-1) * 1GB = 0 + 1GB = 1GB
+        parts = list(TGMsgFileContentRepository._partition(0, part_size))
         assert len(parts) == 1
-        assert parts[0] == 1024 * 1024 * 1024  # Returns full 1GB for zero size
+        assert parts[0] == part_size  # Last part calculation gives full part size
 
         # Single byte
-        parts = list(TGMsgFileContentRepository._size_for_parts(1))
+        parts = list(TGMsgFileContentRepository._partition(1, part_size))
         assert len(parts) == 1
         assert parts[0] == 1
 
         # Exactly part boundary
-        part_size = 1024 * 1024 * 1024
-        parts = list(TGMsgFileContentRepository._size_for_parts(part_size))
+        parts = list(TGMsgFileContentRepository._partition(part_size, part_size))
         assert len(parts) == 1
         assert parts[0] == part_size
 

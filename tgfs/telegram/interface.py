@@ -8,6 +8,7 @@ from tgfs.reqres import (
     DownloadFileResp,
     EditMessageMediaReq,
     EditMessageTextReq,
+    GetMeResp,
     GetMessagesReq,
     GetMessagesResp,
     GetMessagesRespNoNone,
@@ -25,6 +26,9 @@ from tgfs.reqres import (
 
 
 class ITDLibClient(metaclass=ABCMeta):
+    def __init__(self):
+        self._me: Optional[GetMeResp] = None
+
     @abstractmethod
     async def get_messages(self, req: GetMessagesReq) -> GetMessagesResp:
         pass
@@ -78,6 +82,15 @@ class ITDLibClient(metaclass=ABCMeta):
     @abstractmethod
     async def resolve_channel_id(self, channel_id: str) -> int:
         pass
+
+    @abstractmethod
+    async def _get_me(self) -> GetMeResp:
+        pass
+
+    async def get_me(self) -> GetMeResp:
+        if self._me is None:
+            self._me = await self._get_me()
+        return self._me
 
 
 @dataclass

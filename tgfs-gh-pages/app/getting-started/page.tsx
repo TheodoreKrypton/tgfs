@@ -19,7 +19,6 @@ import { useState, useEffect } from "react";
 export default function GettingStarted() {
   const [activeStep, setActiveStep] = useState(0);
   const [pathStyle, setPathStyle] = useState<"unix" | "windows">("unix");
-
   const [dockerConfig, setDockerConfig] = useState({
     tgfsPort: 1900,
     mountedVolume: "/home/user/.tgfs",
@@ -337,7 +336,7 @@ export default function GettingStarted() {
                       }}
                       size="small"
                     >
-                      <ToggleButton value="unix">Unix/Mac</ToggleButton>
+                      <ToggleButton value="unix">Unix</ToggleButton>
                       <ToggleButton value="windows">Windows</ToggleButton>
                     </ToggleButtonGroup>
                   </Box>
@@ -347,7 +346,7 @@ export default function GettingStarted() {
                   style={{ marginBottom: "24px" }}
                 >
                   <code className="text-sm text-slate-700 dark:text-slate-300 block break-all">
-                    docker run -v {dockerConfig.mountedVolume}
+                    docker run -it -v {dockerConfig.mountedVolume}
                     :/home/tgfs/.tgfs -p {dockerConfig.tgfsPort}:
                     {dockerConfig.tgfsPort} wheatcarrier/tgfs
                   </code>

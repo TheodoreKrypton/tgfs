@@ -1,7 +1,6 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from typing import Callable, Coroutine, Optional
 
 from telethon.helpers import generate_random_long
 from telethon.utils import get_appropriated_part_size
@@ -15,7 +14,7 @@ from tgfs.reqres import (
     UploadableFileMessage,
     UploadedFile,
 )
-from tgfs.telegram.interface import ITDLibClient, TDLibApi
+from tgfs.telegram.interface import ITDLibClient
 from tgfs.utils.others import is_big_file
 
 logger = logging.getLogger(__name__)
@@ -33,15 +32,11 @@ class FileChunk:
     file_part: int
 
 
-OnComplete = Callable[[], Coroutine[None, None, None]]
-
-
 class FileUploader:
     def __init__(
         self,
         client: ITDLibClient,
         file_msg: UploadableFileMessage,
-        on_complete: Optional[OnComplete],
         workers=WorkersConfig(),
     ):
         self.client = client
@@ -56,7 +51,6 @@ class FileUploader:
             maxsize=self._total_parts
         )
 
-        self._on_complete = on_complete
         self._workers = workers
 
         self._file_id = generate_random_long()
@@ -162,9 +156,6 @@ class FileUploader:
 
         await asyncio.sleep(0.5)
 
-        if self._on_complete and not await self._cancelled():
-            await self._on_complete()
-
         await self._close()
         return self._file_size
 
@@ -190,13 +181,3 @@ class FileUploader:
         if self._is_big:
             return await self.client.send_big_file(req)
         return await self.client.send_small_file(req)
-
-
-def create_uploader(
-    tdlib: TDLibApi,
-    file_msg: UploadableFileMessage,
-    on_complete: Optional[OnComplete] = None,
-):
-    return FileUploader(
-        client=tdlib.next_bot, file_msg=file_msg, on_complete=on_complete
-    )
