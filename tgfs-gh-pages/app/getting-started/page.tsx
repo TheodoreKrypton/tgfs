@@ -346,7 +346,7 @@ export default function GettingStarted() {
                   style={{ marginBottom: "24px" }}
                 >
                   <code className="text-sm text-slate-700 dark:text-slate-300 block break-all">
-                    docker -it run -v {dockerConfig.mountedVolume}
+                    docker run -it -v {dockerConfig.mountedVolume}
                     :/home/tgfs/.tgfs -p {dockerConfig.tgfsPort}:
                     {dockerConfig.tgfsPort} wheatcarrier/tgfs
                   </code>
