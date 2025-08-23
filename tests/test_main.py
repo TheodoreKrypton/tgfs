@@ -52,7 +52,10 @@ class TestMain:
         mock_pyrogram_login_account.assert_called_once_with(mock_config)
         mock_pyrogram_login_bots.assert_called_once_with(mock_config)
         mock_client_create.assert_called_once_with(
-            12345, mock_metadata_cfg, mock_tdlib_instance, mock_config.telegram.account.used_to_upload
+            12345,
+            mock_metadata_cfg,
+            mock_tdlib_instance,
+            mock_config.telegram.account.used_to_upload,
         )
         assert result == {"test_client": mock_client}
 

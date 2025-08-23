@@ -107,7 +107,7 @@ export default function ConfigGenerator() {
     telegram: {
       api_id: "",
       api_hash: "",
-      lib: "pyrogram",
+      lib: "telethon",
       account: {
         session_file: "account.session",
       },

@@ -21,10 +21,10 @@ logger = logging.getLogger(__name__)
 RETRY_INTERVAL = 5  # seconds
 
 PART_SIZE_DEFAULT = (
-    1024 * 1024 * 1024 * 2
+    512 * 1024 * 4000
 )  # 2 GB, max size of a single file message in Telegram
 PART_SIZE_PREMIUM = (
-    1024 * 1024 * 1024 * 4
+    512 * 1024 * 8000
 )  # 4 GB, max size of a single file message in Telegram Premium
 
 
