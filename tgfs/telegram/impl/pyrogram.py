@@ -283,7 +283,7 @@ class PyrogramAPI(ITDLibClient):
         except ValueError:
             if (
                 channel := await self._client.resolve_peer(f"@{channel_id}")
-            ) and isinstance(channel, t.PeerChannel):
+            ) and isinstance(channel, rt.InputPeerChannel):
                 return channel.channel_id
             raise TechnicalError(f"Invalid channel id {channel_id}")
 

@@ -221,15 +221,10 @@ class TelethonAPI(ITDLibClient):
         messages = await self.__get_messages(
             entity=PeerChannel(channel_id=req.chat), ids=[req.message_id]
         )
-        message = messages[0]
+        message = self._transform_messages([messages[0]])[0]
 
-        document = getattr(message, "document", None)
-
-        if not (
-            (document := getattr(message, "document", None))
-            and isinstance(document, tlt.Document)
-        ):
-            raise UnDownloadableMessage(message.id)
+        if not message or not (document := message.document):
+            raise UnDownloadableMessage(messages[0].id)
 
         chunk_size = req.chunk_size * 1024
 
