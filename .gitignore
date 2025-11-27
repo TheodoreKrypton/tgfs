@@ -1,8 +1,28 @@
-config.yaml
-/**/__pycache__/
-.idea
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+
+# Virtualenvs
+.env
+.venv
+venv/
+
+# Editor
 .vscode/
-CLAUDE.md
-dist/
-coverage.xml
-.coverage
+.idea/
+
+# Docker/Postgres Daten
+pgdata/
+data/
+
+# Logs
+*.log
+
+# Sensitive Dateien / lokale Config
+config.yaml
+deploy/config.yaml
+*.session
+*.db

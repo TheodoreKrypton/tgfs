@@ -37,6 +37,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 COPY tgfs/ ./tgfs/
 COPY asgidav/ ./asgidav/
 COPY main.py ./
+COPY cleanup_deleted.py ./ 
 
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash tgfs

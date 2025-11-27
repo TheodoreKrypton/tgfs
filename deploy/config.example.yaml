@@ -1,0 +1,32 @@
+telegram:
+  api_id: 123456
+  api_hash: "your_api_hash_here"
+  lib: telethon
+  bot:
+    session_file: bot.session
+    tokens:
+      - "0000000:FAKE-TELEGRAM-BOT-TOKEN"
+  private_file_channel:
+    - "0000000000"
+
+tgfs:
+  users:
+    demo:
+      password: "demo_password"
+  download:
+    chunk_size_kb: 1024
+  jwt:
+    secret: "CHANGE_ME_TO_A_RANDOM_SECRET"
+    algorithm: HS256
+    life: 604800
+
+  metadata:
+    "0000000000":
+      name: default
+      type: postgres
+      postgres:
+        dsn: "postgresql://tgfs:example_password@db:5432/tgfs"
+
+  server:
+    host: 0.0.0.0
+    port: 1900

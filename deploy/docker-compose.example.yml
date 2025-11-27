@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16
+    container_name: tgfs-postgres-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tgfs
+      POSTGRES_USER: tgfs
+      POSTGRES_PASSWORD: example_pw
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+
+  tgfs:
+    build: .
+    container_name: tgfs-postgres-app
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      # TGFS liest diese Variablen in tgfs/config.py
+      TGFS_CONFIG_FILE: /app/config.yaml
+      TGFS_DATA_DIR: /data
+    volumes:
+      # deine TGFS-Konfiguration
+      - ./config.yaml:/app/config.yaml:ro
+      # Persistente Daten (Sessions, Logs etc.)
+      - ./data:/data
+    ports:
+      # WebDAV / TGFS HTTP
+      - "1900:1900"

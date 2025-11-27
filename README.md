@@ -60,3 +60,19 @@ Before committing and pushing, run the following command to install git hooks:
 ```bash
 pre-commit install
 ```
+## Docker + Postgres Example
+
+This repository contains a Postgres-backed TGFS variant.
+
+Example deployment files are under `deploy/`:
+
+- `docker-compose.example.yml` – example Docker setup
+- `config.example.yaml` – example TGFS configuration (no real secrets)
+
+To run locally:
+
+```bash
+cd deploy
+cp config.example.yaml config.yaml   # edit with your own API keys & secrets
+cp docker-compose.example.yml docker-compose.yml
+docker compose up -d

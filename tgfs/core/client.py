@@ -7,10 +7,10 @@ from tgfs.core.repository.impl import (
     TGMsgFileContentRepository,
     TGMsgMetadataRepository,
 )
-from tgfs.core.repository.interface import (
-    IMetaDataRepository,
-)
+from tgfs.core.repository.interface import IMetaDataRepository
 from tgfs.telegram import TDLibApi
+from tgfs.core.repository.impl.metadata.github_repo import GithubRepoMetadataRepository
+from tgfs.core.repository.impl.metadata.postgres_repo import PostgresMetadataRepository
 
 
 class Client:
@@ -34,9 +34,11 @@ class Client:
         tdlib_api: TDLibApi,
         use_account_api_to_upload: bool = False,
     ) -> "Client":
+        # Telegram-Channel auflösen und MessageApi bauen
         channel = await tdlib_api.next_bot.resolve_channel_id(channel_id)
         message_api = MessageApi(tdlib_api, channel)
 
+        # Repositories für File-Inhalte + FileDescs
         fc_repo = TGMsgFileContentRepository(
             message_api,
             use_account_api_to_upload
@@ -45,23 +47,38 @@ class Client:
         )
         fd_repo = TGMsgFDRepository(message_api)
 
+        # --- Metadata-Repository auswählen ---
         if metadata_cfg.type == MetadataType.PINNED_MESSAGE:
+            # Metadaten direkt in Telegram (gepinnt) speichern
             metadata_repo: IMetaDataRepository = TGMsgMetadataRepository(
                 message_api, fc_repo
             )
-        else:
-            if (github_repo_config := metadata_cfg.github_repo) is None:
-                raise ValueError(
-                    "configuration tgfs -> metadata -> github is required."
-                )
-            from tgfs.core.repository.impl.metadata.github_repo import (
-                GithubRepoMetadataRepository,
-            )
 
+        elif metadata_cfg.type == MetadataType.GITHUB_REPO:
+            # Metadaten in einem Github-Repo
+            github_repo_config = metadata_cfg.github_repo
+            if github_repo_config is None:
+                raise ValueError(
+                    "configuration tgfs -> metadata -> github_repo is required "
+                    "for MetadataType.GITHUB_REPO."
+                )
             metadata_repo = GithubRepoMetadataRepository(github_repo_config)
 
-        fd_api = FileDescApi(fd_repo, fc_repo)
+        elif metadata_cfg.type == MetadataType.POSTGRES:
+            # Metadaten in Postgres
+            if metadata_cfg.postgres is None:
+                raise ValueError(
+                    "configuration tgfs -> metadata -> postgres is required "
+                    "for MetadataType.POSTGRES."
+                )
+            # WICHTIG: das ganze MetadataConfig-Objekt übergeben
+            metadata_repo = PostgresMetadataRepository(metadata_cfg)
 
+        else:
+            raise ValueError(f"Unsupported metadata type: {metadata_cfg.type}")
+
+        # APIs auf Basis der Repositories
+        fd_api = FileDescApi(fd_repo, fc_repo)
         metadata_api = MetaDataApi(metadata_repo)
         await metadata_api.init()
 
