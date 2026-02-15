@@ -80,15 +80,28 @@ class GithubRepoConfig:
         )
 
 
+@dataclass
+class PostgresMetadataConfig:
+    dsn: str  # z.B. "postgresql://user:pass@host:5432/tgfs"
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Self:
+        return cls(
+            dsn=data["dsn"],
+        )
+
+
 class MetadataType(Enum):
     PINNED_MESSAGE = "pinned_message"
     GITHUB_REPO = "github_repo"
+    POSTGRES = "postgres"
 
 
 class MetadataConfigDict(TypedDict):
     name: str
     type: str
     github_repo: Optional[Dict]
+    postgres: Optional[Dict]
 
 
 @dataclass
@@ -96,19 +109,21 @@ class MetadataConfig:
     name: str
     type: MetadataType
     github_repo: Optional[GithubRepoConfig]
+    postgres: Optional[PostgresMetadataConfig]
 
     @classmethod
     def from_dict(cls, data: MetadataConfigDict) -> Self:
-        if (
-            data.get("type", MetadataType.PINNED_MESSAGE.value)
-            == MetadataType.PINNED_MESSAGE.value
-        ):
+        t = data.get("type", MetadataType.PINNED_MESSAGE.value)
+
+        if t == MetadataType.PINNED_MESSAGE.value:
             return cls(
                 name=data.get("name", "default"),
                 type=MetadataType.PINNED_MESSAGE,
                 github_repo=None,
+                postgres=None,
             )
-        if data["type"] == MetadataType.GITHUB_REPO.value:
+
+        if t == MetadataType.GITHUB_REPO.value:
             if not (gh_repo_config := data.get("github_repo")):
                 raise ValueError(
                     "GitHub repo configuration is required for GITHUB_REPO type"
@@ -117,9 +132,24 @@ class MetadataConfig:
                 name=data.get("name", "default"),
                 type=MetadataType.GITHUB_REPO,
                 github_repo=GithubRepoConfig.from_dict(gh_repo_config),
+                postgres=None,
             )
+
+        if t == MetadataType.POSTGRES.value:
+            if not (pg_cfg := data.get("postgres")):
+                raise ValueError(
+                    "postgres configuration is required for POSTGRES metadata type"
+                )
+            return cls(
+                name=data.get("name", "default"),
+                type=MetadataType.POSTGRES,
+                github_repo=None,
+                postgres=PostgresMetadataConfig.from_dict(pg_cfg),
+            )
+
         raise ValueError(
-            f"Unknown metadata type: {data['type']}, available options: {', '.join(e.value for e in MetadataType)}"
+            f"Unknown metadata type: {data['type']}, "
+            f"available options: {', '.join(e.value for e in MetadataType)}"
         )
 
 
