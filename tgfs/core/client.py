@@ -65,8 +65,8 @@ class Client:
         metadata_api = MetaDataApi(metadata_repo)
         await metadata_api.init()
 
-        file_api = FileApi(metadata_api, fd_api)
-        dir_api = DirectoryApi(metadata_api)
+        file_api = FileApi(metadata_api, fd_api, message_api)
+        dir_api = DirectoryApi(metadata_api, file_api, message_api)
 
         return cls(
             name=metadata_cfg.name,

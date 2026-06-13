@@ -4,6 +4,7 @@ from itertools import cycle
 from typing import Optional, Sequence
 
 from tgfs.reqres import (
+    DeleteMessagesReq,
     DownloadFileReq,
     DownloadFileResp,
     EditMessageMediaReq,
@@ -77,6 +78,10 @@ class ITDLibClient(metaclass=ABCMeta):
 
     @abstractmethod
     async def download_file(self, req: DownloadFileReq) -> DownloadFileResp:
+        pass
+
+    @abstractmethod
+    async def delete_messages(self, req: DeleteMessagesReq) -> None:
         pass
 
     @abstractmethod

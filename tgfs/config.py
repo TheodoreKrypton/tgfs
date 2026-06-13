@@ -205,6 +205,7 @@ class TelegramConfig:
     bot: BotConfig
     private_file_channel: List[str]
     lib: Literal["pyrogram", "telethon"]
+    delete_messages_on_remove: bool
 
     @classmethod
     def from_dict(cls, data: dict) -> "TelegramConfig":
@@ -217,6 +218,9 @@ class TelegramConfig:
             bot=BotConfig.from_dict(data["bot"]),
             private_file_channel=data["private_file_channel"],
             lib=data.get("lib") or "telethon",
+            delete_messages_on_remove=bool(
+                data.get("delete_messages_on_remove", False)
+            ),
         )
 
 

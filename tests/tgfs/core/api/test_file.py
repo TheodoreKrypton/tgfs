@@ -3,6 +3,7 @@ import datetime
 
 from tgfs.core.api.file import FileApi
 from tgfs.core.api.file_desc import FileDescApi
+from tgfs.core.api.message import MessageApi
 from tgfs.core.api.metadata import MetaDataApi
 from tgfs.core.model import TGFSDirectory, TGFSFileDesc, TGFSFileRef, TGFSFileVersion
 from tgfs.errors import FileOrDirectoryDoesNotExist
@@ -23,8 +24,14 @@ class TestFileApi:
         return mocker.AsyncMock(spec=FileDescApi)
 
     @pytest.fixture
-    def file_api(self, mock_metadata_api, mock_file_desc_api) -> FileApi:
-        return FileApi(mock_metadata_api, mock_file_desc_api)
+    def mock_message_api(self, mocker):
+        return mocker.AsyncMock(spec=MessageApi)
+
+    @pytest.fixture
+    def file_api(
+        self, mock_metadata_api, mock_file_desc_api, mock_message_api
+    ) -> FileApi:
+        return FileApi(mock_metadata_api, mock_file_desc_api, mock_message_api)
 
     @pytest.fixture
     def sample_directory(self) -> TGFSDirectory:
@@ -52,11 +59,12 @@ class TestFileApi:
     def sample_file_message(self) -> FileMessageFromBuffer:
         return FileMessageFromBuffer.new(buffer=b"test content", name="test_file.txt")
 
-    def test_init(self, mock_metadata_api, mock_file_desc_api):
-        file_api = FileApi(mock_metadata_api, mock_file_desc_api)
+    def test_init(self, mock_metadata_api, mock_file_desc_api, mock_message_api):
+        file_api = FileApi(mock_metadata_api, mock_file_desc_api, mock_message_api)
 
         assert file_api._metadata_api == mock_metadata_api
         assert file_api._file_desc_api == mock_file_desc_api
+        assert file_api._message_api == mock_message_api
 
     @pytest.mark.asyncio
     async def test_copy_with_custom_name(
@@ -182,18 +190,42 @@ class TestFileApi:
 
     @pytest.mark.asyncio
     async def test_rm_without_version_id(
-        self, file_api, mock_metadata_api, sample_file_ref, mocker
+        self,
+        file_api,
+        mock_metadata_api,
+        mock_message_api,
+        mock_file_desc_api,
+        sample_file_ref,
+        mocker,
     ):
         sample_file_ref.delete = mocker.Mock()
+
+        fd = mocker.Mock(spec=TGFSFileDesc)
+        fd.get_versions.return_value = [
+            TGFSFileVersion(
+                id="v1",
+                updated_at=datetime.datetime.now(),
+                message_ids=[200, 201],
+            )
+        ]
+        mock_file_desc_api.get_file_desc.return_value = fd
 
         await file_api.rm(sample_file_ref)
 
         sample_file_ref.delete.assert_called_once()
         mock_metadata_api.push.assert_called_once()
+        mock_message_api.delete_messages.assert_called_once()
+        deleted_ids = mock_message_api.delete_messages.call_args[0][0]
+        assert sorted(deleted_ids) == [123, 200, 201]
 
     @pytest.mark.asyncio
     async def test_rm_with_version_id(
-        self, file_api, mock_file_desc_api, sample_file_ref, mocker
+        self,
+        file_api,
+        mock_file_desc_api,
+        mock_message_api,
+        sample_file_ref,
+        mocker,
     ):
         version_id = "v1"
         mock_response = mocker.Mock()
@@ -203,12 +235,21 @@ class TestFileApi:
         mock_file_desc_api.delete_file_version.return_value = mock_response
         sample_file_ref.delete = mocker.Mock()
 
+        fd = mocker.Mock(spec=TGFSFileDesc)
+        fd.get_version.return_value = TGFSFileVersion(
+            id=version_id,
+            updated_at=datetime.datetime.now(),
+            message_ids=[500, 501],
+        )
+        mock_file_desc_api.get_file_desc.return_value = fd
+
         await file_api.rm(sample_file_ref, version_id)
 
         mock_file_desc_api.delete_file_version.assert_called_once_with(
             sample_file_ref, version_id
         )
         sample_file_ref.delete.assert_not_called()
+        mock_message_api.delete_messages.assert_called_once_with([500, 501])
 
     @pytest.mark.asyncio
     async def test_upload_non_uploadable_message_new_file(
@@ -494,6 +535,14 @@ class TestFileApi:
         mock_response = mocker.Mock()
         mock_response.message_id = new_message_id  # Different ID, update needed
         mock_file_desc_api.delete_file_version.return_value = mock_response
+
+        fd = mocker.Mock(spec=TGFSFileDesc)
+        fd.get_version.return_value = TGFSFileVersion(
+            id=version_id,
+            updated_at=datetime.datetime.now(),
+            message_ids=[],
+        )
+        mock_file_desc_api.get_file_desc.return_value = fd
 
         await file_api.rm(sample_file_ref, version_id)
 

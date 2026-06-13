@@ -13,6 +13,7 @@ from tgfs.errors import (
     TechnicalError,
 )
 from tgfs.reqres import (
+    DeleteMessagesReq,
     DownloadFileReq,
     DownloadFileResp,
     EditMessageTextReq,
@@ -41,6 +42,7 @@ class TestMessageApi:
         tdlib.next_bot.edit_message_text = AsyncMock()
         tdlib.next_bot.pin_message = AsyncMock()
         tdlib.next_bot.download_file = AsyncMock()
+        tdlib.next_bot.delete_messages = AsyncMock()
         tdlib.account.get_pinned_messages = AsyncMock()
         tdlib.account.search_messages = AsyncMock()
 
@@ -333,6 +335,89 @@ class TestMessageApi:
         assert (
             result.size == -98
         )  # Note: This reflects the _size method behavior (0 - 99 + 1 = -98)
+
+    @pytest.fixture
+    def patch_delete_flag(self, mocker):
+        def _patch(enabled: bool):
+            cfg = mocker.Mock()
+            cfg.telegram.delete_messages_on_remove = enabled
+            mocker.patch("tgfs.core.api.message.get_config", return_value=cfg)
+
+        return _patch
+
+    @pytest.mark.asyncio
+    async def test_delete_messages_disabled_no_call(
+        self, message_api, mock_tdlib, patch_delete_flag
+    ):
+        patch_delete_flag(False)
+
+        await message_api.delete_messages([1, 2, 3])
+
+        mock_tdlib.next_bot.delete_messages.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_messages_enabled(
+        self, message_api, mock_tdlib, mock_private_channel, patch_delete_flag
+    ):
+        patch_delete_flag(True)
+
+        await message_api.delete_messages([10, 20, 30])
+
+        mock_tdlib.next_bot.delete_messages.assert_called_once()
+        req: DeleteMessagesReq = (
+            mock_tdlib.next_bot.delete_messages.call_args[0][0]
+        )
+        assert req.chat == mock_private_channel
+        assert set(req.message_ids) == {10, 20, 30}
+
+    @pytest.mark.asyncio
+    async def test_delete_messages_empty_no_call(
+        self, message_api, mock_tdlib, patch_delete_flag
+    ):
+        patch_delete_flag(True)
+
+        await message_api.delete_messages([])
+        await message_api.delete_messages([0, -1])
+
+        mock_tdlib.next_bot.delete_messages.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_messages_dedupes(
+        self, message_api, mock_tdlib, patch_delete_flag
+    ):
+        patch_delete_flag(True)
+
+        await message_api.delete_messages([5, 5, 5, 6])
+
+        assert mock_tdlib.next_bot.delete_messages.call_count == 1
+        req = mock_tdlib.next_bot.delete_messages.call_args[0][0]
+        assert sorted(req.message_ids) == [5, 6]
+
+    @pytest.mark.asyncio
+    async def test_delete_messages_batches_above_limit(
+        self, message_api, mock_tdlib, patch_delete_flag
+    ):
+        patch_delete_flag(True)
+
+        ids = list(range(1, 251))  # 250 ids -> 100 + 100 + 50
+        await message_api.delete_messages(ids)
+
+        assert mock_tdlib.next_bot.delete_messages.call_count == 3
+        sizes = [
+            len(call.args[0].message_ids)
+            for call in mock_tdlib.next_bot.delete_messages.call_args_list
+        ]
+        assert sorted(sizes) == [50, 100, 100]
+
+    @pytest.mark.asyncio
+    async def test_delete_messages_swallows_errors(
+        self, message_api, mock_tdlib, patch_delete_flag
+    ):
+        patch_delete_flag(True)
+        mock_tdlib.next_bot.delete_messages.side_effect = RuntimeError("boom")
+
+        # Should not raise.
+        await message_api.delete_messages([1, 2])
 
     @pytest.mark.asyncio
     async def test_download_file_end_zero_or_negative(self, message_api, mock_tdlib):

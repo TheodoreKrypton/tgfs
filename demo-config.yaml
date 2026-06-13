@@ -7,6 +7,14 @@ telegram:
       - hidden
   private_file_channel: 'tgfsdemo'
   lib: pyrogram
+  # When ``true``, removing a file (or directory) through TGFS also issues
+  # ``messages.deleteMessages`` for every backing message in the channel:
+  # the JSON file-descriptor message and every content message of every
+  # version. Default is ``false`` -- metadata is updated but the original
+  # messages stay in the channel, matching historical behavior.
+  # The bot account must be an admin of ``private_file_channel`` with the
+  # "Delete Messages" permission for this to succeed.
+  delete_messages_on_remove: false
 tgfs:
   users:
   download:

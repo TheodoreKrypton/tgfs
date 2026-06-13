@@ -16,6 +16,7 @@ from tgfs.telegram.impl.telethon import (
 from tgfs.config import Config, TelegramConfig, BotConfig, AccountConfig
 from tgfs.errors import TechnicalError, UnDownloadableMessage
 from tgfs.reqres import (
+    DeleteMessagesReq,
     GetMessagesReq,
     SendTextReq,
     EditMessageTextReq,
@@ -42,6 +43,7 @@ class TestTelethonAPI:
         client.send_file = mocker.AsyncMock()
         client.pin_message = mocker.AsyncMock()
         client.iter_download = mocker.AsyncMock()
+        client.delete_messages = mocker.AsyncMock()
         return client
 
     @pytest.fixture
@@ -323,6 +325,31 @@ class TestTelethonAPI:
         assert call_args[1]["entity"] == tlt.PeerChannel(mock_chat)
         assert isinstance(call_args[1]["filter"], tlt.InputMessagesFilterPinned)
         assert len(result) >= 0
+
+    @pytest.mark.asyncio
+    async def test_delete_messages(self, telethon_api, mock_chat, mocker):
+        mock_cache = mocker.Mock()
+        mock_cache.__setitem__ = mocker.Mock()
+
+        mock_channel_cache = mocker.patch("tgfs.telegram.impl.telethon.channel_cache")
+        mock_cache_instance = mocker.Mock()
+        mock_cache_instance.id = mock_cache
+        mock_channel_cache.return_value = mock_cache_instance
+
+        req = DeleteMessagesReq(chat=mock_chat, message_ids=(11, 22, 33))
+        await telethon_api.delete_messages(req)
+
+        telethon_api._client.delete_messages.assert_called_once_with(
+            entity=tlt.PeerChannel(channel_id=mock_chat), message_ids=[11, 22, 33]
+        )
+        assert mock_cache.__setitem__.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_delete_messages_empty_is_noop(self, telethon_api, mock_chat):
+        req = DeleteMessagesReq(chat=mock_chat, message_ids=())
+        await telethon_api.delete_messages(req)
+
+        telethon_api._client.delete_messages.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_pin_message(self, telethon_api, mock_chat):

@@ -1,5 +1,6 @@
 import asyncio
-from typing import Iterator
+import logging
+from typing import Iterable, Iterator, List
 
 from pyrate_limiter import Duration, InMemoryBucket, Limiter, Rate
 from telethon.errors import MessageNotModifiedError, RPCError
@@ -12,6 +13,7 @@ from tgfs.errors import (
     TechnicalError,
 )
 from tgfs.reqres import (
+    DeleteMessagesReq,
     DownloadFileReq,
     DownloadFileResp,
     EditMessageTextReq,
@@ -27,6 +29,11 @@ from tgfs.utils.chained_async_iterator import ChainedAsyncIterator
 from tgfs.utils.others import exclude_none, is_big_file
 
 from .message_broker import MessageBroker
+
+logger = logging.getLogger(__name__)
+
+# Telegram's messages.deleteMessages caps each request at 100 message ids.
+DELETE_BATCH_SIZE = 100
 
 rate = Rate(20, Duration.SECOND)
 bucket = InMemoryBucket([rate])
@@ -90,6 +97,36 @@ class MessageApi(MessageBroker):
             document=message.document,
             text="",
         )
+
+    async def delete_messages(self, message_ids: Iterable[int]) -> None:
+        """Best-effort deletion of channel messages.
+
+        Gated by ``telegram.delete_messages_on_remove`` so the default
+        TGFS behavior (file removed from metadata, message kept on the
+        channel) is unchanged. Failures are logged but never raised --
+        the caller has already committed the metadata change and we do
+        not want a delete error to roll that back.
+        """
+        if not get_config().telegram.delete_messages_on_remove:
+            return
+        unique_ids: List[int] = list({mid for mid in message_ids if mid > 0})
+        if not unique_ids:
+            return
+        for start in range(0, len(unique_ids), DELETE_BATCH_SIZE):
+            batch = tuple(unique_ids[start : start + DELETE_BATCH_SIZE])
+            self.__try_acquire("MessageApi.delete_messages")
+            try:
+                await self.tdlib.next_bot.delete_messages(
+                    DeleteMessagesReq(
+                        chat=self.private_file_channel,
+                        message_ids=batch,
+                    )
+                )
+            except Exception as ex:
+                logger.warning(
+                    f"Failed to delete telegram messages {batch} from channel "
+                    f"{self.private_file_channel}: {ex}"
+                )
 
     async def pin_message(self, message_id: int):
         self.__try_acquire("MessageApi.pin_message")

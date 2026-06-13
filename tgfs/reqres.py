@@ -55,6 +55,11 @@ class SearchMessageReq(Chat):
     search: str
 
 
+@dataclass
+class DeleteMessagesReq(Chat):
+    message_ids: Tuple[int, ...]
+
+
 GetPinnedMessageReq = Chat
 SendMessageResp = Message
 

@@ -3,12 +3,21 @@ from typing import List, Optional
 from tgfs.core.model import TGFSDirectory, TGFSFileRef
 from tgfs.errors import DirectoryIsNotEmpty, FileOrDirectoryDoesNotExist
 
+from .file import FileApi
+from .message import MessageApi
 from .metadata import MetaDataApi
 
 
 class DirectoryApi:
-    def __init__(self, metadata_api: MetaDataApi):
+    def __init__(
+        self,
+        metadata_api: MetaDataApi,
+        file_api: FileApi,
+        message_api: MessageApi,
+    ):
         self.__metadata_api = metadata_api
+        self.__file_api = file_api
+        self.__message_api = message_api
 
     @property
     def root(self):
@@ -40,5 +49,17 @@ class DirectoryApi:
         await self.rm_dangerously(directory)
 
     async def rm_dangerously(self, directory: TGFSDirectory) -> None:
+        message_ids = await self.__collect_subtree_message_ids(directory)
         directory.delete()
         await self.__metadata_api.push()
+        await self.__message_api.delete_messages(message_ids)
+
+    async def __collect_subtree_message_ids(
+        self, directory: TGFSDirectory
+    ) -> List[int]:
+        ids: List[int] = []
+        for fr in directory.find_files():
+            ids.extend(await self.__file_api.collect_message_ids(fr))
+        for child in directory.find_dirs():
+            ids.extend(await self.__collect_subtree_message_ids(child))
+        return ids

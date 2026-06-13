@@ -12,6 +12,7 @@ from pyrogram.raw import types as rt
 from tgfs.config import Config
 from tgfs.errors import TechnicalError, UnDownloadableMessage
 from tgfs.reqres import (
+    DeleteMessagesReq,
     Document,
     DownloadFileReq,
     DownloadFileResp,
@@ -276,6 +277,16 @@ class PyrogramAPI(ITDLibClient):
                         break
 
         return DownloadFileResp(chunks=chunks(), size=bytes_to_read)
+
+    async def delete_messages(self, req: DeleteMessagesReq) -> None:
+        if not req.message_ids:
+            return
+        cache = channel_cache(req.chat).id
+        for mid in req.message_ids:
+            cache[mid] = None
+        await self._client.delete_messages(
+            chat_id=req.chat, message_ids=list(req.message_ids)
+        )
 
     async def resolve_channel_id(self, channel_id: str) -> int:
         try:

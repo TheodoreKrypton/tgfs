@@ -29,6 +29,7 @@ Refer to the [wiki page](https://github.com/TheodoreKrypton/tgfs/wiki/TGFS-Wiki)
 * Importing files that are already on Telegram (Only via the Telegram Mini App)
 * File size is unlimited (larger files are chunked into parts but appear as a single file to the user)
 * Live streaming of videos
+* Optional deletion of the underlying Telegram messages when removing files or folders (opt-in via `delete_messages_on_remove`)
 
 
 ## Demo Server
