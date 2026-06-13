@@ -56,6 +56,7 @@ class TestMain:
             mock_metadata_cfg,
             mock_tdlib_instance,
             mock_config.telegram.account.used_to_upload,
+            encryption_cfg=mock_config.tgfs.encryption,
         )
         assert result == {"test_client": mock_client}
 
@@ -105,7 +106,11 @@ class TestMain:
         mock_telethon_login_account.assert_not_called()
         mock_telethon_login_bots.assert_called_once_with(mock_config)
         mock_client_create.assert_called_once_with(
-            67890, mock_metadata_cfg, mock_tdlib_instance, False
+            67890,
+            mock_metadata_cfg,
+            mock_tdlib_instance,
+            False,
+            encryption_cfg=mock_config.tgfs.encryption,
         )
         assert result == {"test_client": mock_client}
 

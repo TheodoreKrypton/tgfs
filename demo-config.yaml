@@ -24,3 +24,29 @@ tgfs:
   server:
     host: 0.0.0.0
     port: 1900
+  # ---------------------------------------------------------------------------
+  # Optional at-rest encryption.
+  #
+  # When ``enabled: true``, every file uploaded through TGFS is encrypted with
+  # AES-256-GCM in 64 KiB chunks *before* it leaves this process. The Telegram
+  # channel never sees plaintext, so a compromised channel reveals only
+  # ciphertext + a public salt per file.
+  #
+  # Three ways to supply the passphrase, pick exactly one:
+  #   * passphrase       -- inline string (NOT recommended outside dev)
+  #   * passphrase_env   -- read from an environment variable
+  #   * passphrase_file  -- read from a file (use systemd ``LoadCredential=``)
+  #
+  # ``master_salt_file`` is created on first run (16 random bytes) and MUST be
+  # backed up. Without it the master key cannot be re-derived.
+  #
+  # ``chunk_size`` defaults to 65536 (64 KiB). Larger -> less overhead, worse
+  # random-access granularity; smaller -> more per-chunk auth-tag cost.
+  # ---------------------------------------------------------------------------
+  encryption:
+    enabled: false
+    # passphrase: "change-me-or-use-a-file"
+    passphrase_env: TGFS_MASTER_PASSPHRASE
+    # passphrase_file: secrets/master.passphrase
+    master_salt_file: master.salt
+    chunk_size: 65536
