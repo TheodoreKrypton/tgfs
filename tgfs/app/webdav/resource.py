@@ -39,7 +39,12 @@ class Resource(_Resource):
         return int((await self.__fd()).get_latest_version().updated_at_timestamp)
 
     async def content_length(self):
-        return (await self.__fd()).get_latest_version().size
+        fv = (await self.__fd()).get_latest_version()
+        # Ask the file-content repository for the logical size. The default
+        # implementation returns ``fv.size`` (the on-wire byte count); the
+        # encryption decorator returns the plaintext size instead, so WebDAV
+        # clients see the size they will actually receive.
+        return await self.__client.fc_repo.content_length(fv)
 
     async def content_type(self):
         return "application/octet-stream"

@@ -54,6 +54,7 @@ async def create_clients(config: Config) -> Clients:
                 if config.telegram.account
                 else False
             ),
+            encryption_cfg=config.tgfs.encryption,
         )
     return clients
 

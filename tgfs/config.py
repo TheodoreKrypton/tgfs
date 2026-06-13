@@ -66,6 +66,88 @@ class JWTConfig:
 
 
 @dataclass
+class EncryptionConfig:
+    """Optional at-rest encryption settings.
+
+    ``passphrase_env`` / ``passphrase`` / ``passphrase_file`` are mutually
+    exclusive; the loader picks the first one that is set. A file containing
+    the passphrase is the recommended option for systemd deployments (pair
+    it with a ``LoadCredential=`` unit directive).
+
+    ``master_salt_file`` stores the 16-byte master salt produced on the
+    very first run. Back this up alongside your TGFS metadata -- without it
+    the master key cannot be re-derived even with the correct passphrase.
+
+    ``encrypt_names`` additionally replaces the Telegram-visible document
+    name (and the pinned metadata document name) with an AES-GCM
+    ciphertext blob, so a passive observer of the channel cannot read
+    file or directory names from the document metadata. The plaintext
+    name is still stored inside the TGFS metadata.json, which is itself
+    encrypted at rest, so the WebDAV / manager UI is unaffected.
+    """
+
+    enabled: bool
+    encrypt_names: bool
+    passphrase: Optional[str]
+    passphrase_env: Optional[str]
+    passphrase_file: Optional[str]
+    master_salt_file: str
+    chunk_size: int
+
+    @classmethod
+    def from_dict(cls, data: Optional[dict]) -> "EncryptionConfig":
+        if not data:
+            return cls(
+                enabled=False,
+                encrypt_names=False,
+                passphrase=None,
+                passphrase_env=None,
+                passphrase_file=None,
+                master_salt_file=expand_path("master.salt"),
+                chunk_size=64 * 1024,
+            )
+        return cls(
+            enabled=bool(data.get("enabled", False)),
+            encrypt_names=bool(data.get("encrypt_names", False)),
+            passphrase=data.get("passphrase"),
+            passphrase_env=data.get("passphrase_env"),
+            passphrase_file=(
+                expand_path(data["passphrase_file"])
+                if data.get("passphrase_file")
+                else None
+            ),
+            master_salt_file=expand_path(
+                data.get("master_salt_file", "master.salt")
+            ),
+            chunk_size=int(data.get("chunk_size", 64 * 1024)),
+        )
+
+    def resolve_passphrase(self) -> str:
+        """Return the passphrase from whichever source is configured.
+
+        Raises :class:`ValueError` if encryption is enabled but no source
+        was configured. Stripping a trailing newline makes the
+        ``passphrase_file`` flow forgiving of editors that always add one.
+        """
+        if self.passphrase_env:
+            value = os.environ.get(self.passphrase_env)
+            if value is None:
+                raise ValueError(
+                    f"encryption passphrase env var '{self.passphrase_env}' not set"
+                )
+            return value
+        if self.passphrase_file:
+            with open(self.passphrase_file, "r", encoding="utf-8") as fh:
+                return fh.read().rstrip("\n")
+        if self.passphrase:
+            return self.passphrase
+        raise ValueError(
+            "encryption enabled but no passphrase source configured "
+            "(set one of passphrase, passphrase_env, passphrase_file)"
+        )
+
+
+@dataclass
 class GithubRepoConfig:
     repo: str
     commit: str
@@ -140,6 +222,7 @@ class TGFSConfig:
     jwt: JWTConfig
     metadata: Dict[str, MetadataConfig]
     server: ServerConfig
+    encryption: EncryptionConfig
 
     @classmethod
     def from_dict(cls, data: Dict) -> Self:
@@ -160,6 +243,7 @@ class TGFSConfig:
                 k: MetadataConfig.from_dict(v) for k, v in metadata_config.items()
             },
             server=ServerConfig.from_dict(data["server"]),
+            encryption=EncryptionConfig.from_dict(data.get("encryption")),
         )
 
 

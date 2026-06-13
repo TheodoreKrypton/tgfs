@@ -38,6 +38,15 @@ class IFileContentRepository(metaclass=ABCMeta):
     async def update(self, message_id: int, buffer: bytes, name: str) -> int:
         pass
 
+    async def content_length(self, fv: TGFSFileVersion) -> int:
+        """Logical size of the file as seen by the caller.
+
+        Defaults to the stored on-wire size. The encryption decorator overrides
+        this to subtract its per-chunk overhead and the file header so WebDAV
+        clients see the plaintext length.
+        """
+        return fv.size
+
 
 class IFDRepository(metaclass=ABCMeta):
     @abstractmethod

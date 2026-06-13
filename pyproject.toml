@@ -23,6 +23,8 @@ dependencies = [
     "pyrofork (>=2.3.68,<3.0.0)",
     "tgcrypto-pyrofork (>=1.2.7,<2.0.0)",
     "cryptg (>=0.5.1,<0.6.0)",
+    "cryptography (>=42.0.0,<46.0.0)",
+    "argon2-cffi (>=23.1.0,<26.0.0)",
     "uvloop (>=0.21.0,<0.22.0) ; platform_system != \"Windows\"",
 ]
 
