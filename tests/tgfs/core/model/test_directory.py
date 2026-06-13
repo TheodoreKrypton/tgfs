@@ -1,3 +1,4 @@
+import datetime
 import pytest
 from unittest.mock import Mock
 
@@ -89,24 +90,48 @@ class TestTGFSDirectory:
             TGFSDirectory(name="invalid/name", parent=None)
 
     def test_created_at_timestamp_property(self):
-        # Test timestamp property (always returns FIRST_DAY_OF_EPOCH)
+        # Fresh directories get a real timestamp from the default factory.
         directory = TGFSDirectory(name="test", parent=None)
 
+        assert directory.created_at_timestamp > 0
+        assert abs(directory.created_at_timestamp - directory.modified_at_timestamp) < 1000
+
+    def test_legacy_from_dict_has_epoch_timestamps(self):
+        # Directories serialized before the timestamp fields existed deserialize at epoch.
+        directory = TGFSDirectory.from_dict(
+            {
+                "type": "D",
+                "name": "legacy",
+                "children": [],
+                "files": [],
+            }
+        )
+
         assert directory.created_at_timestamp == ts(FIRST_DAY_OF_EPOCH)
+        assert directory.modified_at_timestamp == ts(FIRST_DAY_OF_EPOCH)
 
     def test_to_dict_empty(self):
         # Test serialization of empty directory
         directory = TGFSDirectory(name="empty", parent=None)
 
         result = directory.to_dict()
-        expected = {
-            "type": "D",
-            "name": "empty",
-            "children": [],
-            "files": [],
-        }
 
-        assert result == expected
+        assert result["type"] == "D"
+        assert result["name"] == "empty"
+        assert result["children"] == []
+        assert result["files"] == []
+        assert result["createdAt"] == directory.created_at_timestamp
+        assert result["modifiedAt"] == directory.modified_at_timestamp
+
+    def test_to_from_dict_roundtrip_preserves_timestamps(self):
+        original = TGFSDirectory(name="rt", parent=None)
+        original.created_at = datetime.datetime(2024, 6, 1, 12, 30, 45)
+        original.modified_at = datetime.datetime(2024, 6, 2, 9, 15, 0)
+
+        restored = TGFSDirectory.from_dict(original.to_dict())
+
+        assert restored.created_at_timestamp == original.created_at_timestamp
+        assert restored.modified_at_timestamp == original.modified_at_timestamp
 
     def test_to_dict_with_content(self):
         # Test serialization with children and files
@@ -456,6 +481,49 @@ class TestTGFSDirectory:
 
         assert root.children == []
         assert root.files == []
+
+    def test_create_file_ref_bumps_modified_at(self):
+        parent = TGFSDirectory(name="parent", parent=None)
+        parent.created_at = datetime.datetime(2020, 1, 1)
+        parent.modified_at = datetime.datetime(2020, 1, 1)
+        original_created = parent.created_at_timestamp
+
+        parent.create_file_ref("new.txt", 1)
+
+        assert parent.modified_at_timestamp > original_created
+        assert parent.created_at_timestamp == original_created
+
+    def test_delete_file_ref_bumps_modified_at(self):
+        parent = TGFSDirectory(name="parent", parent=None)
+        fr = parent.create_file_ref("doomed.txt", 1)
+        parent.modified_at = datetime.datetime(2020, 1, 1)
+        stale = parent.modified_at_timestamp
+
+        parent.delete_file_ref(fr)
+
+        assert parent.modified_at_timestamp > stale
+
+    def test_child_delete_bumps_parent_modified_at(self):
+        parent = TGFSDirectory(name="parent", parent=None)
+        child = parent.create_dir("child", None)
+        parent.modified_at = datetime.datetime(2020, 1, 1)
+        stale = parent.modified_at_timestamp
+
+        child.delete()
+
+        assert parent.modified_at_timestamp > stale
+
+    def test_create_dir_stamps_fresh_timestamp_on_copy(self):
+        template = TGFSDirectory(name="template", parent=None)
+        template.created_at = datetime.datetime(2000, 1, 1)
+        template.modified_at = datetime.datetime(2000, 1, 1)
+        template_ts = template.created_at_timestamp
+
+        parent = TGFSDirectory(name="parent", parent=None)
+        copy_dir = parent.create_dir("copy", template)
+
+        assert copy_dir.created_at_timestamp > template_ts
+        assert copy_dir.modified_at_timestamp > template_ts
 
     def test_absolute_path_root(self):
         # Test absolute path for root directory

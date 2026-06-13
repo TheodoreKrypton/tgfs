@@ -76,7 +76,7 @@ class Folder(_Folder):
         return self.__folder.created_at_timestamp
 
     async def last_modified(self) -> int:
-        return self.__folder.created_at_timestamp
+        return self.__folder.modified_at_timestamp
 
     async def remove(self) -> None:
         self.fs_cache.reset_parent(self.__relative_path)

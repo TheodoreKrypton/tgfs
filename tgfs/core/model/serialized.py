@@ -25,5 +25,7 @@ class TGFSFileRefSerialized(TypedDict, total=False):
 class TGFSDirectorySerialized(TypedDict, total=False):
     type: Literal["D"]
     name: str
+    createdAt: int
+    modifiedAt: int
     children: List["TGFSDirectorySerialized"]
     files: List[TGFSFileRefSerialized]

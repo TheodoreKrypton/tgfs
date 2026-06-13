@@ -1,3 +1,4 @@
+import datetime
 from dataclasses import dataclass, field
 from typing import Iterable, List, Optional, Self
 
@@ -31,18 +32,29 @@ class TGFSDirectory:
     parent: Optional["TGFSDirectory"]
     children: list["TGFSDirectory"] = field(default_factory=list)
     files: list[TGFSFileRef] = field(default_factory=list)
+    created_at: datetime.datetime = field(default_factory=datetime.datetime.now)
+    modified_at: datetime.datetime = field(default_factory=datetime.datetime.now)
 
     def __post_init__(self):
         validate_name(self.name)
 
     @property
     def created_at_timestamp(self) -> int:
-        return ts(FIRST_DAY_OF_EPOCH)
+        return ts(self.created_at)
+
+    @property
+    def modified_at_timestamp(self) -> int:
+        return ts(self.modified_at)
+
+    def _touch_modified(self) -> None:
+        self.modified_at = datetime.datetime.now()
 
     def to_dict(self) -> dict:
         return dict(
             type="D",
             name=self.name,
+            createdAt=self.created_at_timestamp,
+            modifiedAt=self.modified_at_timestamp,
             children=[child.to_dict() for child in self.children],
             files=[file.to_dict() for file in self.files],
         )
@@ -51,11 +63,19 @@ class TGFSDirectory:
     def from_dict(
         data: TGFSDirectorySerialized, parent: Optional["TGFSDirectory"] = None
     ) -> "TGFSDirectory":
+        def _read_ts(key: str) -> datetime.datetime:
+            value = data.get(key, 0) or 0
+            if value > 0:
+                return datetime.datetime.fromtimestamp(value / 1000)
+            return FIRST_DAY_OF_EPOCH
+
         d = TGFSDirectory(
             name=data["name"],
             parent=parent,
             children=[],
             files=[],
+            created_at=_read_ts("createdAt"),
+            modified_at=_read_ts("modifiedAt"),
         )
 
         if data["files"]:
@@ -82,6 +102,7 @@ class TGFSDirectory:
         )
 
         self.children.append(child)
+        self._touch_modified()
         return child
 
     @classmethod
@@ -120,18 +141,22 @@ class TGFSDirectory:
             location=self,
         )
         self.files.append(fr)
+        self._touch_modified()
         return fr
 
     def delete_file_ref(self, fr: TGFSFileRef) -> None:
         self.files.remove(fr)
+        self._touch_modified()
 
     def delete(self) -> None:
         if self.parent:
             self.parent.children.remove(self)
+            self.parent._touch_modified()
         else:
             # root directory, just clear its contents
             self.children.clear()
             self.files.clear()
+            self._touch_modified()
 
     @property
     def absolute_path(self) -> str:
