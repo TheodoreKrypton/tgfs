@@ -2,12 +2,16 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from github import Github
+from github import Github, GithubException
 from github.Repository import Repository
 
 from tgfs.core.model import TGFSDirectory, TGFSFileRef
 
 logger = logging.getLogger(__name__)
+
+# GitHub answers a create_file call for an already existing path with a 422
+# complaining that "sha" wasn't supplied.
+CONFLICT_STATUS = 422
 
 
 @dataclass
@@ -48,6 +52,46 @@ class GithubDirectory(TGFSDirectory):
 
         return self.join_path(parent_path, self.name)
 
+    @staticmethod
+    def _is_conflict(ex: Exception) -> bool:
+        return isinstance(ex, GithubException) and ex.status == CONFLICT_STATUS
+
+    def _file_exists(self, path: str) -> bool:
+        """Check that this exact path already exists as a file at the configured ref"""
+        try:
+            contents = self._ghc.repo.get_contents(path, ref=self._ghc.commit)
+        except Exception as ex:
+            logger.warning(f"Could not confirm whether {path} exists: {ex}")
+            return False
+
+        if not isinstance(contents, list):
+            contents = [contents]
+
+        return any(
+            content.path == path and content.type == "file" for content in contents
+        )
+
+    def _create_file_idempotent(self, path: str, message: str) -> None:
+        """Create a file, tolerating a conflict when this exact path already exists.
+
+        Anything else (including a conflict we cannot explain) is re-raised so
+        the caller can roll back its tentative in-memory object.
+        """
+        try:
+            self._ghc.repo.create_file(
+                path=path,
+                message=message,
+                content="",
+                branch=self._ghc.commit,
+            )
+        except Exception as ex:
+            if self._is_conflict(ex) and self._file_exists(path):
+                logger.info(
+                    f"{path} already exists in GitHub, keeping the existing one"
+                )
+                return
+            raise
+
     def create_dir_skip_github_ops(self, name: str) -> "GithubDirectory":
         res = GithubDirectory(self._ghc, name, self)
         self.children.append(res)
@@ -61,12 +105,7 @@ class GithubDirectory(TGFSDirectory):
         # Create directory in GitHub by creating a placeholder file
         dir_path = self.join_path(self._github_path, name, ".gitkeep")
         try:
-            self._ghc.repo.create_file(
-                path=dir_path,
-                message=f"Create directory {name}",
-                content="",
-                branch=self._ghc.commit,
-            )
+            self._create_file_idempotent(dir_path, f"Create directory {name}")
             logger.info(f"Created directory {name} in GitHub repository at {dir_path}")
         except Exception as ex:
             logger.error(f"Failed to create directory {name} in GitHub: {ex}")
@@ -100,12 +139,7 @@ class GithubDirectory(TGFSDirectory):
         # Create file reference in GitHub
         file_path = self.join_path(self._github_path, f"{name}.{file_message_id}")
         try:
-            self._ghc.repo.create_file(
-                path=file_path,
-                message=f"Create file reference for {name}",
-                content="",
-                branch=self._ghc.commit,
-            )
+            self._create_file_idempotent(file_path, f"Create file reference for {name}")
             logger.info(
                 f"Created file reference {name} in {self._ghc.repo_name} at {file_path}"
             )

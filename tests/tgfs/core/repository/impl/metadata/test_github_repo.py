@@ -1,9 +1,10 @@
+from typing import Any, Dict, List, Optional
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import Mock, MagicMock, patch
-from typing import List
-from github import Github
-from github.Repository import Repository
+from github import Github, GithubException
 from github.ContentFile import ContentFile
+from github.Repository import Repository
 
 from tgfs.config import GithubRepoConfig
 from tgfs.core.model import TGFSDirectory, TGFSFileRef, TGFSMetadata
@@ -12,6 +13,173 @@ from tgfs.core.repository.impl.metadata.github_repo.gh_directory import (
     GithubConfig,
     GithubDirectory,
 )
+
+# --- Deterministic fakes for the Git Trees API -------------------------------
+#
+# The metadata repository is very wide, so the loader must walk the Git Trees
+# API one tree SHA at a time instead of relying on the contents API (or on a
+# single recursive tree call, which GitHub silently truncates).
+
+
+class FakeTreeElement:
+    """Stand-in for github.GitTreeElement.GitTreeElement"""
+
+    def __init__(self, path: str, type: str, sha: str):
+        self.path = path
+        self.type = type
+        self.sha = sha
+
+
+class FakeGitTree:
+    """Stand-in for github.GitTree.GitTree"""
+
+    def __init__(
+        self, sha: str, elements: List[FakeTreeElement], truncated: bool = False
+    ):
+        self.sha = sha
+        self.tree = list(elements)
+        self.truncated = truncated
+
+
+class FakeTreeApi:
+    """Callable replacement for Repository.get_git_tree backed by a sha -> tree map.
+
+    ``recursive`` defaults to None so that tests can assert the loader passes
+    ``recursive=False`` explicitly rather than relying on a default.
+    """
+
+    def __init__(self, trees: Dict[str, FakeGitTree], root_sha: str = ""):
+        self.trees = trees
+        self.root_sha = root_sha
+        self.calls: List[tuple[str, Optional[bool]]] = []
+
+    def __call__(self, sha: str, recursive: Optional[bool] = None) -> FakeGitTree:
+        self.calls.append((sha, recursive))
+        if sha not in self.trees:
+            raise GithubException(404, data={"message": "Not Found"})
+        return self.trees[sha]
+
+
+def root_tree_sha(ref: str) -> str:
+    """The tree SHA a ref resolves to. Deliberately different from the ref itself."""
+    return f"tree-of:{ref}"
+
+
+class FakeGitTreeRef:
+    """Stand-in for the GitTree carried by a GitCommit (only ``sha`` is populated)"""
+
+    def __init__(self, sha: str):
+        self.sha = sha
+
+
+class FakeGitCommit:
+    """Stand-in for github.GitCommit.GitCommit"""
+
+    def __init__(self, tree_sha: str):
+        self.tree = FakeGitTreeRef(tree_sha)
+
+
+class FakeCommit:
+    """Stand-in for github.Commit.Commit, as returned by Branch.commit"""
+
+    def __init__(self, sha: str, tree_sha: str):
+        self.sha = sha
+        self.commit = FakeGitCommit(tree_sha)
+
+
+class FakeBranch:
+    """Stand-in for github.Branch.Branch"""
+
+    def __init__(self, name: str, tree_sha: str):
+        self.name = name
+        self.commit = FakeCommit(f"commit-of:{name}", tree_sha)
+
+
+class FakeBranchApi:
+    """Callable replacement for Repository.get_branch backed by a ref -> tree sha map.
+
+    Unlike ``get_git_tree``, the branches endpoint accepts refs containing a
+    slash, so this is the only way a config like ``metadata/main`` can be
+    turned into something the Git Trees API can be called with.
+    """
+
+    def __init__(self, refs: Dict[str, str]):
+        self.refs = refs
+        self.calls: List[str] = []
+
+    def __call__(self, branch: str) -> FakeBranch:
+        self.calls.append(branch)
+        if branch not in self.refs:
+            raise GithubException(404, data={"message": "Branch not found"})
+        return FakeBranch(branch, self.refs[branch])
+
+
+def make_tree_api(root_ref: str, structure: Dict[str, Any]) -> FakeTreeApi:
+    """Build a FakeTreeApi from a nested dict.
+
+    A dict value is a subtree, any other value (``None``) is a blob. SHAs are
+    derived from the path so assertions can name them. The root tree is keyed
+    by the SHA ``root_ref`` resolves to, never by the ref itself.
+    """
+    trees: Dict[str, FakeGitTree] = {}
+
+    def build(sha: str, path: str, node: Dict[str, Any]) -> None:
+        elements: List[FakeTreeElement] = []
+        for name, child in node.items():
+            child_path = f"{path}/{name}" if path else name
+            if isinstance(child, dict):
+                child_sha = f"tree:{child_path}"
+                elements.append(FakeTreeElement(name, "tree", child_sha))
+                build(child_sha, child_path, child)
+            else:
+                elements.append(FakeTreeElement(name, "blob", f"blob:{child_path}"))
+        trees[sha] = FakeGitTree(sha, elements)
+
+    build(root_tree_sha(root_ref), "", structure)
+    return FakeTreeApi(trees, root_sha=root_tree_sha(root_ref))
+
+
+def install_fake_github(
+    mock_repo: Any, structure: Dict[str, Any], ref: str = "main"
+) -> tuple[FakeTreeApi, FakeBranchApi]:
+    """Wire both halves of the API the loader needs: ref resolution + tree walking"""
+    tree_api = make_tree_api(ref, structure)
+    branch_api = FakeBranchApi({ref: tree_api.root_sha})
+
+    mock_repo.get_branch.side_effect = branch_api
+    mock_repo.get_git_tree.side_effect = tree_api
+
+    return tree_api, branch_api
+
+
+def build_repository(
+    mock_github_class: Any, config: GithubRepoConfig, structure: Dict[str, Any]
+) -> tuple[GithubRepoMetadataRepository, Any, FakeTreeApi, FakeBranchApi]:
+    """A repository whose configured ref resolves to the root of ``structure``"""
+    mock_github_instance = Mock(spec=Github)
+    mock_repo = Mock(spec=Repository)
+    mock_github_instance.get_repo.return_value = mock_repo
+    mock_github_class.return_value = mock_github_instance
+
+    tree_api, branch_api = install_fake_github(mock_repo, structure, ref=config.commit)
+
+    return GithubRepoMetadataRepository(config), mock_repo, tree_api, branch_api
+
+
+def conflict_422() -> GithubException:
+    """The exception PyGithub raises when the path already exists."""
+    return GithubException(
+        422, data={"message": 'Invalid request.\n\n"sha" wasn\'t supplied.'}
+    )
+
+
+def existing_content(path: str) -> Mock:
+    content = Mock(spec=ContentFile)
+    content.path = path
+    content.name = path.rsplit("/", 1)[-1]
+    content.type = "file"
+    content.sha = "existing-sha"
+    return content
 
 
 # Global fixtures for all test classes
@@ -98,7 +266,7 @@ class TestGithubRepoMetadataRepository:
         mock_github_class.return_value = mock_github_instance
 
         # Mock the repo contents
-        mock_repo.get_contents.return_value = []
+        install_fake_github(mock_repo, {})
 
         repository = GithubRepoMetadataRepository(mock_github_config)
 
@@ -121,27 +289,14 @@ class TestGithubRepoMetadataRepository:
         mock_github_instance.get_repo.return_value = mock_repo
         mock_github_class.return_value = mock_github_instance
 
-        # Mock content structure: root -> [file1.123, subdir] -> [file2.456]
-        file1 = Mock(spec=ContentFile)
-        file1.name = "document.123"
-        file1.type = "file"
-        file1.path = "document.123"
-
-        subdir = Mock(spec=ContentFile)
-        subdir.name = "subdir"
-        subdir.type = "dir"
-        subdir.path = "subdir"
-
-        file2 = Mock(spec=ContentFile)
-        file2.name = "image.456"
-        file2.type = "file"
-        file2.path = "subdir/image.456"
-
-        # Set up mock returns
-        mock_repo.get_contents.side_effect = [
-            [file1, subdir],  # root contents
-            [file2],  # subdir contents
-        ]
+        # Mock tree structure: root -> [document.123, subdir] -> [image.456]
+        install_fake_github(
+            mock_repo,
+            {
+                "document.123": None,
+                "subdir": {"image.456": None},
+            },
+        )
 
         repository = GithubRepoMetadataRepository(mock_github_config)
         root_dir = repository._build_directory_structure()
@@ -172,17 +327,7 @@ class TestGithubRepoMetadataRepository:
         mock_github_instance.get_repo.return_value = mock_repo
         mock_github_class.return_value = mock_github_instance
 
-        gitkeep_file = Mock(spec=ContentFile)
-        gitkeep_file.name = ".gitkeep"
-        gitkeep_file.type = "file"
-        gitkeep_file.path = ".gitkeep"
-
-        regular_file = Mock(spec=ContentFile)
-        regular_file.name = "test.789"
-        regular_file.type = "file"
-        regular_file.path = "test.789"
-
-        mock_repo.get_contents.return_value = [gitkeep_file, regular_file]
+        install_fake_github(mock_repo, {".gitkeep": None, "test.789": None})
 
         repository = GithubRepoMetadataRepository(mock_github_config)
         root_dir = repository._build_directory_structure()
@@ -203,12 +348,7 @@ class TestGithubRepoMetadataRepository:
         mock_github_instance.get_repo.return_value = mock_repo
         mock_github_class.return_value = mock_github_instance
 
-        invalid_file = Mock(spec=ContentFile)
-        invalid_file.name = "invalid_filename_no_message_id"
-        invalid_file.type = "file"
-        invalid_file.path = "invalid_filename_no_message_id"
-
-        mock_repo.get_contents.return_value = [invalid_file]
+        install_fake_github(mock_repo, {"invalid_filename_no_message_id": None})
 
         repository = GithubRepoMetadataRepository(mock_github_config)
         root_dir = repository._build_directory_structure()
@@ -224,63 +364,58 @@ class TestGithubRepoMetadataRepository:
 
     @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
     @patch("tgfs.core.repository.impl.metadata.github_repo.logger")
-    def test_build_directory_structure_handles_repo_errors(
+    def test_build_directory_structure_raises_on_repo_errors(
         self, mock_logger, mock_github_class, mock_github_config
     ):
-        """Test handling of repository access errors"""
+        """Repository access errors must surface, not yield an empty tree"""
         mock_github_instance = Mock(spec=Github)
         mock_repo = Mock(spec=Repository)
         mock_github_instance.get_repo.return_value = mock_repo
         mock_github_class.return_value = mock_github_instance
 
-        # Make get_contents raise an exception
-        mock_repo.get_contents.side_effect = Exception("API rate limit exceeded")
+        # Make the root tree fetch raise an exception
+        install_fake_github(mock_repo, {})
+        mock_repo.get_git_tree.side_effect = Exception("API rate limit exceeded")
 
         repository = GithubRepoMetadataRepository(mock_github_config)
-        root_dir = repository._build_directory_structure()
 
-        # Should return empty root directory
-        assert root_dir.name == "root"
-        assert len(root_dir.files) == 0
-        assert len(root_dir.children) == 0
+        with pytest.raises(Exception, match="API rate limit exceeded"):
+            repository._build_directory_structure()
 
         # Should log error
         mock_logger.error.assert_called_once()
 
     @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
     @patch("tgfs.core.repository.impl.metadata.github_repo.logger")
-    def test_build_directory_structure_handles_subdirectory_errors(
+    def test_build_directory_structure_raises_on_subdirectory_errors(
         self, mock_logger, mock_github_class, mock_github_config
     ):
-        """Test handling of subdirectory access errors"""
+        """A subtree we cannot read makes the whole load fail explicitly"""
         mock_github_instance = Mock(spec=Github)
         mock_repo = Mock(spec=Repository)
         mock_github_instance.get_repo.return_value = mock_repo
         mock_github_class.return_value = mock_github_instance
 
-        subdir = Mock(spec=ContentFile)
-        subdir.name = "protected_dir"
-        subdir.type = "dir"
-        subdir.path = "protected_dir"
+        tree_api, _ = install_fake_github(
+            mock_repo, {"protected_dir": {"file.1": None}}
+        )
 
-        # Root contents succeed, subdirectory access fails
-        mock_repo.get_contents.side_effect = [
-            [subdir],  # root contents
-            Exception("Access denied"),  # subdirectory contents
-        ]
+        def get_git_tree(sha, recursive=None):
+            if sha == "tree:protected_dir":
+                raise Exception("Access denied")
+            return tree_api(sha, recursive)
+
+        mock_repo.get_git_tree.side_effect = get_git_tree
 
         repository = GithubRepoMetadataRepository(mock_github_config)
-        root_dir = repository._build_directory_structure()
 
-        # Should have the directory but it will be empty
-        assert len(root_dir.children) == 1
-        assert root_dir.children[0].name == "protected_dir"
-        assert len(root_dir.children[0].files) == 0
+        with pytest.raises(Exception, match="Access denied"):
+            repository._build_directory_structure()
 
-        # Should log warning
-        mock_logger.warning.assert_called_once()
-        warning_call = mock_logger.warning.call_args[0][0]
-        assert "Failed to construct directory protected_dir" in warning_call
+        # Should log the failing path
+        mock_logger.error.assert_called_once()
+        error_call = mock_logger.error.call_args[0][0]
+        assert "protected_dir" in error_call
 
     @pytest.mark.asyncio
     async def test_push_method(self, mock_github_config):
@@ -289,6 +424,274 @@ class TestGithubRepoMetadataRepository:
             repository = GithubRepoMetadataRepository(mock_github_config)
             # Should not raise any exception
             await repository.push()
+
+
+class TestGitTreeLoader:
+    """The loader must reconstruct the whole metadata tree via the Git Trees API"""
+
+    # The path that went missing in production after a restart.
+    DEEP_PATH = "minio-mirror/b2-eu-cen/1580559962386441/file-data/10038264"
+
+    @staticmethod
+    def _structure() -> Dict[str, Any]:
+        return {
+            "README.md": None,
+            "minio-mirror": {
+                "b2-eu-cen": {
+                    "1580559962386441": {
+                        "file-data": {
+                            "10038264": {
+                                ".gitkeep": None,
+                                "mldata.271686": None,
+                            },
+                        },
+                    },
+                },
+            },
+        }
+
+    @staticmethod
+    def _repository(mock_github_class, mock_github_config, tree_api: FakeTreeApi):
+        mock_github_instance = Mock(spec=Github)
+        mock_repo = Mock(spec=Repository)
+        mock_github_instance.get_repo.return_value = mock_repo
+        mock_github_class.return_value = mock_github_instance
+
+        mock_repo.get_branch.side_effect = FakeBranchApi(
+            {mock_github_config.commit: tree_api.root_sha}
+        )
+        mock_repo.get_git_tree.side_effect = tree_api
+        # The contents API is what failed in production on this wide tree: it
+        # must not be used (or trusted) by the loader at all.
+        mock_repo.get_contents.side_effect = AssertionError(
+            "loader must not use get_contents"
+        )
+
+        return GithubRepoMetadataRepository(mock_github_config), mock_repo
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_deep_file_ref_is_reconstructed_without_get_contents(
+        self, mock_github_class, mock_github_config
+    ):
+        """The known production path must be rebuilt purely from Git Trees calls"""
+        tree_api = make_tree_api("main", self._structure())
+        repository, mock_repo = self._repository(
+            mock_github_class, mock_github_config, tree_api
+        )
+
+        root_dir = repository._build_directory_structure()
+
+        node: TGFSDirectory = root_dir
+        for part in self.DEEP_PATH.split("/"):
+            node = node.find_dir(part)
+
+        file_ref = node.find_file("mldata")
+        assert file_ref.message_id == 271686
+        assert file_ref.location is node
+
+        # .gitkeep is a marker, never a file reference
+        assert [f.name for f in node.files] == ["mldata"]
+        # README.md is an unrelated blob and must not become a file ref
+        assert root_dir.files == []
+        mock_repo.get_contents.assert_not_called()
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_every_subtree_is_fetched_by_sha_non_recursively(
+        self, mock_github_class, mock_github_config
+    ):
+        """Each tree SHA is walked on its own; no reliance on recursive completeness"""
+        tree_api = make_tree_api("main", self._structure())
+        repository, _ = self._repository(
+            mock_github_class, mock_github_config, tree_api
+        )
+
+        repository._build_directory_structure()
+
+        assert tree_api.calls, "the loader never called get_git_tree"
+        assert tree_api.calls[0][0] == tree_api.root_sha
+        assert all(
+            recursive is False for _, recursive in tree_api.calls
+        ), f"expected only non-recursive tree calls, got {tree_api.calls}"
+
+        assert [sha for sha, _ in tree_api.calls] == [
+            tree_api.root_sha,
+            "tree:minio-mirror",
+            "tree:minio-mirror/b2-eu-cen",
+            "tree:minio-mirror/b2-eu-cen/1580559962386441",
+            "tree:minio-mirror/b2-eu-cen/1580559962386441/file-data",
+            "tree:minio-mirror/b2-eu-cen/1580559962386441/file-data/10038264",
+        ]
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_missing_subtree_is_not_silently_swallowed(
+        self, mock_github_class, mock_github_config
+    ):
+        """A subtree that cannot be fetched must raise, never yield a partial tree"""
+        tree_api = make_tree_api("main", self._structure())
+        del tree_api.trees["tree:minio-mirror/b2-eu-cen/1580559962386441/file-data"]
+
+        repository, _ = self._repository(
+            mock_github_class, mock_github_config, tree_api
+        )
+
+        with pytest.raises(GithubException):
+            repository._build_directory_structure()
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_truncated_tree_is_reported_as_an_error(
+        self, mock_github_class, mock_github_config
+    ):
+        """A truncated tree response is incomplete and must not pass as complete"""
+        tree_api = make_tree_api("main", self._structure())
+        tree_api.trees[tree_api.root_sha].truncated = True
+
+        repository, _ = self._repository(
+            mock_github_class, mock_github_config, tree_api
+        )
+
+        with pytest.raises(Exception, match="truncated"):
+            repository._build_directory_structure()
+
+
+class TestNonRepresentableEntries:
+    """Valid GitHub content TGFS cannot model must not abort the whole load.
+
+    Only an unreadable or truncated tree means the metadata we fetched is
+    untrustworthy. An entry we simply cannot put in the in-memory model is a
+    content problem: warn, skip it, and keep the rest of that tree.
+    """
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.logger")
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_duplicate_file_names_are_skipped_and_the_rest_of_the_tree_loads(
+        self, mock_github_class, mock_logger, mock_github_config
+    ):
+        """Two blobs mapping to one file ref name: keep one, warn, keep loading"""
+        repository, _, _, _ = build_repository(
+            mock_github_class,
+            mock_github_config,
+            {"foo.111": None, "foo.222": None, "bar.333": None},
+        )
+
+        root_dir = repository._build_directory_structure()
+
+        assert [f.name for f in root_dir.files] == ["foo", "bar"]
+        assert root_dir.find_file("foo").message_id == 111
+        assert root_dir.find_file("bar").message_id == 333
+
+        warnings = [call[0][0] for call in mock_logger.warning.call_args_list]
+        assert any("foo.222" in warning for warning in warnings), warnings
+        mock_logger.error.assert_not_called()
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.logger")
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_invalid_directory_name_is_skipped_and_valid_sibling_loads(
+        self, mock_github_class, mock_logger, mock_github_config
+    ):
+        """A directory name TGFS rejects must not stop its siblings from loading"""
+        repository, _, tree_api, _ = build_repository(
+            mock_github_class,
+            mock_github_config,
+            {
+                "-weird": {"hidden.1": None},
+                "good": {"kept.2": None},
+            },
+        )
+
+        root_dir = repository._build_directory_structure()
+
+        assert [child.name for child in root_dir.children] == ["good"]
+        good = root_dir.find_dir("good")
+        assert [f.name for f in good.files] == ["kept"]
+
+        # The rejected directory is never even fetched
+        assert "tree:-weird" not in [sha for sha, _ in tree_api.calls]
+
+        warnings = [call[0][0] for call in mock_logger.warning.call_args_list]
+        assert any("-weird" in warning for warning in warnings), warnings
+        mock_logger.error.assert_not_called()
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_truncated_nested_tree_is_not_swallowed(
+        self, mock_github_class, mock_github_config
+    ):
+        """Skipping unrepresentable entries must not soften truncation anywhere"""
+        repository, _, tree_api, _ = build_repository(
+            mock_github_class,
+            mock_github_config,
+            {"outer": {"inner": {"file.1": None}}},
+        )
+        tree_api.trees["tree:outer/inner"].truncated = True
+
+        with pytest.raises(Exception, match="truncated") as excinfo:
+            repository._build_directory_structure()
+
+        assert "outer/inner" in str(excinfo.value)
+
+
+class TestRefResolution:
+    """The configured ref must become a tree SHA before any Git Trees call.
+
+    ``get_git_tree`` puts its argument in one URL path segment (PyGithub quotes
+    it with ``safe=""``), so a branch such as ``metadata/main`` would be sent as
+    ``metadata%2Fmain`` and never resolve.
+    """
+
+    @staticmethod
+    def _config(commit: str) -> GithubRepoConfig:
+        return GithubRepoConfig(
+            access_token="test_token", repo="owner/test-repo", commit=commit
+        )
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_slashed_branch_is_resolved_to_a_tree_sha(self, mock_github_class):
+        """A branch name with a slash is resolved, never handed to get_git_tree"""
+        config = self._config("metadata/main")
+        repository, _, tree_api, branch_api = build_repository(
+            mock_github_class, config, {"doc.1": None}
+        )
+
+        assert repository._ghc.commit == "metadata/main"
+
+        root_dir = repository._build_directory_structure()
+
+        assert branch_api.calls == ["metadata/main"]
+        assert tree_api.calls[0][0] == root_tree_sha("metadata/main")
+        assert "metadata/main" not in [sha for sha, _ in tree_api.calls]
+
+        assert [f.name for f in root_dir.files] == ["doc"]
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_ref_is_resolved_once_for_the_whole_walk(self, mock_github_class):
+        """Subtrees are fetched by SHA, so resolution must not repeat per level"""
+        config = self._config("metadata/main")
+        repository, _, tree_api, branch_api = build_repository(
+            mock_github_class,
+            config,
+            {"a": {"b": {"c": {"deep.1": None}}}},
+        )
+
+        repository._build_directory_structure()
+
+        assert branch_api.calls == ["metadata/main"]
+        assert len(tree_api.calls) == 4
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_plain_branch_name_is_resolved_the_same_way(self, mock_github_class):
+        """An ordinary branch config keeps working through the same resolution"""
+        config = self._config("main")
+        repository, _, tree_api, branch_api = build_repository(
+            mock_github_class, config, {"sub": {"doc.1": None}}
+        )
+
+        root_dir = repository._build_directory_structure()
+
+        assert branch_api.calls == ["main"]
+        assert [sha for sha, _ in tree_api.calls] == [
+            root_tree_sha("main"),
+            "tree:sub",
+        ]
+        assert [f.name for f in root_dir.find_dir("sub").files] == ["doc"]
 
 
 class TestGithubDirectory:
@@ -398,6 +801,66 @@ class TestGithubDirectory:
         # Verify no directory was added to parent
         assert len(parent_dir.children) == 0
 
+    def test_create_dir_conflict_with_existing_marker_is_idempotent(self, mock_ghc):
+        """422 + the exact .gitkeep already present => success, child retained"""
+        mock_ghc.repo.create_file.side_effect = conflict_422()
+        mock_ghc.repo.get_contents.return_value = existing_content("child/.gitkeep")
+
+        parent_dir = GithubDirectory(mock_ghc, "parent", None)
+        child_dir = parent_dir.create_dir("child")
+
+        mock_ghc.repo.get_contents.assert_called_once_with("child/.gitkeep", ref="main")
+
+        assert isinstance(child_dir, GithubDirectory)
+        assert child_dir.name == "child"
+        assert child_dir.parent == parent_dir
+        assert parent_dir.children == [child_dir]
+
+    def test_create_dir_conflict_without_confirmed_marker_raises(self, mock_ghc):
+        """422 but the exact .gitkeep cannot be read back => raise and roll back"""
+        mock_ghc.repo.create_file.side_effect = conflict_422()
+        mock_ghc.repo.get_contents.side_effect = GithubException(
+            404, data={"message": "Not Found"}
+        )
+
+        parent_dir = GithubDirectory(mock_ghc, "parent", None)
+
+        with pytest.raises(GithubException) as excinfo:
+            parent_dir.create_dir("child")
+
+        assert excinfo.value.status == 422
+        assert parent_dir.children == []
+
+    def test_create_dir_conflict_with_different_path_raises(self, mock_ghc):
+        """A read that returns some other path does not confirm the marker"""
+        mock_ghc.repo.create_file.side_effect = conflict_422()
+        mock_ghc.repo.get_contents.return_value = [
+            existing_content("child/something-else.1")
+        ]
+
+        parent_dir = GithubDirectory(mock_ghc, "parent", None)
+
+        with pytest.raises(GithubException):
+            parent_dir.create_dir("child")
+
+        assert parent_dir.children == []
+
+    def test_create_dir_non_conflict_error_raises_even_if_marker_exists(self, mock_ghc):
+        """Only a 422 conflict is idempotent; other failures always propagate"""
+        mock_ghc.repo.create_file.side_effect = GithubException(
+            500, data={"message": "Server Error"}
+        )
+        mock_ghc.repo.get_contents.return_value = existing_content("child/.gitkeep")
+
+        parent_dir = GithubDirectory(mock_ghc, "parent", None)
+
+        with pytest.raises(GithubException) as excinfo:
+            parent_dir.create_dir("child")
+
+        assert excinfo.value.status == 500
+        assert parent_dir.children == []
+        mock_ghc.repo.get_contents.assert_not_called()
+
     def test_create_file_ref_success(self, mock_ghc):
         """Test creating file reference with successful GitHub operations"""
         mock_ghc.repo.create_file.return_value = Mock()
@@ -430,6 +893,68 @@ class TestGithubDirectory:
 
         # Verify no file was added
         assert len(directory.files) == 0
+
+    def test_create_file_ref_conflict_with_existing_reference_is_idempotent(
+        self, mock_ghc
+    ):
+        """422 + the exact name.message_id already present => success, ref retained"""
+        mock_ghc.repo.create_file.side_effect = conflict_422()
+        mock_ghc.repo.get_contents.return_value = existing_content("testfile.12345")
+
+        directory = GithubDirectory(mock_ghc, "testdir", None)
+        file_ref = directory.create_file_ref("testfile", 12345)
+
+        mock_ghc.repo.get_contents.assert_called_once_with("testfile.12345", ref="main")
+
+        assert isinstance(file_ref, TGFSFileRef)
+        assert file_ref.name == "testfile"
+        assert file_ref.message_id == 12345
+        assert directory.files == [file_ref]
+
+    def test_create_file_ref_conflict_with_different_message_id_raises(self, mock_ghc):
+        """A same-named reference with another message id must not count as ours"""
+        mock_ghc.repo.create_file.side_effect = conflict_422()
+        mock_ghc.repo.get_contents.return_value = existing_content("testfile.99999")
+
+        directory = GithubDirectory(mock_ghc, "testdir", None)
+
+        with pytest.raises(GithubException) as excinfo:
+            directory.create_file_ref("testfile", 12345)
+
+        assert excinfo.value.status == 422
+        assert directory.files == []
+
+    def test_create_file_ref_conflict_without_confirmed_reference_raises(
+        self, mock_ghc
+    ):
+        """422 but the read fails => raise and roll back the tentative file ref"""
+        mock_ghc.repo.create_file.side_effect = conflict_422()
+        mock_ghc.repo.get_contents.side_effect = GithubException(
+            404, data={"message": "Not Found"}
+        )
+
+        directory = GithubDirectory(mock_ghc, "testdir", None)
+
+        with pytest.raises(GithubException):
+            directory.create_file_ref("testfile", 12345)
+
+        assert directory.files == []
+
+    def test_create_file_ref_non_conflict_error_raises_even_if_present(self, mock_ghc):
+        """Only a 422 conflict is idempotent; other failures always propagate"""
+        mock_ghc.repo.create_file.side_effect = GithubException(
+            500, data={"message": "Server Error"}
+        )
+        mock_ghc.repo.get_contents.return_value = existing_content("testfile.12345")
+
+        directory = GithubDirectory(mock_ghc, "testdir", None)
+
+        with pytest.raises(GithubException) as excinfo:
+            directory.create_file_ref("testfile", 12345)
+
+        assert excinfo.value.status == 500
+        assert directory.files == []
+        mock_ghc.repo.get_contents.assert_not_called()
 
     def test_delete_file_ref_success(self, mock_ghc):
         """Test deleting file reference with successful GitHub operations"""
@@ -583,7 +1108,7 @@ class TestIntegrationScenarios:
         mock_github_class.return_value = mock_github_instance
 
         # Mock initial empty repository
-        mock_repo.get_contents.return_value = []
+        install_fake_github(mock_repo, {})
 
         repository = GithubRepoMetadataRepository(mock_github_config)
         metadata = await repository.get()
@@ -623,38 +1148,19 @@ class TestIntegrationScenarios:
         mock_github_class.return_value = mock_github_instance
 
         # Create complex structure: root/docs/2023/reports/ with files
-        docs_dir = Mock(spec=ContentFile)
-        docs_dir.name = "docs"
-        docs_dir.type = "dir"
-        docs_dir.path = "docs"
-
-        year_dir = Mock(spec=ContentFile)
-        year_dir.name = "2023"
-        year_dir.type = "dir"
-        year_dir.path = "docs/2023"
-
-        reports_dir = Mock(spec=ContentFile)
-        reports_dir.name = "reports"
-        reports_dir.type = "dir"
-        reports_dir.path = "docs/2023/reports"
-
-        file1 = Mock(spec=ContentFile)
-        file1.name = "q1_report.111"
-        file1.type = "file"
-        file1.path = "docs/2023/reports/q1_report.111"
-
-        file2 = Mock(spec=ContentFile)
-        file2.name = "q2_report.222"
-        file2.type = "file"
-        file2.path = "docs/2023/reports/q2_report.222"
-
-        # Set up mock returns
-        mock_repo.get_contents.side_effect = [
-            [docs_dir],  # root
-            [year_dir],  # docs/
-            [reports_dir],  # docs/2023/
-            [file1, file2],  # docs/2023/reports/
-        ]
+        install_fake_github(
+            mock_repo,
+            {
+                "docs": {
+                    "2023": {
+                        "reports": {
+                            "q1_report.111": None,
+                            "q2_report.222": None,
+                        }
+                    }
+                }
+            },
+        )
 
         repository = GithubRepoMetadataRepository(mock_github_config)
         root_dir = repository._build_directory_structure()
@@ -703,12 +1209,8 @@ class TestErrorHandling:
 
     def test_file_ref_with_non_numeric_message_id(self, mock_ghc):
         """Test error handling for non-numeric message IDs in filenames"""
-        mock_content = Mock(spec=ContentFile)
-        mock_content.name = "test.abc"  # Non-numeric message ID
-        mock_content.type = "file"
-        mock_content.path = "test.abc"
-
-        mock_ghc.repo.get_contents.return_value = [mock_content]
+        # Non-numeric message ID
+        install_fake_github(mock_ghc.repo, {"test.abc": None})
 
         with patch("tgfs.core.repository.impl.metadata.github_repo.Github"):
             repository = GithubRepoMetadataRepository(
@@ -733,7 +1235,7 @@ class TestEdgeCases:
 
     def test_empty_repository(self, mock_ghc):
         """Test handling of completely empty repository"""
-        mock_ghc.repo.get_contents.return_value = []
+        install_fake_github(mock_ghc.repo, {})
 
         with patch("tgfs.core.repository.impl.metadata.github_repo.Github"):
             repository = GithubRepoMetadataRepository(
@@ -749,25 +1251,13 @@ class TestEdgeCases:
 
     def test_directory_with_only_gitkeep(self, mock_ghc):
         """Test directory containing only .gitkeep files"""
-        gitkeep1 = Mock(spec=ContentFile)
-        gitkeep1.name = ".gitkeep"
-        gitkeep1.type = "file"
-        gitkeep1.path = ".gitkeep"
-
-        gitkeep2 = Mock(spec=ContentFile)
-        gitkeep2.name = ".gitkeep"
-        gitkeep2.type = "file"
-        gitkeep2.path = "subdir/.gitkeep"
-
-        subdir = Mock(spec=ContentFile)
-        subdir.name = "subdir"
-        subdir.type = "dir"
-        subdir.path = "subdir"
-
-        mock_ghc.repo.get_contents.side_effect = [
-            [gitkeep1, subdir],  # root
-            [gitkeep2],  # subdir
-        ]
+        install_fake_github(
+            mock_ghc.repo,
+            {
+                ".gitkeep": None,
+                "subdir": {".gitkeep": None},
+            },
+        )
 
         with patch("tgfs.core.repository.impl.metadata.github_repo.Github"):
             repository = GithubRepoMetadataRepository(
@@ -783,14 +1273,9 @@ class TestEdgeCases:
             assert root_dir.children[0].name == "subdir"
             assert len(root_dir.children[0].files) == 0
 
-    def test_single_content_item_not_in_list(self, mock_ghc):
-        """Test handling when get_contents returns single item instead of list"""
-        single_file = Mock(spec=ContentFile)
-        single_file.name = "single.123"
-        single_file.type = "file"
-        single_file.path = "single.123"
-
-        mock_ghc.repo.get_contents.return_value = single_file  # Single item, not list
+    def test_single_tree_entry(self, mock_ghc):
+        """Test handling of a tree holding a single entry"""
+        install_fake_github(mock_ghc.repo, {"single.123": None})
 
         with patch("tgfs.core.repository.impl.metadata.github_repo.Github"):
             repository = GithubRepoMetadataRepository(
@@ -804,3 +1289,30 @@ class TestEdgeCases:
             assert len(root_dir.files) == 1
             assert root_dir.files[0].name == "single"
             assert root_dir.files[0].message_id == 123
+
+    def test_unsupported_tree_entry_type_is_ignored(self, mock_ghc):
+        """Submodules and other non blob/tree entries are not part of metadata"""
+        root_sha = root_tree_sha("main")
+        trees = {
+            root_sha: FakeGitTree(
+                root_sha,
+                [
+                    FakeTreeElement("submodule", "commit", "commit:submodule"),
+                    FakeTreeElement("single.123", "blob", "blob:single.123"),
+                ],
+            )
+        }
+        mock_ghc.repo.get_branch.side_effect = FakeBranchApi({"main": root_sha})
+        mock_ghc.repo.get_git_tree.side_effect = FakeTreeApi(trees, root_sha=root_sha)
+
+        with patch("tgfs.core.repository.impl.metadata.github_repo.Github"):
+            repository = GithubRepoMetadataRepository(
+                GithubRepoConfig(access_token="test", repo="test/repo", commit="main")
+            )
+            repository._ghc = mock_ghc
+
+            root_dir = repository._build_directory_structure()
+
+            assert len(root_dir.children) == 0
+            assert len(root_dir.files) == 1
+            assert root_dir.files[0].name == "single"
