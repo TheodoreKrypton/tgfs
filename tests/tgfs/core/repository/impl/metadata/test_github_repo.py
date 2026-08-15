@@ -13,12 +13,20 @@ from tgfs.core.repository.impl.metadata.github_repo.gh_directory import (
     GithubConfig,
     GithubDirectory,
 )
+from tgfs.errors import TechnicalError
 
 # --- Deterministic fakes for the Git Trees API -------------------------------
 #
-# The metadata repository is very wide, so the loader must walk the Git Trees
-# API one tree SHA at a time instead of relying on the contents API (or on a
-# single recursive tree call, which GitHub silently truncates).
+# The metadata repository is very wide (~100k entries), so the loader must read
+# it through the Git Trees API rather than the contents API, and it must take
+# the largest subtree GitHub is willing to return in one request: a per
+# directory walk costs one request per directory and gets rate limited long
+# before the tree is loaded.
+#
+# The fake below answers exactly like the real endpoint: ``recursive=True``
+# flattens every descendant into slash separated paths, ``recursive=False``
+# returns only the immediate children, and either answer can be marked
+# truncated independently.
 
 
 class FakeTreeElement:
@@ -41,23 +49,117 @@ class FakeGitTree:
         self.truncated = truncated
 
 
-class FakeTreeApi:
-    """Callable replacement for Repository.get_git_tree backed by a sha -> tree map.
+class Submodule:
+    """Marker for a gitlink ('commit') entry in a fake structure"""
 
-    ``recursive`` defaults to None so that tests can assert the loader passes
-    ``recursive=False`` explicitly rather than relying on a default.
+
+SUBMODULE = Submodule()
+
+
+def tree_sha(path: str) -> str:
+    return f"tree:{path}"
+
+
+def blob_sha(path: str) -> str:
+    return f"blob:{path}"
+
+
+class FakeTreeApi:
+    """Callable replacement for Repository.get_git_tree backed by a nested structure.
+
+    A dict value is a subtree, ``SUBMODULE`` is a gitlink, any other value
+    (``None``) is a blob. SHAs are derived from the absolute path so assertions
+    can name them, while ``element.path`` is relative to the fetched tree, as
+    GitHub returns it.
+
+    ``recursive`` defaults to None so that tests can assert the loader passes it
+    explicitly rather than relying on a default.
     """
 
-    def __init__(self, trees: Dict[str, FakeGitTree], root_sha: str = ""):
-        self.trees = trees
+    def __init__(self, structure: Dict[str, Any], root_sha: str):
         self.root_sha = root_sha
+        self.nodes: Dict[str, Dict[str, Any]] = {}
+        self.paths: Dict[str, str] = {}
         self.calls: List[tuple[str, Optional[bool]]] = []
+        self.truncated_recursive: set[str] = set()
+        self.truncated_nonrecursive: set[str] = set()
+        self.errors: Dict[str, Exception] = {}
+
+        self._index(root_sha, "", structure)
+
+    def _index(self, sha: str, path: str, node: Dict[str, Any]) -> None:
+        self.nodes[sha] = node
+        self.paths[sha] = path
+        for name, child in node.items():
+            if isinstance(child, dict):
+                child_path = f"{path}/{name}" if path else name
+                self._index(tree_sha(child_path), child_path, child)
+
+    def _elements(self, sha: str, recursive: bool) -> List[FakeTreeElement]:
+        elements: List[FakeTreeElement] = []
+
+        def walk(node: Dict[str, Any], abs_prefix: str, rel_prefix: str) -> None:
+            for name, child in node.items():
+                abs_path = f"{abs_prefix}/{name}" if abs_prefix else name
+                rel_path = f"{rel_prefix}/{name}" if rel_prefix else name
+                if isinstance(child, dict):
+                    elements.append(
+                        FakeTreeElement(rel_path, "tree", tree_sha(abs_path))
+                    )
+                    if recursive:
+                        walk(child, abs_path, rel_path)
+                elif isinstance(child, Submodule):
+                    elements.append(
+                        FakeTreeElement(rel_path, "commit", f"commit:{abs_path}")
+                    )
+                else:
+                    elements.append(
+                        FakeTreeElement(rel_path, "blob", blob_sha(abs_path))
+                    )
+
+        walk(self.nodes[sha], self.paths[sha], "")
+        return elements
 
     def __call__(self, sha: str, recursive: Optional[bool] = None) -> FakeGitTree:
         self.calls.append((sha, recursive))
-        if sha not in self.trees:
+
+        if sha in self.errors:
+            raise self.errors[sha]
+        if sha not in self.nodes:
             raise GithubException(404, data={"message": "Not Found"})
-        return self.trees[sha]
+
+        truncated = sha in (
+            self.truncated_recursive if recursive else self.truncated_nonrecursive
+        )
+        return FakeGitTree(sha, self._elements(sha, bool(recursive)), truncated)
+
+    # -- test controls --------------------------------------------------------
+
+    def truncate_recursive(self, sha: str) -> None:
+        """GitHub answers the recursive listing of this tree with truncated=True"""
+        self.truncated_recursive.add(sha)
+
+    def truncate_completely(self, sha: str) -> None:
+        """Even the immediate children of this tree do not fit in one response"""
+        self.truncated_recursive.add(sha)
+        self.truncated_nonrecursive.add(sha)
+
+    def fail(self, sha: str, ex: Exception) -> None:
+        self.errors[sha] = ex
+
+    def forget(self, sha: str) -> None:
+        """Make this tree unreachable, as an unreadable subtree would be"""
+        del self.nodes[sha]
+
+    # -- assertions helpers ---------------------------------------------------
+
+    @property
+    def recursive_calls(self) -> List[str]:
+        return [sha for sha, recursive in self.calls if recursive]
+
+    @property
+    def nonrecursive_calls(self) -> List[str]:
+        return [sha for sha, recursive in self.calls if not recursive]
 
 
 def root_tree_sha(ref: str) -> str:
@@ -115,28 +217,12 @@ class FakeBranchApi:
 
 
 def make_tree_api(root_ref: str, structure: Dict[str, Any]) -> FakeTreeApi:
-    """Build a FakeTreeApi from a nested dict.
+    """A FakeTreeApi whose root tree is keyed by the SHA ``root_ref`` resolves to.
 
-    A dict value is a subtree, any other value (``None``) is a blob. SHAs are
-    derived from the path so assertions can name them. The root tree is keyed
-    by the SHA ``root_ref`` resolves to, never by the ref itself.
+    The root is never keyed by the ref itself: the loader has to resolve the
+    ref before it may call the trees endpoint.
     """
-    trees: Dict[str, FakeGitTree] = {}
-
-    def build(sha: str, path: str, node: Dict[str, Any]) -> None:
-        elements: List[FakeTreeElement] = []
-        for name, child in node.items():
-            child_path = f"{path}/{name}" if path else name
-            if isinstance(child, dict):
-                child_sha = f"tree:{child_path}"
-                elements.append(FakeTreeElement(name, "tree", child_sha))
-                build(child_sha, child_path, child)
-            else:
-                elements.append(FakeTreeElement(name, "blob", f"blob:{child_path}"))
-        trees[sha] = FakeGitTree(sha, elements)
-
-    build(root_tree_sha(root_ref), "", structure)
-    return FakeTreeApi(trees, root_sha=root_tree_sha(root_ref))
+    return FakeTreeApi(structure, root_sha=root_tree_sha(root_ref))
 
 
 def install_fake_github(
@@ -399,13 +485,9 @@ class TestGithubRepoMetadataRepository:
         tree_api, _ = install_fake_github(
             mock_repo, {"protected_dir": {"file.1": None}}
         )
-
-        def get_git_tree(sha, recursive=None):
-            if sha == "tree:protected_dir":
-                raise Exception("Access denied")
-            return tree_api(sha, recursive)
-
-        mock_repo.get_git_tree.side_effect = get_git_tree
+        # Only a truncated root makes the loader descend at all
+        tree_api.truncate_recursive(tree_api.root_sha)
+        tree_api.fail("tree:protected_dir", Exception("Access denied"))
 
         repository = GithubRepoMetadataRepository(mock_github_config)
 
@@ -427,7 +509,13 @@ class TestGithubRepoMetadataRepository:
 
 
 class TestGitTreeLoader:
-    """The loader must reconstruct the whole metadata tree via the Git Trees API"""
+    """The loader must reconstruct the whole metadata tree via the Git Trees API.
+
+    Completeness alone is not enough: one request per directory takes >10k
+    requests on the production tree and gets rate limited before the server can
+    start, so every request must bring back the largest subtree GitHub will
+    give, and only a truncated answer may be split any further.
+    """
 
     # The path that went missing in production after a restart.
     DEEP_PATH = "minio-mirror/b2-eu-cen/1580559962386441/file-data/10038264"
@@ -496,10 +584,10 @@ class TestGitTreeLoader:
         mock_repo.get_contents.assert_not_called()
 
     @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
-    def test_every_subtree_is_fetched_by_sha_non_recursively(
+    def test_a_complete_tree_costs_exactly_one_recursive_call(
         self, mock_github_class, mock_github_config
     ):
-        """Each tree SHA is walked on its own; no reliance on recursive completeness"""
+        """A subtree GitHub returns whole is never split into child requests"""
         tree_api = make_tree_api("main", self._structure())
         repository, _ = self._repository(
             mock_github_class, mock_github_config, tree_api
@@ -507,20 +595,166 @@ class TestGitTreeLoader:
 
         repository._build_directory_structure()
 
-        assert tree_api.calls, "the loader never called get_git_tree"
-        assert tree_api.calls[0][0] == tree_api.root_sha
-        assert all(
-            recursive is False for _, recursive in tree_api.calls
-        ), f"expected only non-recursive tree calls, got {tree_api.calls}"
+        assert tree_api.calls == [(tree_api.root_sha, True)]
 
-        assert [sha for sha, _ in tree_api.calls] == [
-            tree_api.root_sha,
-            "tree:minio-mirror",
-            "tree:minio-mirror/b2-eu-cen",
-            "tree:minio-mirror/b2-eu-cen/1580559962386441",
-            "tree:minio-mirror/b2-eu-cen/1580559962386441/file-data",
-            "tree:minio-mirror/b2-eu-cen/1580559962386441/file-data/10038264",
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_a_flattened_path_reuses_one_directory_per_level(
+        self, mock_github_class, mock_github_config
+    ):
+        """A recursive listing names a directory once per entry below it"""
+        tree_api = make_tree_api("main", self._structure())
+        repository, _ = self._repository(
+            mock_github_class, mock_github_config, tree_api
+        )
+
+        root_dir = repository._build_directory_structure()
+
+        node: TGFSDirectory = root_dir
+        for part in self.DEEP_PATH.split("/"):
+            assert [child.name for child in node.children] == [part]
+            node = node.children[0]
+        assert node.children == []
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_large_deep_complete_tree_costs_exactly_one_recursive_call(
+        self, mock_github_class, mock_github_config
+    ):
+        """A wide, deep tree is one request, not one per directory"""
+        structure: Dict[str, Any] = {}
+        expected_leaves = []
+        for bucket in range(40):
+            leaf: Dict[str, Any] = {
+                ".gitkeep": None,
+                f"blob-{bucket}.{1000 + bucket}": None,
+            }
+            structure[f"bucket-{bucket}"] = {
+                "b2-eu-cen": {f"{bucket}0000000000": {"file-data": leaf}}
+            }
+            expected_leaves.append(
+                f"bucket-{bucket}/b2-eu-cen/{bucket}0000000000/file-data"
+            )
+
+        tree_api = make_tree_api("main", structure)
+        repository, mock_repo = self._repository(
+            mock_github_class, mock_github_config, tree_api
+        )
+
+        root_dir = repository._build_directory_structure()
+
+        assert tree_api.calls == [(tree_api.root_sha, True)]
+        assert mock_repo.get_branch.call_count == 1
+
+        for bucket, path in enumerate(expected_leaves):
+            node: TGFSDirectory = root_dir
+            for part in path.split("/"):
+                node = node.find_dir(part)
+            assert node.find_file(f"blob-{bucket}").message_id == 1000 + bucket
+            assert [f.name for f in node.files] == [f"blob-{bucket}"]
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_twenty_thousand_metadata_refs_load_in_one_complete_tree_request(
+        self, mock_github_class, mock_github_config
+    ):
+        """Production-scale complete metadata must not cause per-directory calls.
+
+        This is intentionally 20,000 file refs, spread over 100 directory
+        branches.  It models the old stalled backup without relying on timing
+        thresholds that would make CI flaky: the API call count is the actual
+        scalability contract.
+        """
+        files_per_bucket = 200
+        bucket_count = 100
+        structure: Dict[str, Any] = {}
+        for bucket in range(bucket_count):
+            files: Dict[str, Any] = {".gitkeep": None}
+            for number in range(files_per_bucket):
+                message_id = bucket * files_per_bucket + number + 1
+                files[f"object-{bucket:03d}-{number:03d}.{message_id}"] = None
+            structure[f"bucket-{bucket:03d}"] = {
+                "b2-eu-cen": {f"{bucket:016d}": {"file-data": files}}
+            }
+
+        tree_api = make_tree_api("main", structure)
+        repository, mock_repo = self._repository(
+            mock_github_class, mock_github_config, tree_api
+        )
+
+        root_dir = repository._build_directory_structure()
+
+        # One branch resolution + precisely one complete recursive tree fetch;
+        # any per-directory traversal would fail this assertion.
+        assert mock_repo.get_branch.call_count == 1
+        assert tree_api.calls == [(tree_api.root_sha, True)]
+
+        # Verify both total cardinality and representative refs across the tree.
+        total_refs = 0
+        for bucket in range(bucket_count):
+            node = root_dir.find_dir(f"bucket-{bucket:03d}")
+            node = node.find_dir("b2-eu-cen")
+            node = node.find_dir(f"{bucket:016d}")
+            node = node.find_dir("file-data")
+            total_refs += len(node.files)
+            for number in (0, files_per_bucket - 1):
+                message_id = bucket * files_per_bucket + number + 1
+                assert (
+                    node.find_file(f"object-{bucket:03d}-{number:03d}").message_id
+                    == message_id
+                )
+        assert total_refs == bucket_count * files_per_bucket
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_truncated_root_falls_back_to_children_and_stays_complete(
+        self, mock_github_class, mock_github_config
+    ):
+        """A truncated root is split at its immediate children, never reconstructed"""
+        tree_api = make_tree_api("main", self._structure())
+        tree_api.truncate_recursive(tree_api.root_sha)
+
+        repository, _ = self._repository(
+            mock_github_class, mock_github_config, tree_api
+        )
+
+        root_dir = repository._build_directory_structure()
+
+        assert tree_api.calls == [
+            (tree_api.root_sha, True),
+            (tree_api.root_sha, False),
+            ("tree:minio-mirror", True),
         ]
+
+        node: TGFSDirectory = root_dir
+        for part in self.DEEP_PATH.split("/"):
+            node = node.find_dir(part)
+        assert node.find_file("mldata").message_id == 271686
+        assert [f.name for f in node.files] == ["mldata"]
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_only_the_truncated_subtree_is_split_further(
+        self, mock_github_class, mock_github_config
+    ):
+        """Splitting stops as soon as a level answers completely"""
+        tree_api = make_tree_api("main", self._structure())
+        tree_api.truncate_recursive(tree_api.root_sha)
+        tree_api.truncate_recursive("tree:minio-mirror")
+
+        repository, _ = self._repository(
+            mock_github_class, mock_github_config, tree_api
+        )
+
+        root_dir = repository._build_directory_structure()
+
+        assert tree_api.calls == [
+            (tree_api.root_sha, True),
+            (tree_api.root_sha, False),
+            ("tree:minio-mirror", True),
+            ("tree:minio-mirror", False),
+            ("tree:minio-mirror/b2-eu-cen", True),
+        ]
+
+        node: TGFSDirectory = root_dir
+        for part in self.DEEP_PATH.split("/"):
+            node = node.find_dir(part)
+        assert node.find_file("mldata").message_id == 271686
 
     @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
     def test_missing_subtree_is_not_silently_swallowed(
@@ -528,7 +762,8 @@ class TestGitTreeLoader:
     ):
         """A subtree that cannot be fetched must raise, never yield a partial tree"""
         tree_api = make_tree_api("main", self._structure())
-        del tree_api.trees["tree:minio-mirror/b2-eu-cen/1580559962386441/file-data"]
+        tree_api.truncate_recursive(tree_api.root_sha)
+        tree_api.forget("tree:minio-mirror")
 
         repository, _ = self._repository(
             mock_github_class, mock_github_config, tree_api
@@ -538,19 +773,39 @@ class TestGitTreeLoader:
             repository._build_directory_structure()
 
     @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
-    def test_truncated_tree_is_reported_as_an_error(
+    def test_truncated_nonrecursive_fallback_is_reported_as_an_error(
         self, mock_github_class, mock_github_config
     ):
-        """A truncated tree response is incomplete and must not pass as complete"""
+        """A tree too large even to list its children cannot be loaded at all"""
         tree_api = make_tree_api("main", self._structure())
-        tree_api.trees[tree_api.root_sha].truncated = True
+        tree_api.truncate_completely(tree_api.root_sha)
 
         repository, _ = self._repository(
             mock_github_class, mock_github_config, tree_api
         )
 
-        with pytest.raises(Exception, match="truncated"):
+        with pytest.raises(TechnicalError, match="truncated") as excinfo:
             repository._build_directory_structure()
+
+        assert "/" in str(excinfo.value)
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_truncated_nonrecursive_fallback_names_the_failing_path(
+        self, mock_github_class, mock_github_config
+    ):
+        """The failing subtree is named so the metadata repo can be fixed"""
+        tree_api = make_tree_api("main", self._structure())
+        tree_api.truncate_recursive(tree_api.root_sha)
+        tree_api.truncate_completely("tree:minio-mirror")
+
+        repository, _ = self._repository(
+            mock_github_class, mock_github_config, tree_api
+        )
+
+        with pytest.raises(TechnicalError, match="truncated") as excinfo:
+            repository._build_directory_structure()
+
+        assert "minio-mirror" in str(excinfo.value)
 
 
 class TestNonRepresentableEntries:
@@ -611,6 +866,32 @@ class TestNonRepresentableEntries:
         assert any("-weird" in warning for warning in warnings), warnings
         mock_logger.error.assert_not_called()
 
+    @patch("tgfs.core.repository.impl.metadata.github_repo.logger")
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    def test_invalid_component_of_a_flattened_path_keeps_valid_paths(
+        self, mock_github_class, mock_logger, mock_github_config
+    ):
+        """A recursive listing names nested paths; one bad component drops only itself"""
+        repository, _, _, _ = build_repository(
+            mock_github_class,
+            mock_github_config,
+            {
+                "-bad": {"deep": {"lost.1": None}},
+                "a": {"b": {"kept.2": None}},
+            },
+        )
+
+        root_dir = repository._build_directory_structure()
+
+        assert [child.name for child in root_dir.children] == ["a"]
+        deep = root_dir.find_dir("a").find_dir("b")
+        assert [f.name for f in deep.files] == ["kept"]
+        assert deep.find_file("kept").message_id == 2
+
+        warnings = [call[0][0] for call in mock_logger.warning.call_args_list]
+        assert any("-bad" in warning for warning in warnings), warnings
+        mock_logger.error.assert_not_called()
+
     @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
     def test_truncated_nested_tree_is_not_swallowed(
         self, mock_github_class, mock_github_config
@@ -621,7 +902,9 @@ class TestNonRepresentableEntries:
             mock_github_config,
             {"outer": {"inner": {"file.1": None}}},
         )
-        tree_api.trees["tree:outer/inner"].truncated = True
+        tree_api.truncate_recursive(tree_api.root_sha)
+        tree_api.truncate_recursive("tree:outer")
+        tree_api.truncate_completely("tree:outer/inner")
 
         with pytest.raises(Exception, match="truncated") as excinfo:
             repository._build_directory_structure()
@@ -674,7 +957,7 @@ class TestRefResolution:
         repository._build_directory_structure()
 
         assert branch_api.calls == ["metadata/main"]
-        assert len(tree_api.calls) == 4
+        assert tree_api.calls == [(root_tree_sha("metadata/main"), True)]
 
     @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
     def test_plain_branch_name_is_resolved_the_same_way(self, mock_github_class):
@@ -687,10 +970,7 @@ class TestRefResolution:
         root_dir = repository._build_directory_structure()
 
         assert branch_api.calls == ["main"]
-        assert [sha for sha, _ in tree_api.calls] == [
-            root_tree_sha("main"),
-            "tree:sub",
-        ]
+        assert [sha for sha, _ in tree_api.calls] == [root_tree_sha("main")]
         assert [f.name for f in root_dir.find_dir("sub").files] == ["doc"]
 
 
@@ -1292,18 +1572,7 @@ class TestEdgeCases:
 
     def test_unsupported_tree_entry_type_is_ignored(self, mock_ghc):
         """Submodules and other non blob/tree entries are not part of metadata"""
-        root_sha = root_tree_sha("main")
-        trees = {
-            root_sha: FakeGitTree(
-                root_sha,
-                [
-                    FakeTreeElement("submodule", "commit", "commit:submodule"),
-                    FakeTreeElement("single.123", "blob", "blob:single.123"),
-                ],
-            )
-        }
-        mock_ghc.repo.get_branch.side_effect = FakeBranchApi({"main": root_sha})
-        mock_ghc.repo.get_git_tree.side_effect = FakeTreeApi(trees, root_sha=root_sha)
+        install_fake_github(mock_ghc.repo, {"submodule": SUBMODULE, "single.123": None})
 
         with patch("tgfs.core.repository.impl.metadata.github_repo.Github"):
             repository = GithubRepoMetadataRepository(

@@ -1,8 +1,8 @@
 import logging
+from typing import Optional
 
 from github import Github
 from github.GitTree import GitTree
-from github.GitTreeElement import GitTreeElement
 
 from tgfs.config import GithubRepoConfig
 from tgfs.core.model import TGFSDirectory, TGFSMetadata
@@ -29,6 +29,12 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
             commit=config.commit,
         )
 
+        # State of the load in progress: every directory built so far, by path,
+        # and the ones dropped, so each is reported once even though a recursive
+        # listing names them again for every entry below them.
+        self._dirs_by_path: dict[str, GithubDirectory] = {}
+        self._skipped_dirs: set[str] = set()
+
     async def push(self) -> None:
         pass
 
@@ -41,13 +47,10 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
             self._ghc, name="root", parent=None, children=[], files=[]
         )
 
-        try:
-            root_tree = self._get_tree(self._resolve_root_tree_sha(), path="")
-        except Exception as ex:
-            logger.error(f"Failed to read the metadata root tree: {ex}")
-            raise
+        self._dirs_by_path = {"": root}
+        self._skipped_dirs.clear()
 
-        self._walk_tree(root_tree, root, path="")
+        self._load_subtree(self._resolve_root_tree_sha(), root, path="")
 
         return root
 
@@ -74,70 +77,155 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
             )
             return ref
 
-    def _get_tree(self, tree_sha: str, path: str) -> GitTree:
-        """Fetch a single tree level.
+    def _fetch_tree(self, tree_sha: str, path: str, recursive: bool) -> GitTree:
+        try:
+            return self._ghc.repo.get_git_tree(tree_sha, recursive=recursive)
+        except Exception as ex:
+            # A subtree we cannot read means an incomplete metadata graph, which
+            # later makes TGFS try to recreate directories that already exist.
+            logger.error(f"Failed to read the metadata tree at '{path or '/'}': {ex}")
+            raise
 
-        The tree is walked one level at a time: a recursive listing (either
-        through the contents API or ``recursive=True``) is silently truncated by
-        GitHub once the metadata tree gets wide enough, which would make the
-        loader drop existing directories.
+    def _load_subtree(
+        self, tree_sha: str, directory: GithubDirectory, path: str
+    ) -> None:
+        """Load a tree and everything below it in as few requests as possible.
+
+        One request per directory costs thousands of calls on a metadata
+        repository of this size and gets rate limited long before the walk ends,
+        so every subtree is first asked for recursively: that brings back a
+        whole branch of the metadata in a single request.
+
+        GitHub silently truncates a listing that is too large, and a truncated
+        listing must never be reconstructed from - it would drop existing
+        directories. Such a subtree is instead split at its immediate children,
+        each of which is loaded the very same way.
         """
-        tree = self._ghc.repo.get_git_tree(tree_sha, recursive=False)
+        recursive_tree = self._fetch_tree(tree_sha, path, recursive=True)
+
+        if not recursive_tree.truncated:
+            self._add_flattened_tree(recursive_tree, directory, path)
+            return
+
+        logger.info(
+            f"The metadata tree at '{path or '/'}' is too large for a single "
+            "listing, loading its children separately"
+        )
+
+        tree = self._fetch_tree(tree_sha, path, recursive=False)
 
         if tree.truncated:
+            # Nothing left to split it into: this is as small as a request gets.
             raise TechnicalError(
                 f"The metadata tree at '{path or '/'}' was truncated by GitHub, "
                 "so it cannot be loaded completely"
             )
 
-        return tree
-
-    def _walk_tree(self, tree: GitTree, parent_dir: GithubDirectory, path: str) -> None:
         for element in tree.tree:
             name = element.path.rsplit("/", 1)[-1]
-            element_path = f"{path}/{name}" if path else name
+            element_path = self._join(path, name)
 
             if element.type == "tree":
-                self._add_child_dir(element, name, element_path, parent_dir)
+                child_dir = self._child_dir(directory, name, element_path)
+                if child_dir is not None:
+                    self._load_subtree(element.sha, child_dir, element_path)
             elif element.type == "blob":
-                self._add_file_ref(name, element_path, parent_dir)
+                self._add_file_ref(name, element_path, directory)
             else:
                 logger.warning(
                     f"Ignoring unsupported entry {element_path} of type {element.type}"
                 )
 
-    def _add_child_dir(
-        self,
-        element: GitTreeElement,
-        name: str,
-        path: str,
-        parent_dir: GithubDirectory,
+    def _add_flattened_tree(
+        self, tree: GitTree, directory: GithubDirectory, path: str
     ) -> None:
+        """Build every ref a complete recursive listing describes.
+
+        ``element.path`` is relative to the fetched tree and may name several
+        levels at once ('a/b/c.1'), so the directories along the way are created
+        (or reused) as they are met: the listing is free to name a blob before
+        the tree that holds it.
+        """
+        for element in tree.tree:
+            parts = [part for part in element.path.split("/") if part]
+            if not parts:
+                continue
+
+            element_path = self._join(path, element.path)
+
+            if element.type not in ("tree", "blob"):
+                logger.warning(
+                    f"Ignoring unsupported entry {element_path} of type {element.type}"
+                )
+                continue
+
+            parent_dir = self._descend(directory, parts[:-1], path)
+            if parent_dir is None:
+                # A directory on the way could not be represented; it was
+                # already reported and everything below it goes with it.
+                continue
+
+            if element.type == "tree":
+                self._child_dir(parent_dir, parts[-1], element_path)
+            else:
+                self._add_file_ref(parts[-1], element_path, parent_dir)
+
+    def _descend(
+        self, directory: GithubDirectory, parts: list[str], path: str
+    ) -> Optional[GithubDirectory]:
+        """Walk down the intermediate directories of a path, creating what is missing"""
+        current = directory
+        current_path = path
+
+        for part in parts:
+            current_path = self._join(current_path, part)
+            child_dir = self._child_dir(current, part, current_path)
+            if child_dir is None:
+                return None
+            current = child_dir
+
+        return current
+
+    def _child_dir(
+        self, parent_dir: GithubDirectory, name: str, path: str
+    ) -> Optional[GithubDirectory]:
+        """The child directory of this path, reused if an earlier entry made it already.
+
+        Directories are looked up by path rather than by scanning the parent:
+        a flattened listing names the same directory once per entry below it, and
+        scanning would turn a wide directory into quadratic work.
+
+        Returns None for content TGFS cannot represent, which is not a broken
+        metadata read: the rest of this tree is still trustworthy, so only this
+        entry (and everything below it) is dropped.
+        """
+        if path in self._skipped_dirs:
+            return None
+
+        loaded = self._dirs_by_path.get(path)
+        if loaded is not None:
+            return loaded
+
         try:
-            child_dir = self._create_child_dir(name, parent_dir)
+            # The plain constructor is used on purpose: loading the metadata
+            # must never write to GitHub.
+            child_dir = GithubDirectory(self._ghc, name, parent_dir)
         except (FileOrDirectoryAlreadyExists, InvalidName) as ex:
-            # Content TGFS cannot represent is not a broken metadata read: the
-            # rest of this tree is still trustworthy, so only this entry (and
-            # everything below it) is dropped.
-            logger.warning(f"Skipping directory {path}: {ex}")
-            return
+            self._warn_skipped_dir(path, ex)
+            return None
 
-        try:
-            child_tree = self._get_tree(element.sha, path=path)
-        except Exception as ex:
-            # A subtree we cannot read means an incomplete metadata graph, which
-            # later makes TGFS try to recreate directories that already exist.
-            logger.error(f"Failed to construct directory {path}: {ex}")
-            raise
-
-        self._walk_tree(child_tree, child_dir, path=path)
-
-    def _create_child_dir(
-        self, name: str, parent_dir: GithubDirectory
-    ) -> GithubDirectory:
-        child_dir = GithubDirectory(self._ghc, name, parent_dir)
         parent_dir.children.append(child_dir)
+        self._dirs_by_path[path] = child_dir
         return child_dir
+
+    def _warn_skipped_dir(self, path: str, ex: Exception) -> None:
+        """Report a dropped directory once, however many entries mention it"""
+        self._skipped_dirs.add(path)
+        logger.warning(f"Skipping directory {path}: {ex}")
+
+    @staticmethod
+    def _join(path: str, name: str) -> str:
+        return f"{path}/{name}" if path else name
 
     @staticmethod
     def _add_file_ref(name: str, path: str, parent_dir: GithubDirectory) -> None:
