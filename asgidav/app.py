@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 
 from .folder import Folder
 from .member import Member
-from .reqres import PropfindRequest, propfind
+from .reqres import PropfindRequest, propfind_stream
 from .resource import Resource
 
 logger = logging.getLogger(__name__)
@@ -93,13 +93,11 @@ def create_app(
     async def handle_propfind(request: Request, path: str):
         r = await PropfindRequest.from_request(request)
         if member := await get_member(path):
-            resp = await propfind((member,), r.depth, r.props, base_path)
-            return Response(
-                resp,
+            return StreamingResponse(
+                propfind_stream((member,), r.depth, r.props, base_path),
                 status_code=HTTPStatus.MULTI_STATUS,
                 media_type="application/xml; charset=utf-8",
-                headers=common_headers
-                | {"Content-Type": "application/xml; charset=utf-8"},
+                headers=common_headers,
             )
         return NOT_FOUND
 

@@ -1,6 +1,6 @@
 import pytest
 from fastapi import Request
-from asgidav.reqres import PropfindRequest, propfind, _propstat, _propfind_response
+from asgidav.reqres import PropfindRequest, propfind, _propstat, _response_elements
 from .common import MockResource, MockFolder
 
 
@@ -109,10 +109,19 @@ class TestPropfindFunctions:
         props = result.find(".//{DAV:}prop")
         assert props is not None
 
+    @staticmethod
+    async def _collect(member, depth, prop_names, base_path):
+        return [
+            element
+            async for element in _response_elements(
+                member, depth, prop_names, base_path
+            )
+        ]
+
     @pytest.mark.asyncio
     async def test_propfind_response_resource(self):
         resource = MockResource("/test.txt")
-        result = await _propfind_response(resource, 0, ("displayname",), "/webdav")
+        result = await self._collect(resource, 0, ("displayname",), "/webdav")
 
         assert len(result) == 1
         response = result[0]
@@ -125,7 +134,7 @@ class TestPropfindFunctions:
     @pytest.mark.asyncio
     async def test_propfind_response_folder_depth_0(self):
         folder = MockFolder("/test")
-        result = await _propfind_response(folder, 0, ("displayname",), "/webdav")
+        result = await self._collect(folder, 0, ("displayname",), "/webdav")
 
         assert len(result) == 1  # Only the folder itself
 
@@ -136,7 +145,7 @@ class TestPropfindFunctions:
         }
         folder = MockFolder("/test", members)
 
-        result = await _propfind_response(folder, 1, ("displayname",), "/webdav")
+        result = await self._collect(folder, 1, ("displayname",), "/webdav")
 
         assert len(result) == 2  # Folder + 1 member
 
