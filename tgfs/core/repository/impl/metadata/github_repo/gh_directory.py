@@ -92,6 +92,25 @@ class GithubDirectory(TGFSDirectory):
                 return
             raise
 
+    @classmethod
+    def from_serialized(
+        cls, data: dict, ghc: GithubConfig, parent: Optional["GithubDirectory"] = None
+    ) -> "GithubDirectory":
+        """Rebuild a cached tree without issuing GitHub write operations."""
+        directory = cls(ghc, data["name"], parent, children=[], files=[])
+        directory.files = [
+            TGFSFileRef(
+                message_id=file["messageId"], name=file["name"], location=directory
+            )
+            for file in data.get("files", [])
+            if file.get("name") and file.get("messageId")
+        ]
+        directory.children = [
+            cls.from_serialized(child, ghc, directory)
+            for child in data.get("children", [])
+        ]
+        return directory
+
     def create_dir_skip_github_ops(self, name: str) -> "GithubDirectory":
         res = GithubDirectory(self._ghc, name, self)
         self.children.append(res)

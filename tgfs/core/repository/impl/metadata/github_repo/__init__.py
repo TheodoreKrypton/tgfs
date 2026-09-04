@@ -1,14 +1,16 @@
 import logging
+from pathlib import Path
 from typing import Optional
 
 from github import Github
 from github.GitTree import GitTree
 
-from tgfs.config import GithubRepoConfig
+from tgfs.config import DATA_DIR, GithubRepoConfig
 from tgfs.core.model import TGFSDirectory, TGFSMetadata
 from tgfs.core.repository.interface import IMetaDataRepository
 from tgfs.errors import FileOrDirectoryAlreadyExists, InvalidName, TechnicalError
 
+from .cache import load_cache, resolve_and_check_freshness
 from .gh_directory import GithubConfig, GithubDirectory
 
 logger = logging.getLogger(__name__)
@@ -29,6 +31,10 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
             commit=config.commit,
         )
 
+        self._cache_path = Path(DATA_DIR) / "metadata-cache" / (
+            f"{config.repo.replace('/', '-')}.json"
+        )
+
         # State of the load in progress: every directory built so far, by path,
         # and the ones dropped, so each is reported once even though a recursive
         # listing names them again for every entry below them.
@@ -39,10 +45,28 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
         pass
 
     async def get(self) -> TGFSMetadata:
+        cached = load_cache(self._cache_path, self._ghc.repo_name, self._ghc.commit)
+        if cached is not None:
+            if resolve_and_check_freshness(self._ghc, cached):
+                try:
+                    return TGFSMetadata(
+                        dir=GithubDirectory.from_serialized(
+                            cached.metadata["dir"], self._ghc
+                        )
+                    )
+                except Exception as ex:
+                    logger.warning(f"Ignoring invalid GitHub metadata cache: {ex}")
+            if cached.current_tree_sha is not None:
+                return TGFSMetadata(
+                    dir=self._build_directory_structure(cached.current_tree_sha)
+                )
+
         root_dir = self._build_directory_structure()
         return TGFSMetadata(dir=root_dir)
 
-    def _build_directory_structure(self) -> GithubDirectory:
+    def _build_directory_structure(
+        self, root_tree_sha: Optional[str] = None
+    ) -> GithubDirectory:
         root = GithubDirectory(
             self._ghc, name="root", parent=None, children=[], files=[]
         )
@@ -50,7 +74,7 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
         self._dirs_by_path = {"": root}
         self._skipped_dirs.clear()
 
-        self._load_subtree(self._resolve_root_tree_sha(), root, path="")
+        self._load_subtree(root_tree_sha or self._resolve_root_tree_sha(), root, path="")
 
         return root
 
