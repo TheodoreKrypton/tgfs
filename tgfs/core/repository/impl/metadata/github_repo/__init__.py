@@ -10,7 +10,7 @@ from tgfs.core.model import TGFSDirectory, TGFSMetadata
 from tgfs.core.repository.interface import IMetaDataRepository
 from tgfs.errors import FileOrDirectoryAlreadyExists, InvalidName, TechnicalError
 
-from .cache import load_cache, resolve_and_check_freshness
+from .cache import is_sha_pinned, load_cache, resolve_and_check_freshness, save_cache
 from .gh_directory import GithubConfig, GithubDirectory
 
 logger = logging.getLogger(__name__)
@@ -42,7 +42,26 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
         self._skipped_dirs: set[str] = set()
 
     async def push(self) -> None:
-        pass
+        if self.metadata is None:
+            return
+
+        try:
+            resolved_tree_sha = (
+                None
+                if is_sha_pinned(self._ghc.commit)
+                else self._resolve_root_tree_sha()
+            )
+            save_cache(
+                self._cache_path,
+                self._ghc.repo_name,
+                self._ghc.commit,
+                resolved_tree_sha,
+                self.metadata,
+            )
+        except Exception as ex:
+            # The cache is an accelerator, not a correctness dependency: a
+            # failure to refresh it must never fail the write that triggered it.
+            logger.warning(f"Failed to refresh the GitHub metadata cache: {ex}")
 
     async def get(self) -> TGFSMetadata:
         cached = load_cache(self._cache_path, self._ghc.repo_name, self._ghc.commit)
