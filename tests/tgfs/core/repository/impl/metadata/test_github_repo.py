@@ -1,3 +1,6 @@
+import json
+from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from unittest.mock import Mock, patch
 
@@ -250,6 +253,44 @@ def build_repository(
     tree_api, branch_api = install_fake_github(mock_repo, structure, ref=config.commit)
 
     return GithubRepoMetadataRepository(config), mock_repo, tree_api, branch_api
+
+
+def cache_envelope(
+    metadata: TGFSMetadata,
+    *,
+    repo: str,
+    configured_ref: str,
+    resolved_tree_sha: str,
+) -> dict:
+    return {
+        "cache_version": 1,
+        "repo": repo,
+        "configured_ref": configured_ref,
+        "resolved_tree_sha": resolved_tree_sha,
+        "written_at": "2026-09-04T00:00:00Z",
+        "metadata": metadata.to_dict(),
+    }
+
+
+def write_cache(
+    path: Path,
+    metadata: TGFSMetadata,
+    *,
+    repo: str,
+    configured_ref: str,
+    resolved_tree_sha: str,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            cache_envelope(
+                metadata,
+                repo=repo,
+                configured_ref=configured_ref,
+                resolved_tree_sha=resolved_tree_sha,
+            )
+        )
+    )
 
 
 def conflict_422() -> GithubException:
@@ -506,6 +547,209 @@ class TestGithubRepoMetadataRepository:
             repository = GithubRepoMetadataRepository(mock_github_config)
             # Should not raise any exception
             await repository.push()
+
+
+class TestMetadataCache:
+    """The persistent cache is strictly an optional startup accelerator."""
+
+    SHA = "a" * 40
+
+    @staticmethod
+    def _cache_path(data_dir: Path, repo: str, channel_id: str) -> Path:
+        return data_dir / "metadata-cache" / f"{repo.replace('/', '-')}-{channel_id}.json"
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    @pytest.mark.asyncio
+    async def test_no_cache_falls_back_to_complete_github_tree_walk(
+        self, mock_github_class, tmp_path
+    ):
+        config = GithubRepoConfig(
+            repo="owner/test-repo", commit="main", access_token="token"
+        )
+        repository, _, tree_api, branch_api = build_repository(
+            mock_github_class, config, {"report.42": None}
+        )
+        repository._cache_path = self._cache_path(tmp_path, config.repo, "123")
+
+        metadata = await repository.get()
+
+        assert metadata.dir.find_file("report").message_id == 42
+        assert branch_api.calls == ["main"]
+        assert tree_api.recursive_calls == [tree_api.root_sha]
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    @pytest.mark.asyncio
+    async def test_matching_sha_pinned_cache_skips_all_github_metadata_calls(
+        self, mock_github_class, tmp_path
+    ):
+        config = GithubRepoConfig(
+            repo="owner/test-repo", commit=self.SHA, access_token="token"
+        )
+        repository, mock_repo, _, _ = build_repository(
+            mock_github_class, config, {"ignored.1": None}
+        )
+        cache_path = self._cache_path(tmp_path, config.repo, "123")
+        repository._cache_path = cache_path
+        cached_root = GithubDirectory(repository._ghc, "root", None)
+        TGFSDirectory.create_file_ref(cached_root, "cached", 9)
+        write_cache(
+            cache_path,
+            TGFSMetadata(cached_root),
+            repo=config.repo,
+            configured_ref=self.SHA,
+            resolved_tree_sha="tree-sha",
+        )
+
+        metadata = await repository.get()
+
+        assert metadata.dir.find_file("cached").message_id == 9
+        assert isinstance(metadata.dir, GithubDirectory)
+        mock_repo.get_branch.assert_not_called()
+        mock_repo.get_git_tree.assert_not_called()
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    @pytest.mark.asyncio
+    async def test_branch_cache_checks_one_tree_sha_then_uses_matching_cache(
+        self, mock_github_class, tmp_path
+    ):
+        config = GithubRepoConfig(
+            repo="owner/test-repo", commit="main", access_token="token"
+        )
+        repository, mock_repo, tree_api, branch_api = build_repository(
+            mock_github_class, config, {"ignored.1": None}
+        )
+        cache_path = self._cache_path(tmp_path, config.repo, "123")
+        repository._cache_path = cache_path
+        cached_root = GithubDirectory(repository._ghc, "root", None)
+        TGFSDirectory.create_file_ref(cached_root, "cached", 9)
+        write_cache(
+            cache_path,
+            TGFSMetadata(cached_root),
+            repo=config.repo,
+            configured_ref="main",
+            resolved_tree_sha=tree_api.root_sha,
+        )
+
+        metadata = await repository.get()
+
+        assert metadata.dir.find_file("cached").message_id == 9
+        assert branch_api.calls == ["main"]
+        mock_repo.get_git_tree.assert_not_called()
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    @pytest.mark.asyncio
+    async def test_branch_cache_with_changed_tree_sha_falls_back_to_walk(
+        self, mock_github_class, tmp_path
+    ):
+        config = GithubRepoConfig(
+            repo="owner/test-repo", commit="main", access_token="token"
+        )
+        repository, _, tree_api, branch_api = build_repository(
+            mock_github_class, config, {"fresh.10": None}
+        )
+        cache_path = self._cache_path(tmp_path, config.repo, "123")
+        repository._cache_path = cache_path
+        cached_root = GithubDirectory(repository._ghc, "root", None)
+        TGFSDirectory.create_file_ref(cached_root, "stale", 9)
+        write_cache(
+            cache_path,
+            TGFSMetadata(cached_root),
+            repo=config.repo,
+            configured_ref="main",
+            resolved_tree_sha="old-tree-sha",
+        )
+
+        metadata = await repository.get()
+
+        assert metadata.dir.find_file("fresh").message_id == 10
+        assert branch_api.calls == ["main"]
+        assert tree_api.recursive_calls == [tree_api.root_sha]
+
+    @pytest.mark.parametrize(
+        "cache_contents",
+        [
+            "{truncated",
+            json.dumps({"cache_version": 2}),
+        ],
+    )
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    @pytest.mark.asyncio
+    async def test_invalid_cache_is_ignored_and_full_walk_still_succeeds(
+        self, mock_github_class, tmp_path, cache_contents
+    ):
+        config = GithubRepoConfig(
+            repo="owner/test-repo", commit="main", access_token="token"
+        )
+        repository, _, tree_api, _ = build_repository(
+            mock_github_class, config, {"fresh.10": None}
+        )
+        cache_path = self._cache_path(tmp_path, config.repo, "123")
+        repository._cache_path = cache_path
+        cache_path.parent.mkdir(parents=True)
+        cache_path.write_text(cache_contents)
+
+        metadata = await repository.get()
+
+        assert metadata.dir.find_file("fresh").message_id == 10
+        assert tree_api.recursive_calls == [tree_api.root_sha]
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    @pytest.mark.asyncio
+    async def test_push_refreshes_cache_with_current_metadata_and_timestamp(
+        self, mock_github_class, tmp_path
+    ):
+        config = GithubRepoConfig(
+            repo="owner/test-repo", commit=self.SHA, access_token="token"
+        )
+        repository, _, _, _ = build_repository(mock_github_class, config, {})
+        cache_path = self._cache_path(tmp_path, config.repo, "123")
+        repository._cache_path = cache_path
+        root = GithubDirectory(repository._ghc, "root", None)
+        TGFSDirectory.create_file_ref(root, "current", 12)
+        repository.metadata = TGFSMetadata(root)
+
+        await repository.push()
+
+        saved = json.loads(cache_path.read_text())
+        assert saved["cache_version"] == 1
+        assert saved["repo"] == config.repo
+        assert saved["configured_ref"] == self.SHA
+        assert saved["metadata"] == repository.metadata.to_dict()
+        assert datetime.fromisoformat(saved["written_at"].replace("Z", "+00:00"))
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    @pytest.mark.asyncio
+    async def test_cached_tree_rebuilds_github_directories_for_future_writes(
+        self, mock_github_class, tmp_path
+    ):
+        config = GithubRepoConfig(
+            repo="owner/test-repo", commit=self.SHA, access_token="token"
+        )
+        repository, mock_repo, _, _ = build_repository(mock_github_class, config, {})
+        cache_path = self._cache_path(tmp_path, config.repo, "123")
+        repository._cache_path = cache_path
+        cached_root = GithubDirectory(repository._ghc, "root", None)
+        child = cached_root.create_dir_skip_github_ops("documents")
+        TGFSDirectory.create_file_ref(child, "prior", 1)
+        write_cache(
+            cache_path,
+            TGFSMetadata(cached_root),
+            repo=config.repo,
+            configured_ref=self.SHA,
+            resolved_tree_sha="tree-sha",
+        )
+
+        metadata = await repository.get()
+        loaded_child = metadata.dir.find_dir("documents")
+        loaded_child.create_dir("next", None)
+
+        assert isinstance(loaded_child, GithubDirectory)
+        mock_repo.create_file.assert_called_once_with(
+            path="documents/next/.gitkeep",
+            message="Create directory next",
+            content="",
+            branch=self.SHA,
+        )
 
 
 class TestGitTreeLoader:
