@@ -717,6 +717,57 @@ class TestMetadataCache:
         assert saved["metadata"] == repository.metadata.to_dict()
         assert datetime.fromisoformat(saved["written_at"].replace("Z", "+00:00"))
 
+    @patch("tgfs.core.repository.impl.metadata.github_repo.METADATA_CACHE_DISABLED", True)
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    @pytest.mark.asyncio
+    async def test_disabled_kill_switch_ignores_existing_cache_on_read(
+        self, mock_github_class, tmp_path
+    ):
+        """TGFS_DISABLE_METADATA_CACHE must behave like there is no cache at all."""
+        config = GithubRepoConfig(
+            repo="owner/test-repo", commit="main", access_token="token"
+        )
+        repository, mock_repo, tree_api, branch_api = build_repository(
+            mock_github_class, config, {"fresh.10": None}
+        )
+        cache_path = self._cache_path(tmp_path, config.repo, "123")
+        repository._cache_path = cache_path
+        cached_root = GithubDirectory(repository._ghc, "root", None)
+        TGFSDirectory.create_file_ref(cached_root, "cached", 9)
+        write_cache(
+            cache_path,
+            TGFSMetadata(cached_root),
+            repo=config.repo,
+            configured_ref="main",
+            resolved_tree_sha=tree_api.root_sha,
+        )
+
+        metadata = await repository.get()
+
+        assert metadata.dir.find_file("fresh").message_id == 10
+        assert branch_api.calls == ["main"]
+        assert tree_api.recursive_calls == [tree_api.root_sha]
+
+    @patch("tgfs.core.repository.impl.metadata.github_repo.METADATA_CACHE_DISABLED", True)
+    @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
+    @pytest.mark.asyncio
+    async def test_disabled_kill_switch_skips_cache_write_on_push(
+        self, mock_github_class, tmp_path
+    ):
+        config = GithubRepoConfig(
+            repo="owner/test-repo", commit=self.SHA, access_token="token"
+        )
+        repository, _, _, _ = build_repository(mock_github_class, config, {})
+        cache_path = self._cache_path(tmp_path, config.repo, "123")
+        repository._cache_path = cache_path
+        root = GithubDirectory(repository._ghc, "root", None)
+        TGFSDirectory.create_file_ref(root, "current", 12)
+        repository.metadata = TGFSMetadata(root)
+
+        await repository.push()
+
+        assert not cache_path.exists()
+
     @patch("tgfs.core.repository.impl.metadata.github_repo.Github")
     @pytest.mark.asyncio
     async def test_cached_tree_rebuilds_github_directories_for_future_writes(

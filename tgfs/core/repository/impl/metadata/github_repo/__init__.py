@@ -5,7 +5,7 @@ from typing import Optional
 from github import Github
 from github.GitTree import GitTree
 
-from tgfs.config import DATA_DIR, GithubRepoConfig
+from tgfs.config import DATA_DIR, METADATA_CACHE_DISABLED, GithubRepoConfig
 from tgfs.core.model import TGFSDirectory, TGFSMetadata
 from tgfs.core.repository.interface import IMetaDataRepository
 from tgfs.errors import FileOrDirectoryAlreadyExists, InvalidName, TechnicalError
@@ -45,6 +45,9 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
         if self.metadata is None:
             return
 
+        if METADATA_CACHE_DISABLED:
+            return
+
         try:
             resolved_tree_sha = (
                 None
@@ -64,7 +67,11 @@ class GithubRepoMetadataRepository(IMetaDataRepository):
             logger.warning(f"Failed to refresh the GitHub metadata cache: {ex}")
 
     async def get(self) -> TGFSMetadata:
-        cached = load_cache(self._cache_path, self._ghc.repo_name, self._ghc.commit)
+        cached = (
+            None
+            if METADATA_CACHE_DISABLED
+            else load_cache(self._cache_path, self._ghc.repo_name, self._ghc.commit)
+        )
         if cached is not None:
             if resolve_and_check_freshness(self._ghc, cached):
                 try:
