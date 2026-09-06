@@ -38,6 +38,32 @@ Refer to the [wiki page](https://github.com/TheodoreKrypton/tgfs/wiki/TGFS-Wiki)
 * Github repository for metadata: [https://github.com/tgfs-demo/tgfs-demo](https://github.com/tgfs-demo/tgfs-demo)
 * Config file: [config.yaml](https://github.com/TheodoreKrypton/tgfs/blob/master/demo-config.yaml)
 
+## GitHub metadata cache contract
+
+GitHub-backed metadata can opt into a persistent startup cache. The cache is an
+accelerator only: a missing, unreadable, malformed, or unsupported-version cache
+always causes the existing complete GitHub tree walk rather than serving an
+incomplete directory graph.
+
+- **Location:** `<DATA_DIR>/metadata-cache/<sanitized-repo-name>-<channel-id>.json`.
+  The channel id is part of the name so channels sharing a TGFS data directory
+  cannot collide. The cache directory is runtime data and must not be committed.
+- **Envelope:** JSON with `cache_version: 1`, `repo`, `configured_ref`,
+  `resolved_tree_sha`, UTC ISO-8601 `written_at`, and `metadata`, where
+  `metadata` is `TGFSMetadata.to_dict()` output. Unknown versions are cache
+  misses.
+- **Freshness:** a 40-character hexadecimal configured ref is treated as an
+  immutable commit SHA and is valid only when it matches `configured_ref` in
+  the envelope; no GitHub request is needed. For a branch or tag, TGFS makes one
+  `get_branch(ref).commit.commit.tree.sha` request at startup and uses the cache
+  only when it equals `resolved_tree_sha`. A failed freshness check is a miss.
+- **Writes:** after a successful TGFS metadata `push()`, TGFS replaces the cache
+  atomically (temp file in the destination directory followed by `os.replace`).
+  Cache-write failures are warnings and never turn a successful GitHub write
+  into a failed one.
+- **Reload behavior:** cached directories must be rebuilt as `GithubDirectory`
+  objects, preserving GitHub-backed write operations after restart.
+
 ## Development
 
 Install the dependencies:
