@@ -166,6 +166,28 @@ class TestUploaderFromPath:
         assert mock_client.save_file_part.call_count >= 1
 
     @pytest.mark.asyncio
+    async def test_upload_failure_does_not_spin_without_a_retry_delay(
+        self, mock_client, test_file, mocker
+    ):
+        """Transient Telegram failures must yield the event loop before retrying."""
+        mock_client.save_file_part.side_effect = [
+            Exception("disconnected"), SaveFilePartResp(success=True)
+        ]
+        sleep = mocker.AsyncMock()
+        mocker.patch(
+            "tgfs.core.repository.impl.file_content.file_uploader.asyncio.sleep", sleep
+        )
+        file_path, _ = test_file
+        uploader = FileUploader(
+            client=mock_client,
+            file_msg=FileMessageFromPath.new(path=file_path, name="retry-delay.txt"),
+        )
+
+        await uploader.upload()
+
+        sleep.assert_any_await(1)
+
+    @pytest.mark.asyncio
     async def test_task_cancellation(
         self, mock_client, test_file, mock_task_tracker, mocker
     ):
