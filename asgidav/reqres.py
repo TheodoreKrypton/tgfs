@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import AsyncGenerator, AsyncIterator, List, Tuple
 from urllib.parse import quote
 
 import lxml.etree as et
@@ -12,6 +12,20 @@ from asgidav.member import Member, Properties, PropertyName, ResourceType
 
 DAV_NS = "DAV:"
 NS_MAP = {"D": DAV_NS}
+
+XML_DECLARATION = b'<?xml version="1.0" encoding="utf-8"?>\n'
+MULTISTATUS_OPEN = f'<D:multistatus xmlns:D="{DAV_NS}">'.encode()
+MULTISTATUS_CLOSE = b"</D:multistatus>"
+
+# How many children of a collection are resolved (and turned into <D:response>
+# elements) at a time. Bounds both concurrency and peak memory while walking
+# collections with hundreds of thousands of members.
+MEMBER_BATCH_SIZE = 100
+
+# Serialized responses are coalesced up to this size before being yielded, so a
+# huge collection does not translate into one ASGI message (and one socket
+# write) per member.
+STREAM_CHUNK_SIZE = 32 * 1024
 
 
 @dataclass
@@ -73,37 +87,91 @@ async def _propstat(member: Member, prop_names: Tuple[PropertyName, ...]) -> Ele
     return root
 
 
-async def _propfind_response(
-    member: Member, depth: int, prop_names: Tuple[PropertyName, ...], base_path: str
-) -> List[Element]:
-    root = et.Element(_tag("response"))
+async def _response_element(
+    member: Member, prop_names: Tuple[PropertyName, ...], base_path: str
+) -> Element:
+    root = et.Element(_tag("response"), nsmap=NS_MAP)
 
     href = et.SubElement(root, _tag("href"))
     href.text = quote(f"{base_path}{member.path}", safe="/")
 
-    propstat_elem = await _propstat(
-        member=member,
-        prop_names=prop_names,
-    )
-    root.append(propstat_elem)
+    root.append(await _propstat(member=member, prop_names=prop_names))
 
-    res = [root]
+    return root
 
-    if not isinstance(member, Folder) or depth == 0:
-        return res
+
+async def _child_response_elements(
+    member: Member, depth: int, prop_names: Tuple[PropertyName, ...], base_path: str
+) -> AsyncIterator[Element]:
+    """Yield a <D:response> element for every descendant of ``member`` reachable
+    within ``depth`` levels.
+
+    Children are resolved in batches of ``MEMBER_BATCH_SIZE`` so that neither the
+    member objects nor their response elements are ever all held at once, and so
+    that the event loop is handed back regularly while a very large collection is
+    enumerated.
+    """
+    if depth <= 0 or not isinstance(member, Folder):
+        return
 
     folder: Folder = member
+    names = tuple(await folder.member_names())
 
-    names = await member.member_names()
-    sub_members = await async_map(lambda name: folder.member(name), names)
-    propfind_responses = await async_map(
-        lambda m: _propfind_response(m, depth - 1, prop_names, base_path),
-        (m for m in sub_members if m is not None),
-    )
-    for sub_response in propfind_responses:
-        res.extend(sub_response)
+    for start in range(0, len(names), MEMBER_BATCH_SIZE):
+        batch = names[start : start + MEMBER_BATCH_SIZE]
+        sub_members = [
+            m for m in await async_map(folder.member, batch) if m is not None
+        ]
+        elements = await async_map(
+            lambda m: _response_element(m, prop_names, base_path), sub_members
+        )
 
-    return res
+        for sub_member, element in zip(sub_members, elements):
+            yield element
+            async for sub_element in _child_response_elements(
+                sub_member, depth - 1, prop_names, base_path
+            ):
+                yield sub_element
+
+
+async def _response_elements(
+    member: Member, depth: int, prop_names: Tuple[PropertyName, ...], base_path: str
+) -> AsyncIterator[Element]:
+    yield await _response_element(member, prop_names, base_path)
+
+    async for element in _child_response_elements(member, depth, prop_names, base_path):
+        yield element
+
+
+async def propfind_stream(
+    members: Tuple[Member, ...],
+    depth: int,
+    prop_names: Tuple[PropertyName, ...],
+    base_path: str,
+) -> AsyncGenerator[bytes, None]:
+    """Stream a `multistatus` document, starting with the XML prologue so the
+    response headers and first bytes are on the wire before the members are
+    enumerated."""
+    yield XML_DECLARATION + MULTISTATUS_OPEN
+
+    buffer: List[bytes] = []
+    buffered = 0
+
+    for member in members:
+        async for element in _response_elements(member, depth, prop_names, base_path):
+            serialized = et.tostring(element, encoding="utf-8", xml_declaration=False)
+            buffer.append(serialized)
+            buffered += len(serialized)
+
+            if buffered >= STREAM_CHUNK_SIZE:
+                yield b"".join(buffer)
+                buffer.clear()
+                buffered = 0
+
+    if buffer:
+        yield b"".join(buffer)
+
+    yield MULTISTATUS_CLOSE
 
 
 async def propfind(
@@ -112,13 +180,14 @@ async def propfind(
     prop_names: Tuple[PropertyName, ...],
     base_path: str,
 ) -> str:
+    """Buffered equivalent of `propfind_stream`, kept for callers that need the
+    whole document as a string. Prefer `propfind_stream` for collections whose
+    size is not known to be small."""
     root = et.Element(_tag("multistatus"), nsmap=NS_MAP)
 
-    for propfind_responses in await async_map(
-        lambda member: _propfind_response(member, depth, prop_names, base_path), members
-    ):
-        for response in propfind_responses:
-            root.append(response)
+    for member in members:
+        async for element in _response_elements(member, depth, prop_names, base_path):
+            root.append(element)
 
     et.register_namespace("D", DAV_NS)
     return et.tostring(root, encoding="unicode")

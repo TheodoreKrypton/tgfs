@@ -101,6 +101,10 @@ class FileUploader:
                     f"Error uploading part {chunk.file_part} for {self._file_name}: {e}, attempt={attempt + 1}"
                 )
                 attempt += 1
+                # A disconnected Telegram client must not burn a CPU core or
+                # flood Docker logs while it reconnects. Bounded exponential
+                # backoff leaves cancellation and the rest of the service live.
+                await asyncio.sleep(min(2 ** min(attempt - 1, 5), 30))
 
     def _done_reading(self) -> bool:
         return self._read_size >= self._file_size

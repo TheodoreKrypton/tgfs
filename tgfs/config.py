@@ -11,6 +11,15 @@ logger = logging.getLogger(__name__)
 DATA_DIR = os.environ.get("TGFS_DATA_DIR", os.path.expanduser("~/.tgfs"))
 CONFIG_FILE = os.environ.get("TGFS_CONFIG_FILE", "config.yaml")
 
+# Kill switch for the persistent GitHub metadata cache (see
+# tgfs/core/repository/impl/metadata/github_repo/__init__.py). Set to any of
+# "1"/"true"/"yes" (case-insensitive) to force every startup back to a full
+# GitHub tree walk and disable cache writes, without touching config.yaml or
+# rebuilding the image. Defaults to the cache being enabled.
+METADATA_CACHE_DISABLED = os.environ.get(
+    "TGFS_DISABLE_METADATA_CACHE", ""
+).strip().lower() in ("1", "true", "yes")
+
 
 @dataclass
 class WebDAVConfig:
